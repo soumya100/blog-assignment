@@ -1,70 +1,40 @@
-import React, { useState, useEffect } from 'react';
-import apiClient from '../../api/client';
+import React, { useState } from 'react';
 import Pagination from '../../components/Pagination';
 import ConfirmModal from '../../components/ConfirmModal';
 import { Search, RotateCcw, Trash2, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useAdminPosts, useRestorePost, useDeletePost } from '../../hooks/useBlogApi';
 
 const PostManagement = () => {
-  const [posts, setPosts] = useState([]);
-  const [pagination, setPagination] = useState({ page: 1, totalPages: 1 });
-  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
 
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedPost, setSelectedPost] = useState(null);
-  const [actionLoading, setActionLoading] = useState(false);
 
-  const fetchPosts = async () => {
-    setLoading(true);
-    try {
-      const res = await apiClient.get('/posts', {
-        params: {
-          page: pagination.page,
-          limit: 10,
-          search,
-          includeDeleted: true,
-        },
-      });
-      setPosts(res.data.data);
-      setPagination(res.data.pagination);
-    } catch (err) {
-      console.error('Failed to load posts for admin:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // TanStack Query server data store
+  const { data, isLoading: loading } = useAdminPosts({
+    page,
+    limit: 10,
+    search: search || undefined,
+  });
+  const posts = data?.posts || [];
+  const pagination = data?.pagination || { page: 1, totalPages: 1 };
 
-  useEffect(() => {
-    fetchPosts();
-  }, [pagination.page, search]);
+  // Mutations with auto-dismissing toasts
+  const restorePostMutation = useRestorePost();
+  const deletePostMutation = useDeletePost();
+  const actionLoading = restorePostMutation.isPending || deletePostMutation.isPending;
 
   const handleRestore = async (post) => {
-    try {
-      await apiClient.post(`/posts/${post._id}/restore`);
-      setPosts((prev) =>
-        prev.map((p) => (p._id === post._id ? { ...p, isDeleted: false } : p))
-      );
-    } catch (err) {
-      alert(err.response?.data?.error?.message || 'Restore failed');
-    }
+    await restorePostMutation.mutateAsync(post._id);
   };
 
   const handleDeleteConfirm = async () => {
     if (!selectedPost) return;
-    setActionLoading(true);
-    try {
-      await apiClient.delete(`/posts/${selectedPost._id}`);
-      setPosts((prev) =>
-        prev.map((p) => (p._id === selectedPost._id ? { ...p, isDeleted: true } : p))
-      );
-      setDeleteModalOpen(false);
-    } catch (err) {
-      alert(err.response?.data?.error?.message || 'Delete failed');
-    } finally {
-      setActionLoading(false);
-      setSelectedPost(null);
-    }
+    await deletePostMutation.mutateAsync(selectedPost._id);
+    setDeleteModalOpen(false);
+    setSelectedPost(null);
   };
 
   return (
@@ -200,7 +170,7 @@ const PostManagement = () => {
 
       <Pagination
         pagination={pagination}
-        onPageChange={(page) => setPagination((p) => ({ ...p, page }))}
+        onPageChange={(newPage) => setPage(newPage)}
       />
 
       <ConfirmModal

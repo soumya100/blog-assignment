@@ -1,9 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'react-toastify';
+
 import apiClient from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import ConfirmModal from '../components/ConfirmModal';
+import { queryKeys, extractErrorMessage } from '../hooks/useApi';
+import {
+  usePost,
+  useComments,
+  useCreateComment,
+  useDeleteComment,
+  useDeletePost,
+} from '../hooks/useBlogApi';
+
 import {
   Calendar,
   Clock,
@@ -15,70 +30,60 @@ import {
   MessageSquare,
   ArrowLeft,
   Share2,
+  Check,
+  AlertCircle,
 } from 'lucide-react';
+
+const commentSchema = z.object({
+  content: z.string().min(1, 'Comment cannot be empty').max(2000, 'Comment is too long'),
+});
 
 const PostDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user, isAuthenticated, isAdmin } = useAuth();
   const { socket } = useSocket();
+  const queryClient = useQueryClient();
 
-  const [post, setPost] = useState(null);
-  const [comments, setComments] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [commentText, setCommentText] = useState('');
-  const [submittingComment, setSubmittingComment] = useState(false);
-  const [commentError, setCommentError] = useState('');
+  // Server state with TanStack Query
+  const { data: post, isLoading: postLoading } = usePost(id);
+  const { data: comments = [], isLoading: commentsLoading } = useComments(post?._id);
 
-  // Editing Comment state
+  // TanStack Query Mutations
+  const createCommentMutation = useCreateComment(post?._id);
+  const deleteCommentMutation = useDeleteComment(post?._id);
+  const deletePostMutation = useDeletePost();
+
+  // Edit Comment state
   const [editingCommentId, setEditingCommentId] = useState(null);
   const [editCommentText, setEditCommentText] = useState('');
+  const [isUpdatingComment, setIsUpdatingComment] = useState(false);
 
-  // Confirm delete modal state
+  // Delete Modal state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null); // { type: 'post' | 'comment', id }
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
 
-  // Fetch post details and comments
-  useEffect(() => {
-    const fetchPostData = async () => {
-      setLoading(true);
-      try {
-        const postRes = await apiClient.get(`/posts/${id}`);
-        const currentPost = postRes.data.data;
-        setPost(currentPost);
+  // React Hook Form for new comments
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm({
+    resolver: zodResolver(commentSchema),
+    defaultValues: { content: '' },
+  });
 
-        const commentsRes = await apiClient.get(`/posts/${currentPost._id}/comments`);
-        setComments(commentsRes.data.data);
-      } catch (err) {
-        console.error('Failed to fetch post:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchPostData();
-  }, [id]);
-
-  // Join socket room for real-time comments
+  // Real-time socket room synchronization
   useEffect(() => {
     if (!socket || !post?._id) return;
 
     socket.emit('join_post', post._id);
 
-    const handleNewComment = (newComment) => {
-      setComments((prev) => {
-        if (prev.some((c) => c._id === newComment.id || c._id === newComment._id)) return prev;
-        return [
-          {
-            _id: newComment.id || newComment._id,
-            content: newComment.content,
-            author: newComment.author,
-            createdAt: newComment.createdAt,
-          },
-          ...prev,
-        ];
-      });
+    const handleNewComment = () => {
+      // Refresh comments from cache
+      queryClient.invalidateQueries({ queryKey: queryKeys.comments.list(post._id) });
     };
 
     socket.on('new_comment', handleNewComment);
@@ -87,65 +92,54 @@ const PostDetails = () => {
       socket.emit('leave_post', post._id);
       socket.off('new_comment', handleNewComment);
     };
-  }, [socket, post?._id]);
+  }, [socket, post?._id, queryClient]);
 
-  const handleAddComment = async (e) => {
-    e.preventDefault();
-    if (!commentText.trim()) return;
-
-    setSubmittingComment(true);
-    setCommentError('');
-    try {
-      const res = await apiClient.post(`/posts/${post._id}/comments`, {
-        content: commentText.trim(),
-      });
-      const created = res.data.data;
-      setComments((prev) => [created, ...prev.filter((c) => c._id !== created._id)]);
-      setCommentText('');
-    } catch (err) {
-      setCommentError(err.response?.data?.error?.message || 'Failed to submit comment');
-    } finally {
-      setSubmittingComment(false);
-    }
+  const onCommentSubmit = async (values) => {
+    await createCommentMutation.mutateAsync({
+      content: values.content.trim(),
+    });
+    reset();
   };
 
   const handleUpdateComment = async (commentId) => {
     if (!editCommentText.trim()) return;
+    setIsUpdatingComment(true);
     try {
-      const res = await apiClient.patch(`/comments/${commentId}`, {
+      await apiClient.patch(`/comments/${commentId}`, {
         content: editCommentText.trim(),
       });
-      setComments((prev) =>
-        prev.map((c) => (c._id === commentId ? { ...c, content: res.data.data.content } : c))
-      );
+      queryClient.invalidateQueries({ queryKey: queryKeys.comments.list(post._id) });
+      toast.success('Comment updated successfully', { autoClose: 3500 });
       setEditingCommentId(null);
       setEditCommentText('');
     } catch (err) {
-      alert('Failed to update comment: ' + (err.response?.data?.error?.message || err.message));
+      toast.error(extractErrorMessage(err, 'Failed to update comment'), { autoClose: 4000 });
+    } finally {
+      setIsUpdatingComment(false);
     }
   };
 
   const confirmDeleteAction = async () => {
     if (!deleteTarget) return;
-    setIsDeleting(true);
-    try {
-      if (deleteTarget.type === 'post') {
-        await apiClient.delete(`/posts/${post._id}`);
-        navigate('/');
-      } else if (deleteTarget.type === 'comment') {
-        await apiClient.delete(`/comments/${deleteTarget.id}`);
-        setComments((prev) => prev.filter((c) => c._id !== deleteTarget.id));
-        setDeleteModalOpen(false);
-      }
-    } catch (err) {
-      alert('Action failed: ' + (err.response?.data?.error?.message || err.message));
-    } finally {
-      setIsDeleting(false);
+
+    if (deleteTarget.type === 'post') {
+      await deletePostMutation.mutateAsync(post._id);
+      navigate('/');
+    } else if (deleteTarget.type === 'comment') {
+      await deleteCommentMutation.mutateAsync(deleteTarget.id);
+      setDeleteModalOpen(false);
       setDeleteTarget(null);
     }
   };
 
-  if (loading) {
+  const handleShare = () => {
+    navigator.clipboard.writeText(window.location.href);
+    setCopiedLink(true);
+    toast.info('Article link copied to clipboard!', { autoClose: 3000 });
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
+
+  if (postLoading) {
     return (
       <div className="container-narrow" style={{ paddingTop: '4rem' }}>
         <div className="skeleton" style={{ width: '30%', height: '1.5rem', marginBottom: '1.5rem' }}></div>
@@ -181,10 +175,10 @@ const PostDetails = () => {
           display: 'inline-flex',
           alignItems: 'center',
           gap: '0.5rem',
-          color: 'var(--text-muted)',
+          color: 'var(--text-secondary)',
           fontSize: '0.875rem',
           marginBottom: '2rem',
-          fontWeight: 500,
+          textDecoration: 'none',
         }}
       >
         <ArrowLeft size={16} />
@@ -194,23 +188,18 @@ const PostDetails = () => {
       {/* Post Header */}
       <header style={{ marginBottom: '2.5rem' }}>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-          {(post.tags || []).map((tag, i) => (
-            <span key={i} className="badge badge-primary">
-              #{tag}
+          {(post.tags || []).map((t, idx) => (
+            <span key={idx} className="badge badge-secondary" style={{ fontSize: '0.75rem' }}>
+              #{t}
             </span>
           ))}
         </div>
 
-        <h1
-          style={{
-            fontSize: 'clamp(2rem, 3.5vw, 2.75rem)',
-            lineHeight: 1.25,
-            marginBottom: '1.25rem',
-          }}
-        >
+        <h1 style={{ fontSize: 'clamp(2rem, 4vw, 2.75rem)', lineHeight: 1.25, marginBottom: '1.5rem' }}>
           {post.title}
         </h1>
 
+        {/* Metadata bar */}
         <div
           style={{
             display: 'flex',
@@ -222,82 +211,114 @@ const PostDetails = () => {
             borderBottom: '1px solid var(--border-subtle)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div
+                style={{
+                  width: '2rem',
+                  height: '2rem',
+                  borderRadius: 'var(--radius-full)',
+                  background: 'var(--bg-elevated)',
+                  border: '1px solid var(--border-subtle)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  color: 'var(--accent-primary)',
+                }}
+              >
+                {post.author?.username?.charAt(0).toUpperCase() || 'U'}
+              </div>
+              <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>
+                {post.author?.username || 'Unknown Author'}
+              </span>
+            </div>
+
             <div
               style={{
-                width: '3rem',
-                height: '3rem',
-                borderRadius: 'var(--radius-full)',
-                background: 'var(--bg-elevated)',
-                border: '1px solid var(--border-strong)',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--accent-primary)',
-                fontWeight: 700,
-                fontSize: '1.1rem',
+                gap: '0.35rem',
+                color: 'var(--text-muted)',
+                fontSize: '0.825rem',
               }}
             >
-              {post.author?.username?.charAt(0).toUpperCase() || 'A'}
+              <Calendar size={14} />
+              <span>{new Date(post.createdAt).toLocaleDateString()}</span>
             </div>
-            <div>
-              <div style={{ fontWeight: 600, fontSize: '1rem' }}>
-                {post.author?.username || 'Author'}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', fontSize: '0.825rem' }}>
-                <Calendar size={13} />
-                {new Date(post.createdAt).toLocaleDateString(undefined, {
-                  month: 'long',
-                  day: 'numeric',
-                  year: 'numeric',
-                })}
-              </div>
+
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                color: 'var(--text-muted)',
+                fontSize: '0.825rem',
+              }}
+            >
+              <Clock size={14} />
+              <span>{Math.max(1, Math.ceil(post.content.length / 800))} min read</span>
             </div>
           </div>
 
-          {/* Action buttons if owner / admin */}
-          {canManagePost && (
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <Link to={`/posts/${post._id}/edit`} className="btn btn-secondary btn-sm">
-                <Edit3 size={15} />
-                Edit Post
-              </Link>
-              <button
-                onClick={() => {
-                  setDeleteTarget({ type: 'post', id: post._id });
-                  setDeleteModalOpen(true);
-                }}
-                className="btn btn-outline-danger btn-sm"
-              >
-                <Trash2 size={15} />
-                Delete
-              </button>
-            </div>
-          )}
+          {/* Action buttons */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <button
+              onClick={handleShare}
+              className="btn btn-secondary btn-sm"
+              title="Copy share link"
+            >
+              {copiedLink ? <Check size={14} style={{ color: 'var(--success)' }} /> : <Share2 size={14} />}
+              {copiedLink ? 'Copied' : 'Share'}
+            </button>
+
+            {canManagePost && (
+              <>
+                <Link to={`/posts/${post._id}/edit`} className="btn btn-secondary btn-sm">
+                  <Edit3 size={14} />
+                  Edit
+                </Link>
+                <button
+                  onClick={() => {
+                    setDeleteTarget({ type: 'post', id: post._id });
+                    setDeleteModalOpen(true);
+                  }}
+                  className="btn btn-danger btn-sm"
+                  disabled={deletePostMutation.isPending}
+                >
+                  <Trash2 size={14} />
+                  Delete
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </header>
 
       {/* Post Body */}
-      <div
+      <section
         style={{
-          fontSize: '1.075rem',
+          fontSize: '1.125rem',
           lineHeight: 1.8,
           color: 'var(--text-primary)',
-          whiteSpace: 'pre-line',
           marginBottom: '4rem',
+          whiteSpace: 'pre-line',
+          wordBreak: 'break-word',
         }}
       >
         {post.content}
-      </div>
+      </section>
 
-      {/* Author Bio Box */}
-      {post.author?.bio && (
+      {/* Author Bio Card */}
+      {post.author && post.author.bio && (
         <div
           className="card"
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: '1.25rem',
+            padding: '1.5rem',
             marginBottom: '4rem',
             background: 'var(--bg-elevated)',
           }}
@@ -307,13 +328,13 @@ const PostDetails = () => {
               width: '3.5rem',
               height: '3.5rem',
               borderRadius: 'var(--radius-full)',
-              background: 'var(--accent-primary)',
-              color: '#fff',
+              background: 'linear-gradient(135deg, var(--accent-primary), #6366f1)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontWeight: 700,
+              color: '#ffffff',
               fontSize: '1.25rem',
+              fontWeight: 700,
               flexShrink: 0,
             }}
           >
@@ -333,27 +354,31 @@ const PostDetails = () => {
           <h2 style={{ fontSize: '1.35rem' }}>Discussion ({comments.length})</h2>
         </div>
 
-        {/* Comment Input */}
+        {/* Comment Input via React Hook Form */}
         {isAuthenticated ? (
-          <form onSubmit={handleAddComment} style={{ marginBottom: '2.5rem' }}>
+          <form onSubmit={handleSubmit(onCommentSubmit)} noValidate style={{ marginBottom: '2.5rem' }}>
             <div className="form-group">
               <textarea
-                className="form-textarea"
+                className={`form-textarea ${errors.content ? 'auth-input-error' : ''}`}
                 placeholder="Write a constructive response or question..."
                 style={{ minHeight: '100px' }}
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
+                {...register('content')}
               />
-              {commentError && <div className="form-error">{commentError}</div>}
+              {errors.content && (
+                <div style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <AlertCircle size={12} />
+                  <span>{errors.content.message}</span>
+                </div>
+              )}
             </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.75rem' }}>
               <button
                 type="submit"
-                disabled={submittingComment || !commentText.trim()}
+                disabled={isSubmitting || createCommentMutation.isPending}
                 className="btn btn-primary btn-sm"
               >
                 <Send size={14} />
-                {submittingComment ? 'Posting...' : 'Post Comment'}
+                {createCommentMutation.isPending ? 'Posting...' : 'Post Comment'}
               </button>
             </div>
           </form>
@@ -378,7 +403,11 @@ const PostDetails = () => {
 
         {/* Comments List */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          {comments.length === 0 ? (
+          {commentsLoading ? (
+            <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '1rem 0' }}>
+              Loading comments...
+            </p>
+          ) : comments.length === 0 ? (
             <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem 0' }}>
               No comments yet. Be the first to start the discussion!
             </p>
@@ -452,7 +481,7 @@ const PostDetails = () => {
                             }}
                             className="btn btn-secondary btn-sm"
                             style={{ padding: '0.25rem 0.5rem' }}
-                            title="Edit comment"
+                            title="Edit Comment"
                           >
                             <Edit3 size={13} />
                           </button>
@@ -462,9 +491,9 @@ const PostDetails = () => {
                             setDeleteTarget({ type: 'comment', id: comment._id });
                             setDeleteModalOpen(true);
                           }}
-                          className="btn btn-outline-danger btn-sm"
+                          className="btn btn-danger btn-sm"
                           style={{ padding: '0.25rem 0.5rem' }}
-                          title="Delete comment"
+                          title="Delete Comment"
                         >
                           <Trash2 size={13} />
                         </button>
@@ -472,32 +501,34 @@ const PostDetails = () => {
                     )}
                   </div>
 
-                  {/* Comment Content or Edit Form */}
+                  {/* Comment Body or Inline Editor */}
                   {editingCommentId === comment._id ? (
                     <div>
                       <textarea
                         className="form-textarea"
-                        style={{ minHeight: '80px', marginBottom: '0.5rem' }}
+                        style={{ minHeight: '80px', marginBottom: '0.75rem' }}
                         value={editCommentText}
                         onChange={(e) => setEditCommentText(e.target.value)}
                       />
-                      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
                         <button
                           onClick={() => setEditingCommentId(null)}
                           className="btn btn-secondary btn-sm"
+                          disabled={isUpdatingComment}
                         >
                           Cancel
                         </button>
                         <button
                           onClick={() => handleUpdateComment(comment._id)}
                           className="btn btn-primary btn-sm"
+                          disabled={isUpdatingComment || !editCommentText.trim()}
                         >
-                          Save Changes
+                          {isUpdatingComment ? 'Saving...' : 'Save'}
                         </button>
                       </div>
                     </div>
                   ) : (
-                    <p style={{ color: 'var(--text-primary)', fontSize: '0.925rem', whiteSpace: 'pre-line' }}>
+                    <p style={{ fontSize: '0.9rem', lineHeight: 1.6, color: 'var(--text-primary)', whiteSpace: 'pre-line' }}>
                       {comment.content}
                     </p>
                   )}
@@ -508,23 +539,23 @@ const PostDetails = () => {
         </div>
       </section>
 
-      {/* Confirmation Modal */}
+      {/* Confirm Delete Modal */}
       <ConfirmModal
         isOpen={deleteModalOpen}
-        title={deleteTarget?.type === 'post' ? 'Delete Blog Article' : 'Delete Comment'}
-        message={
-          deleteTarget?.type === 'post'
-            ? 'Are you sure you want to delete this article? It will be soft-deleted from public view.'
-            : 'Are you sure you want to remove this comment?'
-        }
-        confirmText="Delete"
-        isDanger={true}
-        isLoading={isDeleting}
-        onConfirm={confirmDeleteAction}
-        onCancel={() => {
+        onClose={() => {
           setDeleteModalOpen(false);
           setDeleteTarget(null);
         }}
+        onConfirm={confirmDeleteAction}
+        title={deleteTarget?.type === 'post' ? 'Delete Blog Article' : 'Delete Comment'}
+        message={
+          deleteTarget?.type === 'post'
+            ? 'Are you sure you want to delete this article? It will be soft-deleted and can be recovered by an administrator.'
+            : 'Are you sure you want to permanently delete this comment?'
+        }
+        confirmText="Confirm Delete"
+        danger
+        isLoading={deletePostMutation.isPending || deleteCommentMutation.isPending}
       />
     </article>
   );

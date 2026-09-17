@@ -1,44 +1,30 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import apiClient from '../api/client';
 import { Link } from 'react-router-dom';
 import { User, Shield, Mail, Calendar, Edit3, Trash2, BookOpen } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
+import { usePosts, useDeletePost } from '../hooks/useBlogApi';
 
 const Profile = () => {
   const { user } = useAuth();
-  const [myPosts, setMyPosts] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState(null);
 
-  useEffect(() => {
-    const fetchMyPosts = async () => {
-      if (!user?._id) return;
-      try {
-        const res = await apiClient.get('/posts', {
-          params: { author: user._id, limit: 20 },
-        });
-        setMyPosts(res.data.data);
-      } catch (err) {
-        console.error('Failed to load user posts:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
+  // TanStack Query server data store
+  const { data, isLoading: loading } = usePosts({
+    author: user?._id,
+    limit: 20,
+  });
+  const myPosts = data?.posts || [];
 
-    fetchMyPosts();
-  }, [user?._id]);
+  // TanStack Query Delete Mutation with auto-dismissing toast
+  const deletePostMutation = useDeletePost();
 
   const handleDeletePost = async () => {
     if (!selectedPostId) return;
-    try {
-      await apiClient.delete(`/posts/${selectedPostId}`);
-      setMyPosts((prev) => prev.filter((p) => p._id !== selectedPostId));
-      setDeleteModalOpen(false);
-    } catch (err) {
-      alert('Delete failed: ' + (err.response?.data?.error?.message || err.message));
-    }
+    await deletePostMutation.mutateAsync(selectedPostId);
+    setDeleteModalOpen(false);
+    setSelectedPostId(null);
   };
 
   return (

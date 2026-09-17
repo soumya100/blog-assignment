@@ -1,51 +1,32 @@
-import React, { useState, useEffect } from 'react';
-import apiClient from '../../api/client';
+import React, { useState } from 'react';
 import Pagination from '../../components/Pagination';
 import ConfirmModal from '../../components/ConfirmModal';
 import { Trash2, MessageSquare, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useAdminComments, useDeleteComment } from '../../hooks/useBlogApi';
 
 const CommentManagement = () => {
-  const [comments, setComments] = useState([]);
-  const [pagination, setPagination] = useState({ page: 1, totalPages: 1 });
-  const [loading, setLoading] = useState(true);
-
+  const [page, setPage] = useState(1);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedComment, setSelectedComment] = useState(null);
-  const [actionLoading, setActionLoading] = useState(false);
 
-  const fetchComments = async () => {
-    setLoading(true);
-    try {
-      const res = await apiClient.get('/admin/comments', {
-        params: { page: pagination.page, limit: 12 },
-      });
-      setComments(res.data.data);
-      setPagination(res.data.pagination);
-    } catch (err) {
-      console.error('Failed to load comments:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // TanStack Query server data store
+  const { data, isLoading: loading } = useAdminComments({
+    page,
+    limit: 12,
+  });
+  const comments = data?.comments || [];
+  const pagination = data?.pagination || { page: 1, totalPages: 1 };
 
-  useEffect(() => {
-    fetchComments();
-  }, [pagination.page]);
+  // TanStack Query Mutation with auto-dismissing toast
+  const deleteCommentMutation = useDeleteComment();
+  const actionLoading = deleteCommentMutation.isPending;
 
   const handleDeleteConfirm = async () => {
     if (!selectedComment) return;
-    setActionLoading(true);
-    try {
-      await apiClient.delete(`/comments/${selectedComment._id}`);
-      setComments((prev) => prev.filter((c) => c._id !== selectedComment._id));
-      setDeleteModalOpen(false);
-    } catch (err) {
-      alert(err.response?.data?.error?.message || 'Delete failed');
-    } finally {
-      setActionLoading(false);
-      setSelectedComment(null);
-    }
+    await deleteCommentMutation.mutateAsync(selectedComment._id);
+    setDeleteModalOpen(false);
+    setSelectedComment(null);
   };
 
   return (
@@ -131,7 +112,7 @@ const CommentManagement = () => {
 
       <Pagination
         pagination={pagination}
-        onPageChange={(page) => setPagination((p) => ({ ...p, page }))}
+        onPageChange={(newPage) => setPage(newPage)}
       />
 
       <ConfirmModal

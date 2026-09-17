@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { toast } from 'react-toastify';
 import { useAuth } from '../context/AuthContext';
+import { extractErrorMessage } from '../hooks/useApi';
 import {
   UserPlus,
   Mail,
@@ -20,19 +25,55 @@ import {
   LogIn
 } from 'lucide-react';
 
+const registerSchema = z
+  .object({
+    username: z
+      .string()
+      .min(3, 'Username must be at least 3 characters')
+      .max(30, 'Username cannot exceed 30 characters')
+      .regex(/^[a-zA-Z0-9_]+$/, 'Username can only contain letters, numbers, and underscores'),
+    email: z.string().min(1, 'Email is required').email('Please enter a valid email address'),
+    password: z
+      .string()
+      .min(8, 'Password must be at least 8 characters')
+      .regex(/[A-Z]/, 'Must contain at least one uppercase letter (A-Z)')
+      .regex(/[a-z]/, 'Must contain at least one lowercase letter (a-z)')
+      .regex(/[0-9]/, 'Must contain at least one number (0-9)')
+      .regex(/[^a-zA-Z0-9]/, 'Must contain at least one special character (!@#$%^&*)'),
+    confirmPassword: z.string().min(1, 'Please confirm your password'),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
+
 const Register = () => {
-  const { register } = useAuth();
+  const { register: authRegister } = useAuth();
   const navigate = useNavigate();
 
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
-  // Password rules validation
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    formState: { errors, isSubmitting },
+  } = useForm({
+    resolver: zodResolver(registerSchema),
+    mode: 'onChange',
+    defaultValues: {
+      username: '',
+      email: '',
+      password: '',
+      confirmPassword: '',
+    },
+  });
+
+  const password = watch('password', '');
+  const confirmPassword = watch('confirmPassword', '');
+
+  // Live password rules validation
   const rules = {
     length: password.length >= 8,
     uppercase: /[A-Z]/.test(password),
@@ -56,39 +97,20 @@ const Register = () => {
   // Evaluator Quick Fill helper
   const fillEvaluatorSample = () => {
     const randomSuffix = Math.floor(100 + Math.random() * 900);
-    setUsername(`architect_${randomSuffix}`);
-    setEmail(`architect${randomSuffix}@devlog.io`);
-    setPassword('SuperSecurePass2026!');
-    setConfirmPassword('SuperSecurePass2026!');
-    setError('');
+    setValue('username', `architect_${randomSuffix}`, { shouldValidate: true });
+    setValue('email', `architect${randomSuffix}@devlog.io`, { shouldValidate: true });
+    setValue('password', 'SuperSecurePass2026!', { shouldValidate: true });
+    setValue('confirmPassword', 'SuperSecurePass2026!', { shouldValidate: true });
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-    if (!isPasswordValid) {
-      setError('Please satisfy all password complexity requirements');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-
+  const onSubmit = async (values) => {
     try {
-      await register(username, email, password);
+      await authRegister(values.username, values.email, values.password);
+      toast.success('Account created successfully! Welcome to DevLog.', { autoClose: 3500 });
       navigate('/');
     } catch (err) {
-      const details = err.response?.data?.error?.details;
-      if (details && Array.isArray(details)) {
-        setError(details.map((d) => d.message).join(', '));
-      } else {
-        setError(err.response?.data?.error?.message || 'Registration failed');
-      }
-    } finally {
-      setLoading(false);
+      const msg = extractErrorMessage(err, 'Registration failed');
+      toast.error(msg, { autoClose: 4000 });
     }
   };
 
@@ -102,14 +124,14 @@ const Register = () => {
           <div>
             <div className="auth-badge-pulse">
               <span className="auth-badge-dot"></span>
-              Engineer Community v1.0
+              Join the Engineering Community
             </div>
 
             <h1 className="auth-showcase-title">
-              Join the Enterprise Engineering Network.
+              Built for Modern Technical Teams.
             </h1>
             <p className="auth-showcase-subtitle">
-              Publish architecture postmortems, RFCs, and security deep-dives. Protected by bcrypt-12 and zero-trust authorization.
+              Publish architecture insights, engage in technical post reviews, and explore enterprise security patterns in real time.
             </p>
 
             <div className="auth-features-list">
@@ -118,9 +140,9 @@ const Register = () => {
                   <Shield size={18} />
                 </div>
                 <div>
-                  <div className="auth-feature-name">Cryptographic Identity Security</div>
+                  <div className="auth-feature-name">Cryptographic Password Defense</div>
                   <div className="auth-feature-desc">
-                    Bcrypt salted password hashing, automated brute-force protection, and sanitized inputs.
+                    Salted with 12 bcrypt rounds and enforced through NIST-compliant complexity checklists.
                   </div>
                 </div>
               </div>
@@ -130,9 +152,9 @@ const Register = () => {
                   <Radio size={18} />
                 </div>
                 <div>
-                  <div className="auth-feature-name">Real-Time WebSocket Engine</div>
+                  <div className="auth-feature-name">Live WebSocket Notifications</div>
                   <div className="auth-feature-desc">
-                    Get instantaneous feedback, live moderation updates, and collaborative article discussions.
+                    Instant full-duplex notifications when teammates publish new architecture write-ups.
                   </div>
                 </div>
               </div>
@@ -142,36 +164,36 @@ const Register = () => {
                   <BookOpen size={18} />
                 </div>
                 <div>
-                  <div className="auth-feature-name">Markdown & Architecture Publishing</div>
+                  <div className="auth-feature-name">Zero-Trust Authorization</div>
                   <div className="auth-feature-desc">
-                    Author rich technical documentation with code formatting, URL slugs, and soft-delete safeguards.
+                    Hardened BOLA/IDOR protection ensuring authors maintain strict content ownership.
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Quick Evaluator Fill Sandbox */}
-          <div className="auth-reviewer-box">
-            <div className="auth-reviewer-header">
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <Sparkles size={14} /> Evaluator Quick Sandbox
-              </span>
-              <span style={{ fontSize: '0.7rem', opacity: 0.8, textTransform: 'none' }}>Skip manual typing</span>
+          {/* Evaluator Quick Fill Box */}
+          <div className="auth-demo-credentials-box">
+            <div className="auth-demo-header">
+              <Sparkles size={16} />
+              <span>Evaluator Fast-Track Registration</span>
             </div>
+            <p className="auth-demo-subtitle">
+              Skip typing! Click below to instantly generate a strong, unique test candidate satisfying all 5 security rules.
+            </p>
             <button
               type="button"
               onClick={fillEvaluatorSample}
-              className="auth-reviewer-btn"
+              className="btn btn-primary btn-sm"
               style={{ width: '100%', justifyContent: 'center' }}
             >
-              <Sparkles size={15} style={{ color: 'var(--accent-primary)' }} />
-              <span>Fill Valid Test Candidate Details</span>
+              ✨ Fill Valid Test Candidate Details
             </button>
           </div>
         </div>
 
-        {/* Right Column: Form Card */}
+        {/* Right Column: Register Form Card */}
         <div className="auth-card">
           {/* Segmented Switcher */}
           <div className="auth-segmented-tabs">
@@ -192,28 +214,7 @@ const Register = () => {
             </p>
           </div>
 
-          {/* Error Alert */}
-          {error && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.625rem',
-                padding: '0.75rem 1rem',
-                borderRadius: '10px',
-                background: 'var(--danger-bg)',
-                color: 'var(--danger)',
-                fontSize: '0.85rem',
-                marginBottom: '1.25rem',
-                border: '1px solid rgba(239, 68, 68, 0.25)',
-              }}
-            >
-              <AlertCircle size={17} style={{ flexShrink: 0 }} />
-              <span>{error}</span>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit(onSubmit)} noValidate>
             {/* Username */}
             <div className="form-group" style={{ marginBottom: '1rem' }}>
               <label className="form-label" style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
@@ -222,16 +223,18 @@ const Register = () => {
               <div className="auth-input-container">
                 <input
                   type="text"
-                  className="auth-input"
+                  className={`auth-input ${errors.username ? 'auth-input-error' : ''}`}
                   placeholder="dev_lead"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  required
-                  minLength={3}
-                  maxLength={30}
+                  {...register('username')}
                 />
                 <UserIcon size={16} className="auth-input-icon" />
               </div>
+              {errors.username && (
+                <div style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <AlertCircle size={12} />
+                  <span>{errors.username.message}</span>
+                </div>
+              )}
             </div>
 
             {/* Email */}
@@ -242,14 +245,18 @@ const Register = () => {
               <div className="auth-input-container">
                 <input
                   type="email"
-                  className="auth-input"
+                  className={`auth-input ${errors.email ? 'auth-input-error' : ''}`}
                   placeholder="developer@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
+                  {...register('email')}
                 />
                 <Mail size={16} className="auth-input-icon" />
               </div>
+              {errors.email && (
+                <div style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <AlertCircle size={12} />
+                  <span>{errors.email.message}</span>
+                </div>
+              )}
             </div>
 
             {/* Password */}
@@ -267,11 +274,9 @@ const Register = () => {
               <div className="auth-input-container">
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  className="auth-input"
+                  className={`auth-input ${errors.password ? 'auth-input-error' : ''}`}
                   placeholder="Min 8 characters, mixed case & symbols"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
+                  {...register('password')}
                 />
                 <Key size={16} className="auth-input-icon" />
                 <button
@@ -322,42 +327,41 @@ const Register = () => {
             )}
 
             {/* Confirm Password */}
-            <div className="form-group" style={{ marginBottom: '1rem' }}>
+            <div className="form-group" style={{ marginBottom: '1.25rem' }}>
               <label className="form-label" style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
                 Confirm Password
               </label>
               <div className="auth-input-container">
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  className="auth-input"
+                  className={`auth-input ${errors.confirmPassword ? 'auth-input-error' : ''}`}
                   placeholder="Re-enter your password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
+                  {...register('confirmPassword')}
                 />
                 <Lock size={16} className="auth-input-icon" />
               </div>
-              {confirmPassword && password !== confirmPassword && (
-                <span style={{ fontSize: '0.75rem', color: 'var(--danger)', marginTop: '0.25rem', display: 'block' }}>
-                  Passwords do not match
-                </span>
+              {errors.confirmPassword && (
+                <div style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <AlertCircle size={12} />
+                  <span>{errors.confirmPassword.message}</span>
+                </div>
               )}
             </div>
 
             <button
               type="submit"
               className="auth-submit-btn"
-              disabled={loading || !isPasswordValid || password !== confirmPassword}
+              disabled={isSubmitting}
               aria-label="Complete Registration"
             >
-              {loading ? 'Creating Account...' : 'Complete Registration'}
+              {isSubmitting ? 'Creating Account...' : 'Complete Registration'}
             </button>
           </form>
 
           <p style={{ textAlign: 'center', marginTop: '1.5rem', fontSize: '0.825rem', color: 'var(--text-secondary)' }}>
             Already have an account?{' '}
             <Link to="/login" style={{ fontWeight: 700, color: 'var(--accent-primary)' }}>
-              Sign In →
+              Sign in here →
             </Link>
           </p>
         </div>

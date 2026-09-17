@@ -1,26 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import apiClient from '../../api/client';
+import React from 'react';
 import { Users, FileText, MessageSquare, ShieldCheck, Activity, ArrowUpRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useAdminStats } from '../../hooks/useBlogApi';
 
 const AdminDashboard = () => {
-  const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const res = await apiClient.get('/admin/stats');
-        setStats(res.data.data);
-      } catch (err) {
-        console.error('Failed to load admin stats:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchStats();
-  }, []);
+  const { data: stats, isLoading: loading } = useAdminStats();
 
   if (loading) {
     return (

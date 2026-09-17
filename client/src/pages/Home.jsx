@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import apiClient from '../api/client';
 import { PostCardSkeleton } from '../components/SkeletonLoader';
 import Pagination from '../components/Pagination';
 import { Search, Tag, MessageSquare, Clock, User as UserIcon, Sparkles } from 'lucide-react';
+import { usePosts } from '../hooks/useBlogApi';
 
 const Home = () => {
-  const [posts, setPosts] = useState([]);
-  const [pagination, setPagination] = useState({ page: 1, totalPages: 1 });
-  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [selectedTag, setSelectedTag] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -17,34 +15,21 @@ const Home = () => {
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(search);
-      setPagination((prev) => ({ ...prev, page: 1 }));
+      setPage(1);
     }, 400);
     return () => clearTimeout(handler);
   }, [search]);
 
-  useEffect(() => {
-    const fetchPosts = async () => {
-      setLoading(true);
-      try {
-        const params = {
-          page: pagination.page,
-          limit: 6,
-        };
-        if (debouncedSearch) params.search = debouncedSearch;
-        if (selectedTag) params.tag = selectedTag;
+  // TanStack Query server-side data store
+  const { data, isLoading: loading } = usePosts({
+    page,
+    limit: 6,
+    search: debouncedSearch || undefined,
+    tag: selectedTag || undefined,
+  });
 
-        const res = await apiClient.get('/posts', { params });
-        setPosts(res.data.data);
-        setPagination(res.data.pagination);
-      } catch (err) {
-        console.error('Failed to load posts:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchPosts();
-  }, [pagination.page, debouncedSearch, selectedTag]);
+  const posts = data?.posts || [];
+  const pagination = data?.pagination || { page: 1, totalPages: 1 };
 
   const popularTags = ['Architecture', 'Security', 'React', 'NodeJS', 'JWT', 'AppSec'];
 
@@ -339,7 +324,7 @@ const Home = () => {
         {/* Pagination */}
         <Pagination
           pagination={pagination}
-          onPageChange={(page) => setPagination((p) => ({ ...p, page }))}
+          onPageChange={(newPage) => setPage(newPage)}
         />
       </div>
     </div>

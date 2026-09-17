@@ -1,31 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import apiClient from '../../api/client';
+import React, { useState } from 'react';
 import Pagination from '../../components/Pagination';
 import { Activity, Shield } from 'lucide-react';
+import { useAdminActivity } from '../../hooks/useBlogApi';
 
 const ActivityLogs = () => {
-  const [logs, setLogs] = useState([]);
-  const [pagination, setPagination] = useState({ page: 1, totalPages: 1 });
-  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
 
-  const fetchLogs = async () => {
-    setLoading(true);
-    try {
-      const res = await apiClient.get('/admin/activity', {
-        params: { page: pagination.page, limit: 15 },
-      });
-      setLogs(res.data.data);
-      setPagination(res.data.pagination);
-    } catch (err) {
-      console.error('Failed to load activity logs:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchLogs();
-  }, [pagination.page]);
+  // TanStack Query server data store
+  const { data, isLoading: loading } = useAdminActivity({
+    page,
+    limit: 15,
+  });
+  const logs = data?.logs || [];
+  const pagination = data?.pagination || { page: 1, totalPages: 1 };
 
   return (
     <div className="card" style={{ padding: '2rem' }}>
@@ -87,7 +74,7 @@ const ActivityLogs = () => {
 
       <Pagination
         pagination={pagination}
-        onPageChange={(page) => setPagination((p) => ({ ...p, page }))}
+        onPageChange={(newPage) => setPage(newPage)}
       />
     </div>
   );

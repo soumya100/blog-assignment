@@ -14,6 +14,9 @@ const allowedOrigins = [
   'http://localhost:3000',
 ];
 
+// Initialize HTTP server
+const server = http.createServer(app);
+
 // Initialize Socket.io
 const io = new Server(server, {
   cors: {

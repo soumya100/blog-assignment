@@ -1,61 +1,44 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import apiClient from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import ConfirmModal from '../../components/ConfirmModal';
 import Pagination from '../../components/Pagination';
 import { Search, UserX, Shield, CheckCircle, XCircle, Trash2 } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'react-toastify';
+import { queryKeys, extractErrorMessage } from '../../hooks/useApi';
+import { useAdminUsers, useUpdateUserRole, useUpdateUserStatus } from '../../hooks/useBlogApi';
 
 const UserManagement = () => {
   const { user: currentAdmin } = useAuth();
-  const [users, setUsers] = useState([]);
-  const [pagination, setPagination] = useState({ page: 1, totalPages: 1 });
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
 
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
 
-  const fetchUsers = async () => {
-    setLoading(true);
-    try {
-      const res = await apiClient.get('/admin/users', {
-        params: { page: pagination.page, limit: 10, search },
-      });
-      setUsers(res.data.data);
-      setPagination(res.data.pagination);
-    } catch (err) {
-      console.error('Failed to load users:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // TanStack Query server data store
+  const { data, isLoading: loading } = useAdminUsers({
+    page,
+    limit: 10,
+    search: search || undefined,
+  });
+  const users = data?.users || [];
+  const pagination = data?.pagination || { page: 1, totalPages: 1 };
 
-  useEffect(() => {
-    fetchUsers();
-  }, [pagination.page, search]);
+  // Mutations with auto-dismissing toasts
+  const updateRoleMutation = useUpdateUserRole();
+  const updateStatusMutation = useUpdateUserStatus();
 
   const handleRoleChange = async (targetUser, newRole) => {
-    try {
-      await apiClient.patch(`/admin/users/${targetUser._id}/role`, { role: newRole });
-      setUsers((prev) =>
-        prev.map((u) => (u._id === targetUser._id ? { ...u, role: newRole } : u))
-      );
-    } catch (err) {
-      alert(err.response?.data?.error?.message || 'Failed to update role');
-    }
+    await updateRoleMutation.mutateAsync({ userId: targetUser._id, role: newRole });
   };
 
   const handleStatusToggle = async (targetUser) => {
     const newStatus = targetUser.status === 'ACTIVE' ? 'DEACTIVATED' : 'ACTIVE';
-    try {
-      await apiClient.patch(`/admin/users/${targetUser._id}/status`, { status: newStatus });
-      setUsers((prev) =>
-        prev.map((u) => (u._id === targetUser._id ? { ...u, status: newStatus } : u))
-      );
-    } catch (err) {
-      alert(err.response?.data?.error?.message || 'Failed to update user status');
-    }
+    await updateStatusMutation.mutateAsync({ userId: targetUser._id, status: newStatus });
   };
 
   const handleDeleteConfirm = async () => {
@@ -63,10 +46,12 @@ const UserManagement = () => {
     setActionLoading(true);
     try {
       await apiClient.delete(`/admin/users/${selectedUser._id}`);
-      setUsers((prev) => prev.filter((u) => u._id !== selectedUser._id));
+      queryClient.invalidateQueries({ queryKey: queryKeys.admin.users() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.admin.stats() });
+      toast.success(`User "${selectedUser.username}" removed`, { autoClose: 3500 });
       setDeleteModalOpen(false);
     } catch (err) {
-      alert(err.response?.data?.error?.message || 'Failed to delete user');
+      toast.error(extractErrorMessage(err, 'Failed to delete user'), { autoClose: 4000 });
     } finally {
       setActionLoading(false);
       setSelectedUser(null);
@@ -225,7 +210,7 @@ const UserManagement = () => {
 
       <Pagination
         pagination={pagination}
-        onPageChange={(page) => setPagination((p) => ({ ...p, page }))}
+        onPageChange={(newPage) => setPage(newPage)}
       />
 
       <ConfirmModal

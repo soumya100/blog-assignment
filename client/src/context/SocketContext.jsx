@@ -1,5 +1,8 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { io } from 'socket.io-client';
+import { toast } from 'react-toastify';
+import queryClient from '../api/queryClient';
+import { queryKeys } from '../hooks/useApi';
 
 const SocketContext = createContext();
 
@@ -51,6 +54,26 @@ export const SocketProvider = ({ children }) => {
         data,
       };
       setNotifications((prev) => [notification, ...prev.slice(0, 4)]);
+
+      // Auto-dismissing real-time toast
+      toast.info(
+        <div>
+          <div style={{ fontWeight: 600 }}>New Article Published!</div>
+          <div style={{ fontSize: '0.85rem' }}>"{data.title}" by {data.author}</div>
+          {data.slug && (
+            <a
+              href={`/posts/${data.slug}`}
+              style={{ color: '#3b82f6', fontSize: '0.8rem', fontWeight: 600, display: 'inline-block', marginTop: '4px' }}
+            >
+              Read Article →
+            </a>
+          )}
+        </div>,
+        { autoClose: 5000 }
+      );
+
+      // Invalidate posts query cache so feeds update automatically
+      queryClient.invalidateQueries({ queryKey: queryKeys.posts.all });
     });
 
     setSocket(newSocket);

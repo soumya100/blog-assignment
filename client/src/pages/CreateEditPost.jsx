@@ -1,76 +1,82 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import apiClient from '../api/client';
-import { PenSquare, Save, ArrowLeft, Globe, Tag } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { PenSquare, Save, ArrowLeft, Globe, AlertCircle } from 'lucide-react';
+import { usePost, useCreatePost, useUpdatePost } from '../hooks/useBlogApi';
+
+const postSchema = z.object({
+  title: z
+    .string()
+    .min(3, 'Title must be at least 3 characters')
+    .max(200, 'Title cannot exceed 200 characters'),
+  content: z.string().min(10, 'Article content must be at least 10 characters'),
+  tagsInput: z.string().optional(),
+});
 
 const CreateEditPost = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const isEditing = Boolean(id);
 
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [tagsInput, setTagsInput] = useState('');
-  const [loading, setLoading] = useState(isEditing);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
+  // TanStack Query for initial data if in edit mode
+  const { data: existingPost, isLoading: postLoading } = usePost(isEditing ? id : null);
 
-  // Fetch initial post data if in edit mode
+  // TanStack Query mutations with auto-dismissing toasts
+  const createPostMutation = useCreatePost();
+  const updatePostMutation = useUpdatePost();
+  const isSaving = createPostMutation.isPending || updatePostMutation.isPending;
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    watch,
+    formState: { errors },
+  } = useForm({
+    resolver: zodResolver(postSchema),
+    defaultValues: {
+      title: '',
+      content: '',
+      tagsInput: '',
+    },
+  });
+
+  const title = watch('title', '');
+
+  // Populate form in edit mode once loaded
   useEffect(() => {
-    if (!isEditing) return;
-
-    const fetchPost = async () => {
-      try {
-        const res = await apiClient.get(`/posts/${id}`);
-        const post = res.data.data;
-        setTitle(post.title);
-        setContent(post.content);
-        setTagsInput((post.tags || []).join(', '));
-      } catch (err) {
-        setError('Failed to fetch post details for editing');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchPost();
-  }, [id, isEditing]);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!title.trim() || !content.trim()) {
-      setError('Title and Content are mandatory.');
-      return;
+    if (isEditing && existingPost) {
+      reset({
+        title: existingPost.title || '',
+        content: existingPost.content || '',
+        tagsInput: (existingPost.tags || []).join(', '),
+      });
     }
+  }, [isEditing, existingPost, reset]);
 
-    setSaving(true);
-    setError('');
-
-    const tags = tagsInput
+  const onSubmit = async (values) => {
+    const tags = (values.tagsInput || '')
       .split(',')
       .map((t) => t.trim())
       .filter(Boolean);
 
-    try {
-      if (isEditing) {
-        const res = await apiClient.patch(`/posts/${id}`, {
-          title: title.trim(),
-          content: content.trim(),
-          tags,
-        });
-        navigate(`/posts/${res.data.data.slug || id}`);
-      } else {
-        const res = await apiClient.post('/posts', {
-          title: title.trim(),
-          content: content.trim(),
-          tags,
-        });
-        navigate(`/posts/${res.data.data.slug || res.data.data._id}`);
-      }
-    } catch (err) {
-      setError(err.response?.data?.error?.message || 'Error saving post');
-    } finally {
-      setSaving(false);
+    if (isEditing) {
+      const res = await updatePostMutation.mutateAsync({
+        id,
+        title: values.title.trim(),
+        content: values.content.trim(),
+        tags,
+      });
+      navigate(`/posts/${res.data?.slug || id}`);
+    } else {
+      const res = await createPostMutation.mutateAsync({
+        title: values.title.trim(),
+        content: values.content.trim(),
+        tags,
+      });
+      navigate(`/posts/${res.data?.slug || res.data?._id}`);
     }
   };
 
@@ -79,7 +85,7 @@ const CreateEditPost = () => {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)+/g, '');
 
-  if (loading) {
+  if (isEditing && postLoading) {
     return (
       <div className="container-narrow" style={{ paddingTop: '4rem' }}>
         <div className="skeleton" style={{ width: '40%', height: '2rem', marginBottom: '2rem' }}></div>
@@ -124,35 +130,21 @@ const CreateEditPost = () => {
           </div>
         </div>
 
-        {error && (
-          <div
-            style={{
-              padding: '0.875rem 1rem',
-              borderRadius: 'var(--radius-sm)',
-              background: 'var(--danger-bg)',
-              color: 'var(--danger)',
-              marginBottom: '1.5rem',
-              fontSize: '0.875rem',
-              border: '1px solid rgba(239, 68, 68, 0.25)',
-            }}
-          >
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label className="form-label">Article Title</label>
+        <form onSubmit={handleSubmit(onSubmit)} noValidate>
+          <div className="form-group" style={{ marginBottom: '1rem' }}>
+            <label className="form-label" style={{ fontWeight: 600 }}>Article Title</label>
             <input
               type="text"
-              className="form-input"
+              className={`form-input ${errors.title ? 'auth-input-error' : ''}`}
               placeholder="e.g. Architecting Resilient Full-Stack Systems"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              required
-              minLength={3}
-              maxLength={200}
+              {...register('title')}
             />
+            {errors.title && (
+              <div style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                <AlertCircle size={12} />
+                <span>{errors.title.message}</span>
+              </div>
+            )}
           </div>
 
           {title && (
@@ -172,28 +164,30 @@ const CreateEditPost = () => {
             </div>
           )}
 
-          <div className="form-group">
-            <label className="form-label">Topics / Tags (comma-separated)</label>
+          <div className="form-group" style={{ marginBottom: '1rem' }}>
+            <label className="form-label" style={{ fontWeight: 600 }}>Topics / Tags (comma-separated)</label>
             <input
               type="text"
               className="form-input"
               placeholder="react, nodejs, security, architecture"
-              value={tagsInput}
-              onChange={(e) => setTagsInput(e.target.value)}
+              {...register('tagsInput')}
             />
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Article Content</label>
+          <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+            <label className="form-label" style={{ fontWeight: 600 }}>Article Content</label>
             <textarea
-              className="form-textarea"
+              className={`form-textarea ${errors.content ? 'auth-input-error' : ''}`}
               style={{ minHeight: '280px', fontFamily: 'inherit' }}
               placeholder="Write your article in depth..."
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              required
-              minLength={10}
+              {...register('content')}
             />
+            {errors.content && (
+              <div style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                <AlertCircle size={12} />
+                <span>{errors.content.message}</span>
+              </div>
+            )}
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem' }}>
@@ -201,13 +195,13 @@ const CreateEditPost = () => {
               type="button"
               onClick={() => navigate(-1)}
               className="btn btn-secondary"
-              disabled={saving}
+              disabled={isSaving}
             >
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>
+            <button type="submit" className="btn btn-primary" disabled={isSaving}>
               <Save size={16} />
-              {saving ? 'Saving...' : isEditing ? 'Update Article' : 'Publish Article'}
+              {isSaving ? 'Saving...' : isEditing ? 'Update Article' : 'Publish Article'}
             </button>
           </div>
         </form>

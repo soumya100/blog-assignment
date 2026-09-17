@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { toast } from 'react-toastify';
 import { useAuth } from '../context/AuthContext';
+import { extractErrorMessage } from '../hooks/useApi';
 import {
   Lock,
   Mail,
@@ -19,15 +24,17 @@ import {
   UserPlus
 } from 'lucide-react';
 
+const loginSchema = z.object({
+  email: z.string().min(1, 'Email is required').email('Please enter a valid email address'),
+  password: z.string().min(1, 'Password is required'),
+});
+
 const Login = () => {
   const { login, oauthDevLogin } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [activeQuickRole, setActiveQuickRole] = useState(null);
 
@@ -36,47 +43,60 @@ const Login = () => {
   const [oauthProvider, setOauthProvider] = useState('google');
   const [oauthEmail, setOauthEmail] = useState('');
   const [oauthName, setOauthName] = useState('');
+  const [oauthLoading, setOauthLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
+  // React Hook Form
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    formState: { errors, isSubmitting },
+  } = useForm({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: '',
+      password: '',
+    },
+  });
+
+  const onSubmit = async (values) => {
     setError('');
-
     try {
-      await login(email, password);
+      await login(values.email, values.password);
+      toast.success('Welcome back to DevLog!', { autoClose: 3500 });
       navigate('/');
     } catch (err) {
-      const msg = err.response?.data?.error?.message || 'Invalid email or password';
+      const msg = extractErrorMessage(err, 'Invalid email or password');
       setError(msg);
-    } finally {
-      setLoading(false);
+      toast.error(msg, { autoClose: 4000 });
     }
   };
 
   const fillQuickCredentials = (role) => {
     setActiveQuickRole(role);
-    if (role === 'admin') {
-      setEmail('admin@blogplatform.dev');
-      setPassword('AdminSecurePass123!');
-    } else {
-      setEmail('alice@example.com');
-      setPassword('UserPass123!');
-    }
     setError('');
+    if (role === 'admin') {
+      setValue('email', 'admin@blogplatform.dev', { shouldValidate: true });
+      setValue('password', 'AdminSecurePass123!', { shouldValidate: true });
+    } else {
+      setValue('email', 'alice@example.com', { shouldValidate: true });
+      setValue('password', 'UserPass123!', { shouldValidate: true });
+    }
   };
 
   const handleDevOAuthSubmit = async (e) => {
     e.preventDefault();
     if (!oauthEmail || !oauthName) return;
-    setLoading(true);
+    setOauthLoading(true);
     try {
       await oauthDevLogin(oauthProvider, oauthEmail, oauthName);
+      toast.success(`Logged in with ${oauthProvider.toUpperCase()} Sandbox!`, { autoClose: 3500 });
       setOauthModalOpen(false);
       navigate('/');
     } catch (err) {
-      setError(err.response?.data?.error?.message || 'OAuth simulated login failed');
+      toast.error(extractErrorMessage(err, 'OAuth simulated login failed'), { autoClose: 4000 });
     } finally {
-      setLoading(false);
+      setOauthLoading(false);
     }
   };
 
@@ -241,7 +261,7 @@ const Login = () => {
           )}
 
           {/* Login Form */}
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit(onSubmit)} noValidate>
             <div className="form-group" style={{ marginBottom: '1.15rem' }}>
               <label className="form-label" style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
                 Work or Personal Email
@@ -249,14 +269,18 @@ const Login = () => {
               <div className="auth-input-container">
                 <input
                   type="email"
-                  className="auth-input"
+                  className={`auth-input ${errors.email ? 'auth-input-error' : ''}`}
                   placeholder="name@company.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
+                  {...register('email')}
                 />
                 <Mail size={16} className="auth-input-icon" />
               </div>
+              {errors.email && (
+                <div style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <AlertCircle size={12} />
+                  <span>{errors.email.message}</span>
+                </div>
+              )}
             </div>
 
             <div className="form-group" style={{ marginBottom: '0.75rem' }}>
@@ -268,11 +292,9 @@ const Login = () => {
               <div className="auth-input-container">
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  className="auth-input"
+                  className={`auth-input ${errors.password ? 'auth-input-error' : ''}`}
                   placeholder="••••••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
+                  {...register('password')}
                 />
                 <Key size={16} className="auth-input-icon" />
                 <button
@@ -284,15 +306,21 @@ const Login = () => {
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
+              {errors.password && (
+                <div style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <AlertCircle size={12} />
+                  <span>{errors.password.message}</span>
+                </div>
+              )}
             </div>
 
             <button
               type="submit"
               className="auth-submit-btn"
-              disabled={loading}
+              disabled={isSubmitting}
               aria-label="Sign In"
             >
-              {loading ? 'Authenticating...' : 'Sign In'}
+              {isSubmitting ? 'Authenticating...' : 'Sign In'}
             </button>
           </form>
 
