@@ -7,14 +7,27 @@ const logger = require('./utils/logger');
 const User = require('./models/User');
 const { ROLES, USER_STATUS } = require('./constants/roles');
 
-const server = http.createServer(app);
+const allowedOrigins = [
+  env.CLIENT_URL,
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:3000',
+];
 
 // Initialize Socket.io
 const io = new Server(server, {
   cors: {
-    origin: '*',
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(null, true);
+      }
+    },
     methods: ['GET', 'POST'],
+    credentials: true,
   },
+  allowEIO3: true,
 });
 
 // Attach socket io to app for access in services/controllers
