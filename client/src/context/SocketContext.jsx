@@ -3,16 +3,34 @@ import { io } from 'socket.io-client';
 import { toast } from 'react-toastify';
 import queryClient from '../api/queryClient';
 import { queryKeys } from '../hooks/useApi';
+import { useAuth } from './AuthContext';
 
 const SocketContext = createContext();
 
 export const SocketProvider = ({ children }) => {
+  const { isAuthenticated } = useAuth();
   const [socket, setSocket] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [isConnected, setIsConnected] = useState(false);
   const socketRef = useRef(null);
 
   useEffect(() => {
+    // Only connect to socket when user is authenticated
+    if (!isAuthenticated) {
+      // Cleanup any existing socket when user logs out
+      if (socketRef.current) {
+        socketRef.current.off('connect');
+        socketRef.current.off('disconnect');
+        socketRef.current.off('connect_error');
+        socketRef.current.off('new_post');
+        socketRef.current.close();
+        socketRef.current = null;
+        setSocket(null);
+        setIsConnected(false);
+      }
+      return;
+    }
+
     // If VITE_SOCKET_URL is set, use it; otherwise use same-origin (proxied via Vite ws proxy) or localhost:5000
     const socketServerUrl =
       import.meta.env.VITE_SOCKET_URL ||
@@ -86,7 +104,7 @@ export const SocketProvider = ({ children }) => {
       newSocket.close();
       socketRef.current = null;
     };
-  }, []);
+  }, [isAuthenticated]);
 
   const dismissNotification = (id) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id));

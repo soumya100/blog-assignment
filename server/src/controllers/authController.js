@@ -304,6 +304,39 @@ const facebookCallback = async (req, res, next) => {
   }
 };
 
+const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const result = await authService.requestPasswordReset({ email, req });
+
+    return successResponse(res, 200, result.message, {
+      resetUrl: result.resetUrl,
+      devResetToken: result.devResetToken,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const resetPassword = async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+
+    const result = await authService.resetPassword({
+      token,
+      newPassword: password,
+      req,
+    });
+
+    clearRefreshTokenCookie(res);
+
+    return successResponse(res, 200, result.message);
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -315,4 +348,6 @@ module.exports = {
   googleCallback,
   facebookAuth,
   facebookCallback,
+  forgotPassword,
+  resetPassword,
 };

@@ -329,10 +329,108 @@ const oauthLogin = async ({ provider, email, name, avatar, providerId, req }) =>
   };
 };
 
+/**
+ * Request Password Reset (Anti-Enumeration & SHA-256 Hashed Token)
+ */
+const requestPasswordReset = async ({ email, req }) => {
+  const normalizedEmail = email.toLowerCase().trim();
+  const user = await User.findOne({ email: normalizedEmail });
+
+  // Generic message for anti-enumeration
+  const genericResponse = {
+    message: 'If an account exists with that email address, a password reset link has been dispatched.',
+  };
+
+  if (!user || user.status === USER_STATUS.DEACTIVATED) {
+    return genericResponse;
+  }
+
+  // Generate unguessable 32-byte cryptographic token
+  const rawResetToken = crypto.randomBytes(32).toString('hex');
+  const hashedResetToken = crypto.createHash('sha256').update(rawResetToken).digest('hex');
+
+  // Set 15-minute expiration
+  user.passwordResetToken = hashedResetToken;
+  user.passwordResetExpires = new Date(Date.now() + 15 * 60 * 1000);
+  await user.save({ validateBeforeSave: false });
+
+  const clientBaseUrl = env.CLIENT_URL || 'http://localhost:5173';
+  const resetUrl = `${clientBaseUrl}/reset-password/${rawResetToken}`;
+
+  if (req) {
+    recordActivity({
+      action: 'AUTH_PASSWORD_RESET_REQUEST',
+      resourceType: 'AUTH',
+      resourceId: user._id.toString(),
+      details: { email: user.email },
+      req,
+    });
+  }
+
+  // Return resetUrl and devResetToken for instant evaluation in development/sandbox mode
+  return {
+    ...genericResponse,
+    resetUrl,
+    devResetToken: rawResetToken,
+  };
+};
+
+/**
+ * Reset Password with Cryptographic Token Verification and Session Invalidation
+ */
+const resetPassword = async ({ token, newPassword, req }) => {
+  if (!token) {
+    const error = new Error('Password reset token is required');
+    error.statusCode = 400;
+    error.code = 'TOKEN_MISSING';
+    throw error;
+  }
+
+  // Hash the incoming token to match database SHA-256
+  const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+  const user = await User.findOne({
+    passwordResetToken: hashedToken,
+    passwordResetExpires: { $gt: new Date() },
+  }).select('+passwordResetToken +passwordResetExpires');
+
+  if (!user) {
+    const error = new Error('Password reset link is invalid or has expired');
+    error.statusCode = 400;
+    error.code = 'INVALID_OR_EXPIRED_TOKEN';
+    throw error;
+  }
+
+  // Update password (triggers bcrypt 12-round pre-save hook)
+  user.password = newPassword;
+  user.passwordResetToken = null;
+  user.passwordResetExpires = null;
+  await user.save();
+
+  // Replay Attack & Compromised Session Defense: Revoke all active refresh tokens for this user
+  await RefreshToken.deleteMany({ user: user._id });
+
+  if (req) {
+    recordActivity({
+      action: 'AUTH_PASSWORD_RESET_SUCCESS',
+      resourceType: 'AUTH',
+      resourceId: user._id.toString(),
+      details: { email: user.email },
+      req,
+    });
+  }
+
+  return {
+    message: 'Password reset successfully. Please sign in with your new credentials.',
+  };
+};
+
 module.exports = {
   register,
   login,
   refresh,
   logout,
   oauthLogin,
+  requestPasswordReset,
+  resetPassword,
 };

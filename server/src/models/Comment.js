@@ -30,13 +30,33 @@ const commentSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    parentComment: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Comment',
+      default: null,
+      index: true,
+    },
+    likes: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
   },
   {
     timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   }
 );
 
+// Virtual for likesCount
+commentSchema.virtual('likesCount').get(function () {
+  return this.likes ? this.likes.length : 0;
+});
+
 // Performance indexes
+commentSchema.index({ post: 1, parentComment: 1, isDeleted: 1, createdAt: 1 });
 commentSchema.index({ post: 1, isDeleted: 1, createdAt: -1 });
 commentSchema.index({ author: 1, isDeleted: 1 });
 

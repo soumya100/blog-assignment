@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
-import apiClient from '../api/client';
+import apiClient, { ApiError } from '../api/client';
 
 /**
  * Centralized, structured Query Key Factory for the entire application.
@@ -59,11 +59,15 @@ export const notify = {
 };
 
 /**
- * Extract clean user-facing error message from Axios errors
+ * Extract clean user-facing error message from fetch ApiError or any error
  */
 export const extractErrorMessage = (err, fallback = 'Operation failed') => {
   if (!err) return fallback;
   if (typeof err === 'string') return err;
+  // ApiError stores structured data
+  if (err instanceof ApiError) {
+    return err.data?.error?.message || err.data?.message || err.message || fallback;
+  }
   return (
     err.response?.data?.error?.message ||
     err.response?.data?.message ||
@@ -88,8 +92,8 @@ export function useApiQuery(queryKey, endpointOrFn, options = {}) {
     typeof endpointOrFn === 'function'
       ? endpointOrFn
       : async () => {
-          const res = await apiClient.get(endpointOrFn, { params });
-          return res.data;
+          // Fetch client returns parsed JSON directly (no axios .data wrapper)
+          return apiClient.get(endpointOrFn, { params });
         };
 
   return useQuery({

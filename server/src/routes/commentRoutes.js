@@ -8,5 +8,6 @@ const router = express.Router();
 
 router.patch('/:id', requireAuth, validate(updateCommentSchema), commentController.updateComment);
 router.delete('/:id', requireAuth, commentController.deleteComment);
+router.post('/:id/like', requireAuth, commentController.toggleLikeComment);
 
 module.exports = router;

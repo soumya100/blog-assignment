@@ -38,9 +38,10 @@ export const AuthProvider = ({ children }) => {
         return;
       }
       try {
+        // Fetch client returns parsed JSON directly (no axios .data wrapper)
         const res = await apiClient.get('/auth/me');
-        setUser(res.data.data.user);
-        localStorage.setItem('user', JSON.stringify(res.data.data.user));
+        setUser(res.data.user);
+        localStorage.setItem('user', JSON.stringify(res.data.user));
       } catch (err) {
         // If refresh failed in interceptor, clear session
         clearAuthSession();
@@ -51,7 +52,7 @@ export const AuthProvider = ({ children }) => {
 
     verifySession();
 
-    // Listen for custom expired event from axios interceptor
+    // Listen for custom expired event from fetch interceptor
     const handleAuthExpired = () => {
       clearAuthSession();
     };
@@ -62,14 +63,14 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const res = await apiClient.post('/auth/login', { email, password });
-    const { user: loggedInUser, accessToken, refreshToken } = res.data.data;
+    const { user: loggedInUser, accessToken, refreshToken } = res.data;
     saveAuthSession(loggedInUser, accessToken, refreshToken);
     return loggedInUser;
   };
 
   const register = async (username, email, password) => {
     const res = await apiClient.post('/auth/register', { username, email, password });
-    const { user: registeredUser, accessToken, refreshToken } = res.data.data;
+    const { user: registeredUser, accessToken, refreshToken } = res.data;
     saveAuthSession(registeredUser, accessToken, refreshToken);
     return registeredUser;
   };
@@ -92,7 +93,7 @@ export const AuthProvider = ({ children }) => {
       email,
       name,
     });
-    const { user: oauthUser, accessToken, refreshToken } = res.data.data;
+    const { user: oauthUser, accessToken, refreshToken } = res.data;
     saveAuthSession(oauthUser, accessToken, refreshToken);
     return oauthUser;
   };

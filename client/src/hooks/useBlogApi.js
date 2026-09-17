@@ -72,16 +72,34 @@ export function useComments(postId) {
   );
 }
 
-export function useCreateComment(postId, options = {}) {
+export function useCreateComment(defaultPostId, options = {}) {
   return useApiMutation(
-    (commentData) => apiClient.post(`/posts/${postId}/comments`, commentData),
+    (payload) => {
+      const targetPostId = payload?.postId || defaultPostId;
+      const body =
+        typeof payload === 'string'
+          ? { content: payload }
+          : { content: payload?.content, parentCommentId: payload?.parentCommentId };
+      return apiClient.post(`/posts/${targetPostId}/comments`, body);
+    },
     {
       invalidateKeys: [
-        queryKeys.comments.list(postId),
+        queryKeys.comments.all,
+        defaultPostId ? queryKeys.comments.list(defaultPostId) : null,
         queryKeys.admin.comments(),
         queryKeys.admin.stats(),
-      ],
+      ].filter(Boolean),
       successToast: 'Comment posted successfully!',
+      ...options,
+    }
+  );
+}
+
+export function useLikeComment(options = {}) {
+  return useApiMutation(
+    ({ commentId }) => apiClient.post(`/comments/${commentId}/like`),
+    {
+      invalidateKeys: [queryKeys.comments.all],
       ...options,
     }
   );
@@ -97,6 +115,28 @@ export function useDeleteComment(postId, options = {}) {
     successToast: 'Comment deleted successfully',
     ...options,
   });
+}
+
+// ==========================================
+// Password Management Hooks
+// ==========================================
+
+export function useForgotPassword(options = {}) {
+  return useApiMutation(
+    (data) => apiClient.post('/auth/forgot-password', data),
+    {
+      ...options,
+    }
+  );
+}
+
+export function useResetPassword(options = {}) {
+  return useApiMutation(
+    ({ token, password }) => apiClient.post(`/auth/reset-password/${token}`, { password }),
+    {
+      ...options,
+    }
+  );
 }
 
 // ==========================================

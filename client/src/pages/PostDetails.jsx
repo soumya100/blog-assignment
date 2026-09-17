@@ -15,9 +15,11 @@ import {
   usePost,
   useComments,
   useCreateComment,
+  useLikeComment,
   useDeleteComment,
   useDeletePost,
 } from '../hooks/useBlogApi';
+import CommentItem from '../components/CommentItem';
 
 import {
   Calendar,
@@ -51,6 +53,7 @@ const PostDetails = () => {
 
   // TanStack Query Mutations
   const createCommentMutation = useCreateComment(post?._id);
+  const likeCommentMutation = useLikeComment();
   const deleteCommentMutation = useDeleteComment(post?._id);
   const deletePostMutation = useDeletePost();
 
@@ -81,32 +84,49 @@ const PostDetails = () => {
 
     socket.emit('join_post', post._id);
 
-    const handleNewComment = () => {
-      // Refresh comments from cache
+    const handleRefresh = () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.comments.list(post._id) });
     };
 
-    socket.on('new_comment', handleNewComment);
+    socket.on('new_comment', handleRefresh);
+    socket.on('comment_like', handleRefresh);
 
     return () => {
       socket.emit('leave_post', post._id);
-      socket.off('new_comment', handleNewComment);
+      socket.off('new_comment', handleRefresh);
+      socket.off('comment_like', handleRefresh);
     };
   }, [socket, post?._id, queryClient]);
 
   const onCommentSubmit = async (values) => {
+    if (!post?._id) return;
     await createCommentMutation.mutateAsync({
+      postId: post._id,
       content: values.content.trim(),
     });
     reset();
   };
 
-  const handleUpdateComment = async (commentId) => {
-    if (!editCommentText.trim()) return;
+  const onReplySubmit = async ({ parentCommentId, content }) => {
+    if (!post?._id) return;
+    await createCommentMutation.mutateAsync({
+      postId: post._id,
+      parentCommentId,
+      content,
+    });
+  };
+
+  const handleLikeToggle = async (commentId) => {
+    await likeCommentMutation.mutateAsync({ commentId, postId: post?._id });
+  };
+
+  const handleUpdateComment = async (commentId, newContent) => {
+    const textToSave = newContent !== undefined ? newContent : editCommentText;
+    if (!textToSave?.trim()) return;
     setIsUpdatingComment(true);
     try {
       await apiClient.patch(`/comments/${commentId}`, {
-        content: editCommentText.trim(),
+        content: textToSave.trim(),
       });
       queryClient.invalidateQueries({ queryKey: queryKeys.comments.list(post._id) });
       toast.success('Comment updated successfully', { autoClose: 3500 });
@@ -114,6 +134,7 @@ const PostDetails = () => {
       setEditCommentText('');
     } catch (err) {
       toast.error(extractErrorMessage(err, 'Failed to update comment'), { autoClose: 4000 });
+      throw err;
     } finally {
       setIsUpdatingComment(false);
     }
@@ -347,21 +368,23 @@ const PostDetails = () => {
         </div>
       )}
 
-      {/* Comments Section */}
+      {/* Facebook-Style Comments Section */}
       <section style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '3rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '2rem' }}>
           <MessageSquare size={22} style={{ color: 'var(--accent-primary)' }} />
           <h2 style={{ fontSize: '1.35rem' }}>Discussion ({comments.length})</h2>
         </div>
 
-        {/* Comment Input via React Hook Form */}
+        {/* Facebook-style Top Composer */}
         {isAuthenticated ? (
-          <form onSubmit={handleSubmit(onCommentSubmit)} noValidate style={{ marginBottom: '2.5rem' }}>
-            <div className="form-group">
+          <form onSubmit={handleSubmit(onCommentSubmit)} noValidate className="fb-top-composer">
+            <div className="fb-avatar" title={user?.username}>
+              {user?.username?.charAt(0).toUpperCase() || 'U'}
+            </div>
+            <div className="fb-composer-body">
               <textarea
-                className={`form-textarea ${errors.content ? 'auth-input-error' : ''}`}
+                className={`fb-composer-input ${errors.content ? 'auth-input-error' : ''}`}
                 placeholder="Write a constructive response or question..."
-                style={{ minHeight: '100px' }}
                 {...register('content')}
               />
               {errors.content && (
@@ -370,16 +393,16 @@ const PostDetails = () => {
                   <span>{errors.content.message}</span>
                 </div>
               )}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.75rem' }}>
-              <button
-                type="submit"
-                disabled={isSubmitting || createCommentMutation.isPending}
-                className="btn btn-primary btn-sm"
-              >
-                <Send size={14} />
-                {createCommentMutation.isPending ? 'Posting...' : 'Post Comment'}
-              </button>
+              <div className="fb-composer-footer">
+                <button
+                  type="submit"
+                  disabled={isSubmitting || createCommentMutation.isPending}
+                  className="btn btn-primary btn-sm"
+                >
+                  <Send size={14} />
+                  {createCommentMutation.isPending ? 'Posting...' : 'Post Comment'}
+                </button>
+              </div>
             </div>
           </form>
         ) : (
@@ -401,140 +424,33 @@ const PostDetails = () => {
           </div>
         )}
 
-        {/* Comments List */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        {/* Facebook Comments List */}
+        <div className="fb-comments-section">
           {commentsLoading ? (
             <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '1rem 0' }}>
-              Loading comments...
+              Loading discussion...
             </p>
           ) : comments.length === 0 ? (
             <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem 0' }}>
               No comments yet. Be the first to start the discussion!
             </p>
           ) : (
-            comments.map((comment) => {
-              const isCommentAuthor =
-                user && comment.author && (user._id === comment.author._id || user._id === comment.author);
-              const canManageComment = isCommentAuthor || isAdmin;
-
-              return (
-                <div
-                  key={comment._id}
-                  className="card"
-                  style={{
-                    backgroundColor: 'var(--bg-surface)',
-                    padding: '1.25rem',
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      marginBottom: '0.75rem',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-                      <div
-                        style={{
-                          width: '2rem',
-                          height: '2rem',
-                          borderRadius: 'var(--radius-full)',
-                          background: 'var(--bg-elevated)',
-                          border: '1px solid var(--border-subtle)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '0.8rem',
-                          fontWeight: 600,
-                          color: 'var(--accent-primary)',
-                        }}
-                      >
-                        {comment.author?.username?.charAt(0).toUpperCase() || 'U'}
-                      </div>
-                      <div>
-                        <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>
-                          {comment.author?.username || 'Anonymous'}
-                        </span>
-                        {comment.author?.role === 'ADMIN' && (
-                          <span
-                            className="badge badge-primary"
-                            style={{ fontSize: '0.65rem', marginLeft: '0.5rem', padding: '0.1rem 0.4rem' }}
-                          >
-                            Staff
-                          </span>
-                        )}
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginLeft: '0.5rem' }}>
-                          {new Date(comment.createdAt).toLocaleDateString()}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Manage comment options */}
-                    {canManageComment && (
-                      <div style={{ display: 'flex', gap: '0.35rem' }}>
-                        {isCommentAuthor && (
-                          <button
-                            onClick={() => {
-                              setEditingCommentId(comment._id);
-                              setEditCommentText(comment.content);
-                            }}
-                            className="btn btn-secondary btn-sm"
-                            style={{ padding: '0.25rem 0.5rem' }}
-                            title="Edit Comment"
-                          >
-                            <Edit3 size={13} />
-                          </button>
-                        )}
-                        <button
-                          onClick={() => {
-                            setDeleteTarget({ type: 'comment', id: comment._id });
-                            setDeleteModalOpen(true);
-                          }}
-                          className="btn btn-danger btn-sm"
-                          style={{ padding: '0.25rem 0.5rem' }}
-                          title="Delete Comment"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Comment Body or Inline Editor */}
-                  {editingCommentId === comment._id ? (
-                    <div>
-                      <textarea
-                        className="form-textarea"
-                        style={{ minHeight: '80px', marginBottom: '0.75rem' }}
-                        value={editCommentText}
-                        onChange={(e) => setEditCommentText(e.target.value)}
-                      />
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                        <button
-                          onClick={() => setEditingCommentId(null)}
-                          className="btn btn-secondary btn-sm"
-                          disabled={isUpdatingComment}
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={() => handleUpdateComment(comment._id)}
-                          className="btn btn-primary btn-sm"
-                          disabled={isUpdatingComment || !editCommentText.trim()}
-                        >
-                          {isUpdatingComment ? 'Saving...' : 'Save'}
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <p style={{ fontSize: '0.9rem', lineHeight: 1.6, color: 'var(--text-primary)', whiteSpace: 'pre-line' }}>
-                      {comment.content}
-                    </p>
-                  )}
-                </div>
-              );
-            })
+            comments.map((comment) => (
+              <CommentItem
+                key={comment._id}
+                comment={comment}
+                postId={post._id}
+                currentUser={user}
+                isAdmin={isAdmin}
+                onDelete={(id) => {
+                  setDeleteTarget({ type: 'comment', id });
+                  setDeleteModalOpen(true);
+                }}
+                onUpdate={handleUpdateComment}
+                onReplySubmit={onReplySubmit}
+                onLikeToggle={handleLikeToggle}
+              />
+            ))
           )}
         </div>
       </section>
@@ -542,7 +458,7 @@ const PostDetails = () => {
       {/* Confirm Delete Modal */}
       <ConfirmModal
         isOpen={deleteModalOpen}
-        onClose={() => {
+        onCancel={() => {
           setDeleteModalOpen(false);
           setDeleteTarget(null);
         }}
@@ -554,7 +470,7 @@ const PostDetails = () => {
             : 'Are you sure you want to permanently delete this comment?'
         }
         confirmText="Confirm Delete"
-        danger
+        isDanger
         isLoading={deletePostMutation.isPending || deleteCommentMutation.isPending}
       />
     </article>

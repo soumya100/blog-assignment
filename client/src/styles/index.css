@@ -853,67 +853,157 @@ input:-webkit-autofill:active {
   color: var(--accent-primary);
 }
 
-/* Right Column: Form Card */
+/* Right Column: Form Card with Glossy Glassmorphism */
 .auth-card {
   position: relative;
   z-index: 1;
   width: 100%;
-  background: var(--bg-card);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--border-subtle);
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
-  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%), rgba(15, 23, 42, 0.82);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-top: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow: 
+    0 30px 60px -15px rgba(0, 0, 0, 0.65), 
+    0 0 35px rgba(59, 130, 246, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25);
+  border-radius: 24px;
   padding: 2.25rem 2rem;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  overflow: hidden;
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+/* Glossy reflection highlight streak */
+.auth-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 48%;
+  background: linear-gradient(
+    180deg, 
+    rgba(255, 255, 255, 0.09) 0%, 
+    rgba(255, 255, 255, 0.03) 40%, 
+    rgba(255, 255, 255, 0) 100%
+  );
+  pointer-events: none;
+  border-radius: 24px 24px 0 0;
+}
+
+/* Subtle corner gloss highlight */
+.auth-card::after {
+  content: '';
+  position: absolute;
+  top: -80px;
+  right: -80px;
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.2) 0%, rgba(99, 102, 241, 0.08) 50%, transparent 70%);
+  filter: blur(25px);
+  pointer-events: none;
 }
 
 [data-theme='light'] .auth-card {
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.03);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.85) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-top: 1px solid rgba(255, 255, 255, 1);
+  box-shadow: 
+    0 25px 50px -12px rgba(15, 23, 42, 0.12),
+    0 0 25px rgba(59, 130, 246, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.03);
 }
 
-/* Segmented Tab Switcher (Sign In vs Create Account) */
+[data-theme='light'] .auth-card::before {
+  background: linear-gradient(
+    180deg, 
+    rgba(255, 255, 255, 0.6) 0%, 
+    rgba(255, 255, 255, 0.1) 40%, 
+    rgba(255, 255, 255, 0) 100%
+  );
+}
+
+/* Segmented Tab Switcher with Dynamic Transitions */
 .auth-segmented-tabs {
+  position: relative;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  background: var(--bg-elevated);
-  padding: 4px;
-  border-radius: 12px;
-  border: 1px solid var(--border-subtle);
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(12px);
+  padding: 5px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.35);
   margin-bottom: 1.75rem;
+  overflow: hidden;
+}
+
+[data-theme='light'] .auth-segmented-tabs {
+  background: rgba(226, 232, 240, 0.7);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
 }
 
 .auth-tab-btn {
-  padding: 0.6rem 0.75rem;
+  position: relative;
+  z-index: 2;
+  padding: 0.65rem 0.85rem;
   font-size: 0.875rem;
   font-weight: 600;
   text-align: center;
-  border-radius: 9px;
+  border-radius: 10px;
   border: none;
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   text-decoration: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
+  gap: 0.45rem;
+  user-select: none;
 }
 
 .auth-tab-btn:hover {
   color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.06);
+  transform: translateY(-1px);
+}
+
+[data-theme='light'] .auth-tab-btn:hover {
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.auth-tab-btn:active {
+  transform: scale(0.97);
 }
 
 .auth-tab-btn.active {
-  background: var(--bg-surface);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.04) 100%), var(--bg-surface);
   color: var(--text-primary);
   font-weight: 700;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: 
+    0 4px 15px -2px rgba(0, 0, 0, 0.35), 
+    0 0 12px rgba(59, 130, 246, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  transform: translateY(0);
+}
+
+[data-theme='light'] .auth-tab-btn.active {
+  background: #ffffff;
+  color: var(--text-primary);
+  box-shadow: 
+    0 4px 12px -2px rgba(0, 0, 0, 0.1), 
+    0 0 8px rgba(59, 130, 246, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+  border: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 /* Auth Card Header */
@@ -1098,6 +1188,250 @@ input:-webkit-autofill:active {
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
+}
+
+/* ==========================================
+   Facebook-Style Threaded Comments & Replies
+   ========================================== */
+
+.fb-comments-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Facebook-style Top Composer */
+.fb-top-composer {
+  display: flex;
+  gap: 0.85rem;
+  align-items: flex-start;
+  margin-bottom: 2rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 18px;
+  padding: 1.15rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.fb-avatar {
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-primary) 0%, #6366f1 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
+  user-select: none;
+}
+
+.fb-avatar-sm {
+  width: 1.85rem;
+  height: 1.85rem;
+  font-size: 0.75rem;
+}
+
+.fb-composer-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.fb-composer-input {
+  width: 100%;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 0.75rem 1rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+  color: var(--text-primary);
+  outline: none;
+  resize: vertical;
+  min-height: 80px;
+  transition: all 0.2s ease;
+}
+
+.fb-composer-input:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  background: var(--bg-surface);
+}
+
+.fb-composer-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-top: 0.75rem;
+  gap: 0.5rem;
+}
+
+/* Comment Thread Item */
+.fb-comment-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.fb-comment-root {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  position: relative;
+}
+
+.fb-bubble-wrap {
+  position: relative;
+  max-width: calc(100% - 3.25rem);
+}
+
+/* Facebook Rounded Comment Bubble */
+.fb-bubble {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 18px;
+  padding: 0.65rem 1rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  position: relative;
+  transition: background 0.2s ease;
+}
+
+[data-theme='light'] .fb-bubble {
+  background: #f0f2f5;
+  border-color: #e4e6eb;
+}
+
+.fb-bubble-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.fb-author-name {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.fb-author-role {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--accent-primary);
+  text-transform: uppercase;
+}
+
+.fb-comment-text {
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--text-primary);
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+/* Action bar: Like · Reply · Time */
+.fb-meta-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding-left: 0.75rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.25rem;
+}
+
+.fb-action-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--text-muted);
+  font-weight: 700;
+  font-size: 0.775rem;
+  cursor: pointer;
+  transition: color 0.15s ease, transform 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.fb-action-btn:hover {
+  color: var(--text-primary);
+  text-decoration: underline;
+}
+
+.fb-like-btn.active {
+  color: #1877f2 !important;
+  font-weight: 700;
+}
+
+.fb-like-badge {
+  position: absolute;
+  bottom: -8px;
+  right: -8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  padding: 2px 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--text-primary);
+  cursor: pointer;
+  z-index: 3;
+}
+
+/* Indented Nested Replies Thread */
+.fb-replies-list {
+  margin-left: 2rem;
+  padding-left: 1rem;
+  border-left: 2px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  margin-top: 0.5rem;
+  position: relative;
+}
+
+/* Inline Reply Composer */
+.fb-inline-reply-box {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  margin-top: 0.65rem;
+  margin-left: 2rem;
+  padding-left: 1rem;
+  border-left: 2px solid var(--accent-primary);
+}
+
+.fb-inline-reply-input {
+  flex: 1;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 18px;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.825rem;
+  font-family: inherit;
+  color: var(--text-primary);
+  outline: none;
+}
+
+.fb-inline-reply-input:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
 }
 
 

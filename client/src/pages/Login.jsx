@@ -288,6 +288,18 @@ const Login = () => {
                 <label className="form-label" style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
                   Password
                 </label>
+                <Link
+                  to="/forgot-password"
+                  style={{
+                    fontSize: '0.775rem',
+                    fontWeight: 600,
+                    color: 'var(--accent-primary)',
+                    textDecoration: 'none',
+                    transition: 'color 0.2s',
+                  }}
+                >
+                  Forgot password?
+                </Link>
               </div>
               <div className="auth-input-container">
                 <input
@@ -474,7 +486,7 @@ const Login = () => {
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary" disabled={loading}>
+                <button type="submit" className="btn btn-primary" disabled={oauthLoading}>
                   Complete {oauthProvider} Login
                 </button>
               </div>
