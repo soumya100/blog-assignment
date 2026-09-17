@@ -37,30 +37,141 @@ io.on('connection', (socket) => {
   });
 });
 
-// Seed default administrator if not present
-const ensureAdminUser = async () => {
+// Seed default initial accounts and sample data if empty
+const ensureInitialData = async () => {
   try {
-    const existingAdmin = await User.findOne({ role: ROLES.ADMIN });
-    if (!existingAdmin) {
+    const Post = require('./models/Post');
+    const Comment = require('./models/Comment');
+    const { createUniqueSlug } = require('./utils/slugify');
+
+    let admin = await User.findOne({ role: ROLES.ADMIN });
+    if (!admin) {
       logger.info('No administrator found. Seeding default admin account...');
-      await User.create({
+      admin = await User.create({
         username: env.ADMIN_USERNAME,
         email: env.ADMIN_EMAIL,
         password: env.ADMIN_PASSWORD,
         role: ROLES.ADMIN,
         status: USER_STATUS.ACTIVE,
+        bio: 'Senior Platform Administrator & Security Operations Lead.',
       });
       logger.info(`Default admin created: ${env.ADMIN_EMAIL} / ${env.ADMIN_PASSWORD}`);
     }
+
+    // Seed sample users and posts if empty
+    const postCount = await Post.countDocuments();
+    if (postCount === 0) {
+      logger.info('Database empty. Seeding sample users, articles, and discussions...');
+      
+      let userAlice = await User.findOne({ email: 'alice@example.com' });
+      if (!userAlice) {
+        userAlice = await User.create({
+          username: 'alice_developer',
+          email: 'alice@example.com',
+          password: 'UserPass123!',
+          role: ROLES.USER,
+          status: USER_STATUS.ACTIVE,
+          bio: 'Full-stack software engineer interested in distributed systems and React performance.',
+        });
+      }
+
+      let userBob = await User.findOne({ email: 'bob@example.com' });
+      if (!userBob) {
+        userBob = await User.create({
+          username: 'bob_security',
+          email: 'bob@example.com',
+          password: 'UserPass123!',
+          role: ROLES.USER,
+          status: USER_STATUS.ACTIVE,
+          bio: 'AppSec researcher focusing on OWASP Top 10 API vulnerabilities.',
+        });
+      }
+
+      let userCarol = await User.findOne({ email: 'carol@example.com' });
+      if (!userCarol) {
+        userCarol = await User.create({
+          username: 'carol_designer',
+          email: 'carol@example.com',
+          password: 'UserPass123!',
+          role: ROLES.USER,
+          status: USER_STATUS.DEACTIVATED,
+          bio: 'Product Designer and Design Systems Architect.',
+        });
+      }
+
+      const sampleArticles = [
+        {
+          title: 'Architecting Resilient Full-Stack Systems with Node and React',
+          content: `Modern full-stack web applications demand both high architectural velocity and unyielding reliability. When structuring a MERN stack monorepo, decoupling business services from HTTP transport layers is essential for testability.
+
+By establishing strict domain boundaries, isolating persistence calls in dedicated services, and wrapping REST handlers with centralized error interceptors, engineering teams can guarantee predictable runtime performance under scale.
+
+Furthermore, state management on the client should favor server cache synchronizers like TanStack Query over bloated local stores, minimizing unnecessary network overhead and keeping interfaces responsive.`,
+          tags: ['nodejs', 'react', 'architecture', 'scalability'],
+          author: userAlice._id,
+        },
+        {
+          title: 'Defending Modern REST APIs Against OWASP Top 10 Vulnerabilities',
+          content: `Application security is not a post-deployment checklist; it must be ingrained into every layer of software development.
+
+In REST architectures, Broken Object Level Authorization (BOLA/IDOR) remains the most prevalent risk. Enforcing ownership checks at the middleware level guarantees that arbitrary resource IDs cannot be manipulated by untrusted actors.
+
+Additionally, guarding against NoSQL injection through input sanitization, replacing plaintext tokens with cryptographic hashes in databases, and utilizing HttpOnly SameSite cookie configurations significantly raises the cost of exploitation.`,
+          tags: ['security', 'appsec', 'owasp', 'penetration-testing'],
+          author: userBob._id,
+        },
+        {
+          title: 'Implementing Cryptographically Robust JWT Refresh Token Rotation',
+          content: `Stateless authentication using JSON Web Tokens (JWT) brings exceptional horizontal scalability, but revocation poses a classic challenge.
+
+By issuing short-lived access tokens (e.g. 15 minutes) paired with rotating refresh tokens stored as SHA-256 hashes in database session families, developers achieve the best of both worlds.
+
+Whenever a token is refreshed, its predecessor is revoked. If an attacker attempts to replay a consumed refresh token, the server detects the reuse anomaly immediately and revokes the entire token family, safeguarding user accounts from session hijacking.`,
+          tags: ['jwt', 'authentication', 'cryptography', 'tokens'],
+          author: admin._id,
+        },
+      ];
+
+      const createdPosts = [];
+      for (const article of sampleArticles) {
+        const slug = await createUniqueSlug(Post, article.title);
+        const created = await Post.create({
+          ...article,
+          slug,
+          excerpt: article.content.slice(0, 160) + '...',
+        });
+        createdPosts.push(created);
+      }
+
+      // Sample comments
+      if (createdPosts.length >= 2) {
+        await Comment.create({
+          post: createdPosts[1]._id,
+          author: userAlice._id,
+          content: 'Fantastic breakdown of BOLA defenses! The middleware ownership check pattern is critical.',
+        });
+        await Comment.create({
+          post: createdPosts[1]._id,
+          author: admin._id,
+          content: 'Comprehensive security overview. Remember to also rate-limit sensitive endpoints.',
+        });
+        await Comment.create({
+          post: createdPosts[0]._id,
+          author: userBob._id,
+          content: 'Great points on TanStack Query. Moving server state out of global Redux simplifies cache invalidation.',
+        });
+      }
+      logger.info('Sample data seeded successfully.');
+    }
   } catch (err) {
-    logger.error(`Error checking/seeding admin: ${err.message}`);
+    logger.error(`Error during initial data setup: ${err.message}`);
   }
 };
 
 const startServer = async () => {
   try {
     await connectDB();
-    await ensureAdminUser();
+    await ensureInitialData();
 
     server.listen(env.PORT, () => {
       logger.info(`DevLog API Server running in ${env.NODE_ENV} mode on port ${env.PORT}`);
