@@ -34,3 +34,6 @@ logs/
 *.njsproj
 *.sln
 *.sw?
+
+# Reports & Audits
+lighthouse-*.json
