@@ -1,7 +1,7 @@
 # DevLog | Enterprise Secure MERN Blog Platform
 
-[![VAPT Hardened](https://img.shields.io/badge/Security-OWASP%20Top%2010%20Hardened-emerald?style=flat-square)](docs/security/VAPT-REPORT.md)
-[![Tests Passing](https://img.shields.io/badge/Tests-43%2F43%20Passed-blue?style=flat-square)](server/tests)
+[![VAPT Hardened](https://img.shields.io/badge/Security-OWASP%20Top%2010%20Controls-emerald?style=flat-square)](docs/security/VAPT-REPORT.md)
+[![Tests](https://img.shields.io/badge/Tests-Jest%20%7C%20Vitest-blue?style=flat-square)](server/tests)
 [![Architecture](https://img.shields.io/badge/Architecture-Clean%20%2F%20Service%20Layered-indigo?style=flat-square)](#architecture)
 [![License: MIT](https://img.shields.io/badge/License-MIT-gray?style=flat-square)](#)
 
@@ -92,7 +92,7 @@ Request -> Helmet/CORS -> RateLimiter -> NoSQL Sanitizer -> Router -> Zod Valida
 ## Monorepo Directory Structure
 
 ```
-d:/companyvlog-assignment/
+companyvlog-assignment/
 ├── client/                     # Vite + React 18 Single Page Application
 │   ├── src/
 │   │   ├── api/                # Axios client with transparent token refresh queue
@@ -174,11 +174,13 @@ npm run dev
 The platform is designed with **dual-mode database resilience**:
 
 1. **Production / Local Daemon Mode**: If you provide a standard MongoDB connection string in `.env` (e.g. `MONGODB_URI=mongodb://localhost:27017/blog_platform` or MongoDB Atlas URI), the application connects directly.
-2. **Seamless Zero-Config In-Memory Mode**: If no `MONGODB_URI` is supplied or the local MongoDB service is inactive, the backend automatically spins up an embedded `MongoMemoryServer`. This guarantees that evaluators can run the project immediately with zero external installations.
+2. **Seamless Zero-Config In-Memory Mode**: If no `MONGODB_URI` is supplied, the backend can use an embedded `MongoMemoryServer` fallback (subject to the project's runtime dependencies and configuration). This guarantees that evaluators can run the project immediately with zero external installations.
 
 ---
 
 ## Environment Variables
+
+> **Security warning:** The values below are development examples only. Use long, random secrets in any shared, staging, or production environment. Never commit real credentials or `.env` files.
 
 Copy `.env.example` to `.env` if custom overrides are needed:
 
@@ -314,8 +316,7 @@ A formal VAPT security audit was performed against the completed platform:
 ## Demo Presentation Guide
 
 A step-by-step walkthrough script for a 5–10 minute hiring assignment demo is available at:
-👉 **[docs/DEMO-SCRIPT.md](docs/DEMO-SCRIPT.md)**
+👉 [**docs/DEMO-SCRIPT.md**](docs/DEMO-SCRIPT.md)
 
 It provides ready-to-use talking points for presenting architecture, security mechanisms, content authoring, and governance features.
-#   b l o g - a s s i g n m e n t  
- 
+#
