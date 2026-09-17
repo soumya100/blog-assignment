@@ -216,6 +216,94 @@ const googleCallback = async (req, res, next) => {
   }
 };
 
+/**
+ * Live Facebook OAuth 2.0 Flow
+ */
+const facebookAuth = (req, res) => {
+  if (!env.FACEBOOK_CLIENT_ID || !env.FACEBOOK_CLIENT_SECRET) {
+    return res.redirect(`${env.CLIENT_URL}/login?notice=OAUTH_SETUP_REQUIRED&provider=facebook`);
+  }
+
+  const crypto = require('crypto');
+  const state = crypto.randomBytes(24).toString('hex');
+
+  res.cookie('oauth_facebook_state', state, {
+    httpOnly: true,
+    secure: env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 10 * 60 * 1000,
+  });
+
+  const queryParams = new URLSearchParams({
+    client_id: env.FACEBOOK_CLIENT_ID,
+    redirect_uri: env.FACEBOOK_CALLBACK_URL,
+    state,
+    scope: 'email,public_profile',
+    response_type: 'code',
+  });
+
+  return res.redirect(`https://www.facebook.com/v18.0/dialog/oauth?${queryParams.toString()}`);
+};
+
+const facebookCallback = async (req, res, next) => {
+  try {
+    const { code, state, error, error_description } = req.query;
+    if (error) {
+      return res.redirect(`${env.CLIENT_URL}/oauth/callback?error=${encodeURIComponent(error_description || error)}`);
+    }
+
+    const storedState = req.cookies.oauth_facebook_state;
+    res.clearCookie('oauth_facebook_state');
+
+    if (!state || !storedState || state !== storedState) {
+      return res.redirect(`${env.CLIENT_URL}/oauth/callback?error=INVALID_OAUTH_STATE`);
+    }
+
+    const tokenUrl = `https://graph.facebook.com/v18.0/oauth/access_token?${new URLSearchParams({
+      client_id: env.FACEBOOK_CLIENT_ID,
+      client_secret: env.FACEBOOK_CLIENT_SECRET,
+      redirect_uri: env.FACEBOOK_CALLBACK_URL,
+      code,
+    }).toString()}`;
+
+    const tokenRes = await fetch(tokenUrl);
+    const tokenData = await tokenRes.json();
+
+    if (!tokenRes.ok || !tokenData.access_token) {
+      return res.redirect(`${env.CLIENT_URL}/oauth/callback?error=TOKEN_EXCHANGE_FAILED`);
+    }
+
+    // Fetch Facebook User Profile
+    const profileUrl = `https://graph.facebook.com/me?${new URLSearchParams({
+      fields: 'id,name,email,picture.type(large)',
+      access_token: tokenData.access_token,
+    }).toString()}`;
+
+    const profileRes = await fetch(profileUrl);
+    const profile = await profileRes.json();
+
+    if (!profile.email) {
+      profile.email = `facebook_${profile.id}@devlog-user.internal`;
+    }
+
+    const avatarUrl = profile.picture?.data?.url || '';
+
+    const result = await authService.oauthLogin({
+      provider: 'facebook',
+      email: profile.email,
+      name: profile.name || 'Facebook User',
+      avatar: avatarUrl,
+      providerId: profile.id,
+      req,
+    });
+
+    setRefreshTokenCookie(res, result.refreshToken);
+    return res.redirect(`${env.CLIENT_URL}/oauth/callback?token=${result.accessToken}`);
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -225,4 +313,6 @@ module.exports = {
   oauthDevLogin,
   googleAuth,
   googleCallback,
+  facebookAuth,
+  facebookCallback,
 };

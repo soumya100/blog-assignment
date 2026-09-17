@@ -212,6 +212,34 @@ const Login = () => {
             </div>
           )}
 
+          {/* OAuth Setup Required Notice */}
+          {searchParams.get('notice') === 'OAUTH_SETUP_REQUIRED' && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '0.625rem',
+                padding: '0.85rem 1rem',
+                borderRadius: '10px',
+                background: 'rgba(59, 130, 246, 0.1)',
+                color: 'var(--text-primary)',
+                fontSize: '0.825rem',
+                marginBottom: '1.25rem',
+                border: '1px solid rgba(59, 130, 246, 0.25)',
+              }}
+            >
+              <Sparkles size={18} style={{ color: 'var(--accent-primary)', flexShrink: 0, marginTop: '2px' }} />
+              <div>
+                <strong style={{ display: 'block', marginBottom: '0.2rem', color: 'var(--accent-primary)' }}>
+                  Live {searchParams.get('provider') === 'facebook' ? 'Facebook' : 'Google'} OAuth Setup Notice
+                </strong>
+                <span>
+                  Real {searchParams.get('provider') === 'facebook' ? 'Facebook App' : 'Google Cloud'} client credentials are not configured in your <code>.env</code> file. You can test complete social auth instantly with the <strong>OAuth Dev Sandbox</strong> below!
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Login Form */}
           <form onSubmit={handleSubmit}>
             <div className="form-group" style={{ marginBottom: '1.15rem' }}>
@@ -300,28 +328,22 @@ const Login = () => {
               <span>Sign in with Google OAuth 2.0</span>
             </a>
 
-            <button
-              type="button"
-              onClick={() => {
-                setOauthProvider('facebook');
-                setOauthEmail('dev@facebook.com');
-                setOauthName('Facebook Dev User');
-                setOauthModalOpen(true);
-              }}
+            <a
+              href="http://localhost:5000/api/v1/auth/facebook"
               className="auth-oauth-btn"
             >
               <svg width="17" height="17" viewBox="0 0 24 24" fill="#1877F2">
                 <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
               </svg>
               <span>Sign in with Facebook OAuth 2.0</span>
-            </button>
+            </a>
 
             <button
               type="button"
               onClick={() => {
-                setOauthProvider('google');
-                setOauthEmail('engineer@gmail.com');
-                setOauthName('Google Dev User');
+                setOauthProvider('facebook');
+                setOauthEmail('dev@facebook.com');
+                setOauthName('Facebook Dev User');
                 setOauthModalOpen(true);
               }}
               className="btn btn-secondary btn-sm"
@@ -365,6 +387,32 @@ const Login = () => {
                   Simulate verified {oauthProvider.toUpperCase()} identity callback
                 </p>
               </div>
+            </div>
+
+            {/* Provider Switcher inside Modal */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '1.25rem' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setOauthProvider('google');
+                  setOauthEmail('engineer@gmail.com');
+                  setOauthName('Google Dev User');
+                }}
+                className={`btn btn-sm ${oauthProvider === 'google' ? 'btn-primary' : 'btn-secondary'}`}
+              >
+                Google Identity
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setOauthProvider('facebook');
+                  setOauthEmail('dev@facebook.com');
+                  setOauthName('Facebook Dev User');
+                }}
+                className={`btn btn-sm ${oauthProvider === 'facebook' ? 'btn-primary' : 'btn-secondary'}`}
+              >
+                Facebook Identity
+              </button>
             </div>
 
             <form onSubmit={handleDevOAuthSubmit}>

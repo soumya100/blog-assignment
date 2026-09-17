@@ -123,4 +123,33 @@ describe('Authentication Integration Tests', () => {
     const meRes = await request(app).get('/api/v1/auth/me');
     expect(meRes.statusCode).toBe(401);
   });
+
+  test('GET /api/v1/auth/facebook - redirects when client initiates OAuth flow', async () => {
+    const fbRes = await request(app).get('/api/v1/auth/facebook');
+    // Expect 302 Redirect to either Facebook dialog or setup notice if keys aren't set
+    expect(fbRes.statusCode).toBe(302);
+    expect(fbRes.headers.location).toBeDefined();
+  });
+
+  test('POST /api/v1/auth/oauth/dev - authenticates and links Facebook identity', async () => {
+    const devFbRes = await request(app)
+      .post('/api/v1/auth/oauth/dev')
+      .send({
+        provider: 'facebook',
+        email: 'facebook_engineer@example.com',
+        name: 'Meta Engineer',
+        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb',
+      });
+
+    expect(devFbRes.statusCode).toBe(200);
+    expect(devFbRes.body.data.user.email).toBe('facebook_engineer@example.com');
+    expect(devFbRes.body.data.accessToken).toBeDefined();
+    expect(devFbRes.headers['set-cookie']).toBeDefined();
+
+    // Verify user document has facebookId populated
+    const userInDb = await User.findOne({ email: 'facebook_engineer@example.com' });
+    expect(userInDb).toBeDefined();
+    expect(userInDb.facebookId).toBeDefined();
+  });
 });
+

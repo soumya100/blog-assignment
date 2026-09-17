@@ -20,6 +20,10 @@ router.get('/me', requireAuth, authController.getMe);
 router.get('/google', authController.googleAuth);
 router.get('/google/callback', authController.googleCallback);
 
+// Live Facebook OAuth 2.0 endpoints
+router.get('/facebook', authController.facebookAuth);
+router.get('/facebook/callback', authController.facebookCallback);
+
 // OAuth Dev Sandbox Login (Google / Facebook)
 router.post('/oauth/dev', validate(oauthDevSchema), authController.oauthDevLogin);
 
