@@ -217,16 +217,10 @@ const Login = () => {
 
         {/* OAuth 2.0 Buttons */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          <button
-            type="button"
-            onClick={() => {
-              setOauthProvider('google');
-              setOauthEmail('engineer@gmail.com');
-              setOauthName('Google Dev User');
-              setOauthModalOpen(true);
-            }}
+          <a
+            href="http://localhost:5000/api/v1/auth/google"
             className="btn btn-secondary"
-            style={{ width: '100%', justifyContent: 'center' }}
+            style={{ width: '100%', justifyContent: 'center', textDecoration: 'none' }}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style={{ marginRight: '0.5rem' }}>
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -235,7 +229,7 @@ const Login = () => {
               <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/>
             </svg>
             Sign in with Google OAuth 2.0
-          </button>
+          </a>
 
           <button
             type="button"
@@ -252,6 +246,20 @@ const Login = () => {
               <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
             </svg>
             Sign in with Facebook OAuth 2.0
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setOauthProvider('google');
+              setOauthEmail('engineer@gmail.com');
+              setOauthName('Google Dev User');
+              setOauthModalOpen(true);
+            }}
+            className="btn btn-secondary btn-sm"
+            style={{ width: '100%', justifyContent: 'center', fontSize: '0.775rem', opacity: 0.8 }}
+          >
+            Or Test with OAuth Dev Sandbox (No API Keys Needed)
           </button>
         </div>
 

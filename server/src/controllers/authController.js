@@ -129,6 +129,93 @@ const oauthDevLogin = async (req, res, next) => {
   }
 };
 
+/**
+ * Live Google OAuth 2.0 Flow
+ */
+const googleAuth = (req, res) => {
+  if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) {
+    return res.redirect(`${env.CLIENT_URL}/login?notice=OAUTH_SETUP_REQUIRED`);
+  }
+
+  const crypto = require('crypto');
+  const state = crypto.randomBytes(24).toString('hex');
+
+  res.cookie('oauth_state', state, {
+    httpOnly: true,
+    secure: env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 10 * 60 * 1000,
+  });
+
+  const queryParams = new URLSearchParams({
+    redirect_uri: env.GOOGLE_CALLBACK_URL,
+    client_id: env.GOOGLE_CLIENT_ID,
+    access_type: 'offline',
+    response_type: 'code',
+    prompt: 'select_account',
+    scope: 'openid email profile',
+    state,
+  });
+
+  return res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${queryParams.toString()}`);
+};
+
+const googleCallback = async (req, res, next) => {
+  try {
+    const { code, state, error } = req.query;
+    if (error) {
+      return res.redirect(`${env.CLIENT_URL}/oauth/callback?error=${encodeURIComponent(error)}`);
+    }
+
+    const storedState = req.cookies.oauth_state;
+    res.clearCookie('oauth_state');
+
+    if (!state || !storedState || state !== storedState) {
+      return res.redirect(`${env.CLIENT_URL}/oauth/callback?error=INVALID_OAUTH_STATE`);
+    }
+
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id: env.GOOGLE_CLIENT_ID,
+        client_secret: env.GOOGLE_CLIENT_SECRET,
+        redirect_uri: env.GOOGLE_CALLBACK_URL,
+        grant_type: 'authorization_code',
+      }),
+    });
+
+    const tokenData = await tokenRes.json();
+    if (!tokenRes.ok || !tokenData.access_token) {
+      return res.redirect(`${env.CLIENT_URL}/oauth/callback?error=TOKEN_EXCHANGE_FAILED`);
+    }
+
+    const profileRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    });
+    const profile = await profileRes.json();
+
+    if (!profile.email) {
+      return res.redirect(`${env.CLIENT_URL}/oauth/callback?error=NO_EMAIL_FROM_GOOGLE`);
+    }
+
+    const result = await authService.oauthLogin({
+      provider: 'google',
+      email: profile.email,
+      name: profile.name || profile.given_name || 'Google User',
+      avatar: profile.picture || '',
+      providerId: profile.sub,
+      req,
+    });
+
+    setRefreshTokenCookie(res, result.refreshToken);
+    return res.redirect(`${env.CLIENT_URL}/oauth/callback?token=${result.accessToken}`);
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -136,4 +223,6 @@ module.exports = {
   logout,
   getMe,
   oauthDevLogin,
+  googleAuth,
+  googleCallback,
 };

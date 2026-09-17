@@ -14,6 +14,7 @@ import CreateEditPost from './pages/CreateEditPost';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Profile from './pages/Profile';
+import OAuthCallback from './pages/OAuthCallback';
 
 // Admin Pages
 import AdminLayout from './pages/admin/AdminLayout';
@@ -44,6 +45,7 @@ function App() {
                   <Route path="/posts/:id" element={<PostDetails />} />
                   <Route path="/login" element={<Login />} />
                   <Route path="/register" element={<Register />} />
+                  <Route path="/oauth/callback" element={<OAuthCallback />} />
 
                   {/* Authenticated User Routes */}
                   <Route

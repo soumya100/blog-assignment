@@ -16,6 +16,10 @@ router.post('/logout', authController.logout);
 // Current user profile
 router.get('/me', requireAuth, authController.getMe);
 
+// Live Google OAuth 2.0 endpoints
+router.get('/google', authController.googleAuth);
+router.get('/google/callback', authController.googleCallback);
+
 // OAuth Dev Sandbox Login (Google / Facebook)
 router.post('/oauth/dev', validate(oauthDevSchema), authController.oauthDevLogin);
 
