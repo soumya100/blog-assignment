@@ -1,0 +1,24 @@
+{
+  "name": "blog-platform-monorepo",
+  "version": "1.0.0",
+  "description": "Enterprise-grade Secure MERN Blog Platform with RBAC, JWT Refresh Token Rotation, and VAPT Audit",
+  "private": true,
+  "scripts": {
+    "install:all": "npm install && npm install --prefix server && npm install --prefix client",
+    "dev": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
+    "dev:server": "npm run dev --prefix server",
+    "dev:client": "npm run dev --prefix client",
+    "build:client": "npm run build --prefix client",
+    "seed": "npm run seed --prefix server",
+    "test": "npm run test --prefix server && npm run test --prefix client",
+    "test:server": "npm run test --prefix server",
+    "test:client": "npm run test --prefix client",
+    "test:security": "npm run test:security --prefix server"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
