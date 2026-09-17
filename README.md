@@ -317,3 +317,5 @@ A step-by-step walkthrough script for a 5–10 minute hiring assignment demo is 
 👉 **[docs/DEMO-SCRIPT.md](docs/DEMO-SCRIPT.md)**
 
 It provides ready-to-use talking points for presenting architecture, security mechanisms, content authoring, and governance features.
+#   b l o g - a s s i g n m e n t  
+ 
