@@ -413,6 +413,158 @@ a:hover {
 }
 
 /* ==========================================================
+   RESPONSIVE DESIGN SYSTEM & MOBILE BREAKPOINTS
+   ========================================================== */
+
+/* Navbar responsive utilities */
+.mobile-nav-toggle {
+  display: none;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  padding: 0.45rem;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.mobile-nav-toggle:hover {
+  background: var(--bg-elevated);
+  border-color: var(--border-strong);
+}
+
+.mobile-nav-drawer {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--bg-card);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-lg);
+  padding: 1.25rem 1.5rem;
+  flex-direction: column;
+  gap: 0.875rem;
+  animation: mobileSlideDown 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 100;
+}
+
+[data-theme='light'] .mobile-nav-drawer {
+  background: rgba(255, 255, 255, 0.98);
+}
+
+@keyframes mobileSlideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 768px) {
+  .desktop-nav {
+    display: none !important;
+  }
+  .mobile-nav-toggle {
+    display: flex !important;
+  }
+  .mobile-nav-drawer.open {
+    display: flex !important;
+  }
+}
+
+/* Post Cards Grid */
+.posts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  gap: 1.5rem;
+}
+
+@media (max-width: 640px) {
+  .posts-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1.25rem;
+  }
+}
+
+/* Admin Dashboard Responsive Grid */
+.admin-container {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+.admin-sidebar {
+  position: sticky;
+  top: 5.5rem;
+}
+
+@media (max-width: 900px) {
+  .admin-container {
+    grid-template-columns: 1fr !important;
+    gap: 1.5rem;
+  }
+  .admin-sidebar {
+    position: static !important;
+    width: 100% !important;
+  }
+  .admin-sidebar nav {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)) !important;
+    gap: 0.5rem;
+  }
+}
+
+/* Data Table Container with Horizontal Scroll */
+.table-container {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+}
+
+.data-table {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.875rem;
+}
+
+/* Layout Containers Responsive Padding */
+@media (max-width: 640px) {
+  .container {
+    padding: 0 1rem !important;
+  }
+  .container-narrow {
+    padding: 0 1rem !important;
+  }
+  .card {
+    padding: 1.25rem !important;
+  }
+  .auth-card {
+    padding: 1.75rem 1.25rem !important;
+  }
+}
+
+/* Toast Notifications on Mobile */
+@media (max-width: 480px) {
+  .toast-container {
+    left: 1rem !important;
+    right: 1rem !important;
+    bottom: 1rem !important;
+  }
+  .toast {
+    min-width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+
+/* ==========================================================
    PREMIUM AUTHENTICATION STYLES (Linear / Supabase / Vercel inspired)
    ========================================================== */
 

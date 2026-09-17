@@ -58,22 +58,12 @@ const AdminLayout = () => {
       </div>
 
       {/* Grid Layout: Sidebar + Main Content */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '260px 1fr',
-          gap: '2rem',
-          alignItems: 'start',
-        }}
-        className="admin-container"
-      >
+      <div className="admin-container">
         {/* Admin Navigation Sidebar */}
         <aside
-          className="card"
+          className="card admin-sidebar"
           style={{
             padding: '1rem',
-            position: 'sticky',
-            top: '5.5rem',
           }}
         >
           <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', padding: '0.5rem 0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>

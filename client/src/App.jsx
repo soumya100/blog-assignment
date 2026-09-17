@@ -38,7 +38,7 @@ function App() {
               <Navbar />
               <NotificationToast />
 
-              <div style={{ flex: 1 }}>
+              <main id="main-content" style={{ flex: 1 }}>
                 <Routes>
                   {/* Public Routes */}
                   <Route path="/" element={<Home />} />
@@ -73,7 +73,7 @@ function App() {
                     }
                   />
 
-                  {/* Protected Admin Routes */}
+                  {/* Admin Protected Routes */}
                   <Route
                     path="/admin"
                     element={
@@ -92,7 +92,7 @@ function App() {
                   {/* 404 Fallback */}
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
-              </div>
+              </main>
 
               <Footer />
             </div>

@@ -188,13 +188,7 @@ const Home = () => {
         </div>
 
         {loading ? (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
-              gap: '1.5rem',
-            }}
-          >
+          <div className="posts-grid">
             {Array.from({ length: 6 }).map((_, i) => (
               <PostCardSkeleton key={i} />
             ))}
@@ -224,13 +218,7 @@ const Home = () => {
             </button>
           </div>
         ) : (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
-              gap: '1.75rem',
-            }}
-          >
+          <div className="posts-grid">
             {posts.map((post) => (
               <article
                 key={post._id}

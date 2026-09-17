@@ -162,6 +162,105 @@ const Navbar = () => {
             </div>
           )}
         </nav>
+
+        {/* Mobile Navigation Controls */}
+        <div style={{ display: 'none', alignItems: 'center', gap: '0.5rem' }} className="mobile-nav-toggle">
+          <button
+            onClick={toggleTheme}
+            className="btn btn-secondary btn-sm"
+            title="Toggle light/dark mode"
+            style={{ padding: '0.45rem', borderRadius: 'var(--radius-full)', border: 'none', background: 'transparent' }}
+          >
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+            aria-label="Toggle navigation menu"
+          >
+            {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Dropdown Drawer */}
+      <div className={`mobile-nav-drawer ${mobileMenuOpen ? 'open' : ''}`}>
+        <Link
+          to="/"
+          onClick={() => setMobileMenuOpen(false)}
+          style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.95rem', padding: '0.35rem 0' }}
+        >
+          Explore Articles
+        </Link>
+
+        {isAdmin && (
+          <Link
+            to="/admin"
+            onClick={() => setMobileMenuOpen(false)}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--accent-primary)', fontWeight: 600, fontSize: '0.95rem', padding: '0.35rem 0' }}
+          >
+            <ShieldCheck size={18} />
+            Admin Panel
+          </Link>
+        )}
+
+        <div style={{ height: '1px', background: 'var(--border-subtle)', margin: '0.25rem 0' }} />
+
+        {isAuthenticated ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+            <Link
+              to="/posts/new"
+              onClick={() => setMobileMenuOpen(false)}
+              className="btn btn-primary btn-sm"
+              style={{ width: '100%', justifyContent: 'center' }}
+            >
+              <PenSquare size={16} />
+              Write New Article
+            </Link>
+
+            <Link
+              to="/profile"
+              onClick={() => setMobileMenuOpen(false)}
+              className="btn btn-secondary btn-sm"
+              style={{ width: '100%', justifyContent: 'center', gap: '0.5rem' }}
+            >
+              <UserIcon size={16} />
+              <span>Signed in as @{user?.username}</span>
+            </Link>
+
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false);
+                handleLogout();
+              }}
+              className="btn btn-secondary btn-sm"
+              style={{ width: '100%', justifyContent: 'center', gap: '0.5rem', color: 'var(--danger)' }}
+            >
+              <LogOut size={16} />
+              <span>Log Out</span>
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.625rem' }}>
+            <Link
+              to="/login"
+              onClick={() => setMobileMenuOpen(false)}
+              className="btn btn-secondary btn-sm"
+              style={{ justifyContent: 'center' }}
+            >
+              Log In
+            </Link>
+            <Link
+              to="/register"
+              onClick={() => setMobileMenuOpen(false)}
+              className="btn btn-primary btn-sm"
+              style={{ justifyContent: 'center' }}
+            >
+              Sign Up
+            </Link>
+          </div>
+        )}
       </div>
     </header>
   );
