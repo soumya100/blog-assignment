@@ -153,11 +153,31 @@ const PostDetails = () => {
     }
   };
 
-  const handleShare = () => {
-    navigator.clipboard.writeText(window.location.href);
-    setCopiedLink(true);
-    toast.info('Article link copied to clipboard!', { autoClose: 3000 });
-    setTimeout(() => setCopiedLink(false), 2000);
+  const handleShare = async () => {
+    const url = window.location.href;
+    try {
+      // navigator.clipboard requires secure context (HTTPS or localhost)
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        // Fallback for non-secure contexts (e.g. LAN IP access)
+        const textArea = document.createElement('textarea');
+        textArea.value = url;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-9999px';
+        textArea.style.top = '-9999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      setCopiedLink(true);
+      toast.info('Article link copied to clipboard!', { autoClose: 3000 });
+      setTimeout(() => setCopiedLink(false), 2000);
+    } catch (err) {
+      toast.error('Failed to copy link. Please copy the URL from the address bar.', { autoClose: 3500 });
+    }
   };
 
   if (postLoading) {

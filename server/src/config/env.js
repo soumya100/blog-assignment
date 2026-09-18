@@ -40,6 +40,14 @@ const env = {
   ADMIN_EMAIL: process.env.ADMIN_EMAIL || 'admin@blogplatform.dev',
   ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || 'AdminSecurePass123!',
   ADMIN_USERNAME: process.env.ADMIN_USERNAME || 'systemadmin',
+
+  // SMTP Email Configuration
+  SMTP_HOST: process.env.SMTP_HOST || '',
+  SMTP_PORT: parseInt(process.env.SMTP_PORT || '587', 10),
+  SMTP_SECURE: process.env.SMTP_SECURE === 'true',
+  SMTP_USER: process.env.SMTP_USER || '',
+  SMTP_PASS: process.env.SMTP_PASS || '',
+  EMAIL_FROM: process.env.EMAIL_FROM || 'DevLog Security <security@blogplatform.dev>',
 };
 
 module.exports = env;

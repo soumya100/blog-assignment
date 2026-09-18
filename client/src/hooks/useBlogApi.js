@@ -130,6 +130,15 @@ export function useForgotPassword(options = {}) {
   );
 }
 
+export function useVerifyOtp(options = {}) {
+  return useApiMutation(
+    (data) => apiClient.post('/auth/verify-otp', data),
+    {
+      ...options,
+    }
+  );
+}
+
 export function useResetPassword(options = {}) {
   return useApiMutation(
     ({ token, password }) => apiClient.post(`/auth/reset-password/${token}`, { password }),

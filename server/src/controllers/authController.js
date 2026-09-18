@@ -311,7 +311,24 @@ const forgotPassword = async (req, res, next) => {
 
     return successResponse(res, 200, result.message, {
       resetUrl: result.resetUrl,
-      devResetToken: result.devResetToken,
+      previewUrl: result.previewUrl,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const verifyOtp = async (req, res, next) => {
+  try {
+    const { email, otp } = req.body;
+    const result = await authService.verifyPasswordResetOtp({
+      email,
+      otp,
+      req,
+    });
+
+    return successResponse(res, 200, result.message, {
+      resetToken: result.resetToken,
     });
   } catch (err) {
     next(err);
@@ -349,5 +366,6 @@ module.exports = {
   facebookAuth,
   facebookCallback,
   forgotPassword,
+  verifyOtp,
   resetPassword,
 };

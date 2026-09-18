@@ -6,6 +6,7 @@ const { ROLES, USER_STATUS } = require('../constants/roles');
 const { ACTIVITY_TYPES } = require('../constants/activityTypes');
 const { recordActivity } = require('../middleware/activityLogger');
 const env = require('../config/env');
+const { sendPasswordRecoveryEmail } = require('../utils/emailService');
 
 /**
  * Register a new user
@@ -330,32 +331,52 @@ const oauthLogin = async ({ provider, email, name, avatar, providerId, req }) =>
 };
 
 /**
- * Request Password Reset (Anti-Enumeration & SHA-256 Hashed Token)
+ * Request Password Reset (Cryptographic 6-Digit OTP + 1-Click Magic Link via Email)
  */
 const requestPasswordReset = async ({ email, req }) => {
   const normalizedEmail = email.toLowerCase().trim();
   const user = await User.findOne({ email: normalizedEmail });
 
-  // Generic message for anti-enumeration
+  // Generic message for anti-enumeration timing defense
   const genericResponse = {
-    message: 'If an account exists with that email address, a password reset link has been dispatched.',
+    message: 'If an account exists with that email address, password recovery instructions have been dispatched.',
   };
 
   if (!user || user.status === USER_STATUS.DEACTIVATED) {
     return genericResponse;
   }
 
-  // Generate unguessable 32-byte cryptographic token
+  // 1. Generate secure 6-digit numeric OTP code
+  const rawOtp = String(crypto.randomInt(100000, 1000000));
+  const hashedOtp = crypto.createHash('sha256').update(rawOtp).digest('hex');
+
+  // 2. Generate unguessable 32-byte cryptographic token for 1-click Magic Link
   const rawResetToken = crypto.randomBytes(32).toString('hex');
   const hashedResetToken = crypto.createHash('sha256').update(rawResetToken).digest('hex');
 
-  // Set 15-minute expiration
+  // 3. Set 10-minute OTP expiration & 15-minute token expiration
+  user.passwordResetOtp = hashedOtp;
+  user.passwordResetOtpExpires = new Date(Date.now() + 10 * 60 * 1000);
+  user.passwordResetOtpAttempts = 0;
   user.passwordResetToken = hashedResetToken;
   user.passwordResetExpires = new Date(Date.now() + 15 * 60 * 1000);
   await user.save({ validateBeforeSave: false });
 
   const clientBaseUrl = env.CLIENT_URL || 'http://localhost:5173';
   const resetUrl = `${clientBaseUrl}/reset-password/${rawResetToken}`;
+
+  // 4. Dispatch real email with both 6-digit OTP and 1-Click Magic Link via Nodemailer
+  let emailResult = null;
+  try {
+    emailResult = await sendPasswordRecoveryEmail({
+      to: user.email,
+      otp: rawOtp,
+      resetUrl,
+      username: user.username,
+    });
+  } catch (emailErr) {
+    console.error('Failed to dispatch recovery email:', emailErr.message);
+  }
 
   if (req) {
     recordActivity({
@@ -367,11 +388,94 @@ const requestPasswordReset = async ({ email, req }) => {
     });
   }
 
-  // Return resetUrl and devResetToken for instant evaluation in development/sandbox mode
   return {
     ...genericResponse,
     resetUrl,
-    devResetToken: rawResetToken,
+    previewUrl: emailResult?.previewUrl || null,
+  };
+};
+
+/**
+ * Verify 6-digit OTP Code with Brute-Force Rate Limiting (Anti-Tampering)
+ */
+const verifyPasswordResetOtp = async ({ email, otp, req }) => {
+  if (!email || !otp) {
+    const error = new Error('Email and 6-digit OTP code are required');
+    error.statusCode = 400;
+    error.code = 'MISSING_FIELDS';
+    throw error;
+  }
+
+  const normalizedEmail = email.toLowerCase().trim();
+  const user = await User.findOne({ email: normalizedEmail }).select(
+    '+passwordResetOtp +passwordResetOtpExpires +passwordResetOtpAttempts +passwordResetToken'
+  );
+
+  const invalidCodeError = new Error('Invalid or expired verification code');
+  invalidCodeError.statusCode = 400;
+  invalidCodeError.code = 'INVALID_OR_EXPIRED_OTP';
+
+  if (!user || !user.passwordResetOtp || !user.passwordResetOtpExpires) {
+    throw invalidCodeError;
+  }
+
+  // Check brute force attempt limit (max 5 attempts)
+  if (user.passwordResetOtpAttempts >= 5) {
+    user.passwordResetOtp = null;
+    user.passwordResetOtpExpires = null;
+    await user.save({ validateBeforeSave: false });
+
+    const lockoutError = new Error('Too many invalid attempts. For your security, this verification code has been revoked. Please request a new one.');
+    lockoutError.statusCode = 429;
+    lockoutError.code = 'OTP_MAX_ATTEMPTS_EXCEEDED';
+    throw lockoutError;
+  }
+
+  // Check expiration (10 minutes)
+  if (user.passwordResetOtpExpires < new Date()) {
+    user.passwordResetOtp = null;
+    user.passwordResetOtpExpires = null;
+    await user.save({ validateBeforeSave: false });
+    throw invalidCodeError;
+  }
+
+  // Verify hash
+  const hashedInputOtp = crypto.createHash('sha256').update(String(otp).trim()).digest('hex');
+  if (hashedInputOtp !== user.passwordResetOtp) {
+    user.passwordResetOtpAttempts = (user.passwordResetOtpAttempts || 0) + 1;
+    await user.save({ validateBeforeSave: false });
+    const remaining = 5 - user.passwordResetOtpAttempts;
+    const mismatchError = new Error(`Invalid verification code. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining.`);
+    mismatchError.statusCode = 400;
+    mismatchError.code = 'OTP_MISMATCH';
+    throw mismatchError;
+  }
+
+  // OTP verified! Generate verified 32-byte token for Step 3
+  const verifiedToken = crypto.randomBytes(32).toString('hex');
+  const hashedVerifiedToken = crypto.createHash('sha256').update(verifiedToken).digest('hex');
+
+  user.passwordResetToken = hashedVerifiedToken;
+  user.passwordResetExpires = new Date(Date.now() + 15 * 60 * 1000);
+  user.passwordResetOtp = null; // Clear OTP so it cannot be re-used
+  user.passwordResetOtpExpires = null;
+  user.passwordResetOtpAttempts = 0;
+  await user.save({ validateBeforeSave: false });
+
+  if (req) {
+    recordActivity({
+      action: 'AUTH_OTP_VERIFIED',
+      resourceType: 'AUTH',
+      resourceId: user._id.toString(),
+      details: { email: user.email },
+      req,
+    });
+  }
+
+  return {
+    success: true,
+    message: 'Verification code confirmed. You may now set your new password.',
+    resetToken: verifiedToken,
   };
 };
 
@@ -405,6 +509,9 @@ const resetPassword = async ({ token, newPassword, req }) => {
   user.password = newPassword;
   user.passwordResetToken = null;
   user.passwordResetExpires = null;
+  user.passwordResetOtp = null;
+  user.passwordResetOtpExpires = null;
+  user.passwordResetOtpAttempts = 0;
   await user.save();
 
   // Replay Attack & Compromised Session Defense: Revoke all active refresh tokens for this user
@@ -432,5 +539,6 @@ module.exports = {
   logout,
   oauthLogin,
   requestPasswordReset,
+  verifyPasswordResetOtp,
   resetPassword,
 };

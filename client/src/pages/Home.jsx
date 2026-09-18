@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { PostCardSkeleton } from '../components/SkeletonLoader';
 import Pagination from '../components/Pagination';
 import { Search, Tag, MessageSquare, Clock, User as UserIcon, Sparkles } from 'lucide-react';
 import { usePosts } from '../hooks/useBlogApi';
 
 const Home = () => {
+  const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [selectedTag, setSelectedTag] = useState('');
@@ -208,10 +209,12 @@ const Home = () => {
               <article
                 key={post._id}
                 className="card card-interactive"
+                onClick={() => navigate(`/posts/${post.slug || post._id}`)}
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
                   height: '100%',
+                  cursor: 'pointer',
                 }}
               >
                 {/* Author Info */}

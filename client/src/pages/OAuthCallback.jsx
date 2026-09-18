@@ -23,7 +23,8 @@ const OAuthCallback = () => {
         localStorage.setItem('accessToken', token);
         try {
           const res = await apiClient.get('/auth/me');
-          localStorage.setItem('user', JSON.stringify(res.data.data.user));
+          const userData = res.data?.user || res.data?.data?.user || res.data;
+          localStorage.setItem('user', JSON.stringify(userData));
           window.location.href = '/';
         } catch (err) {
           console.error('Failed to load profile after OAuth callback:', err);
