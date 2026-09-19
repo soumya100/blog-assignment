@@ -13,15 +13,6 @@ try {
 let mongoMemoryServer = null;
 
 const connectDB = async (uriOverride = null) => {
-  // Serverless connection caching: reuse existing open connection across warm invocations
-  if (
-    !uriOverride &&
-    global._mongooseConnection &&
-    mongoose.connection.readyState === 1
-  ) {
-    return;
-  }
-
   const targetUri = uriOverride || env.MONGODB_URI;
 
   if (targetUri) {
@@ -30,7 +21,6 @@ const connectDB = async (uriOverride = null) => {
       await mongoose.connect(targetUri, {
         serverSelectionTimeoutMS: 5000,
       });
-      global._mongooseConnection = mongoose.connection;
       logger.info('Connected to MongoDB successfully.');
       return;
     } catch (err) {
