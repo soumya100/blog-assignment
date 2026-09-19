@@ -33,14 +33,48 @@ export class ApiError extends Error {
   }
 }
 
-// ─── In-Memory Token Cache (Zero localStorage) ──────────────
-let inMemoryAccessToken = null;
+// ─── Resilient Token Storage (Cross-domain & memory cache) ───
+const TOKEN_KEY = 'devlog_token';
+const REFRESH_TOKEN_KEY = 'devlog_refresh_token';
+
+let inMemoryAccessToken = typeof window !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null;
+let inMemoryRefreshToken = typeof window !== 'undefined' ? localStorage.getItem(REFRESH_TOKEN_KEY) : null;
 
 export const setInMemoryToken = (token) => {
   inMemoryAccessToken = token || null;
+  if (typeof window !== 'undefined') {
+    if (token) {
+      localStorage.setItem(TOKEN_KEY, token);
+    } else {
+      localStorage.removeItem(TOKEN_KEY);
+    }
+  }
 };
 
-export const getInMemoryToken = () => inMemoryAccessToken;
+export const getInMemoryToken = () => {
+  if (!inMemoryAccessToken && typeof window !== 'undefined') {
+    inMemoryAccessToken = localStorage.getItem(TOKEN_KEY);
+  }
+  return inMemoryAccessToken;
+};
+
+export const setRefreshToken = (token) => {
+  inMemoryRefreshToken = token || null;
+  if (typeof window !== 'undefined') {
+    if (token) {
+      localStorage.setItem(REFRESH_TOKEN_KEY, token);
+    } else {
+      localStorage.removeItem(REFRESH_TOKEN_KEY);
+    }
+  }
+};
+
+export const getRefreshToken = () => {
+  if (!inMemoryRefreshToken && typeof window !== 'undefined') {
+    inMemoryRefreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+  }
+  return inMemoryRefreshToken;
+};
 
 // ─── Offline Pending Revocation Queue ─────────────────────────
 // Resiliency for when server is unavailable during logout/revocation.
@@ -197,11 +231,14 @@ async function request(endpoint, options = {}) {
       isRefreshing = true;
 
       try {
-        // Using credentials: 'include' sends the HttpOnly refreshToken cookie automatically
+        // Using credentials: 'include' sends the HttpOnly refreshToken cookie automatically,
+        // and body refreshToken ensures resilience if third-party cookies are blocked by browser.
+        const currentRefreshToken = getRefreshToken();
         const refreshResponse = await fetch(`${API_BASE_URL}/auth/refresh`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
+          body: JSON.stringify(currentRefreshToken ? { refreshToken: currentRefreshToken } : {}),
         });
 
         if (!refreshResponse.ok) {
@@ -210,8 +247,12 @@ async function request(endpoint, options = {}) {
 
         const refreshData = await refreshResponse.json();
         const newAccessToken = refreshData?.data?.accessToken || null;
+        const newRefreshToken = refreshData?.data?.refreshToken || null;
         if (newAccessToken) {
           setInMemoryToken(newAccessToken);
+        }
+        if (newRefreshToken) {
+          setRefreshToken(newRefreshToken);
         }
 
         processQueue(null, newAccessToken);
@@ -230,6 +271,7 @@ async function request(endpoint, options = {}) {
         processQueue(refreshErr, null);
         isRefreshing = false;
         setInMemoryToken(null);
+        setRefreshToken(null);
 
         window.dispatchEvent(new CustomEvent('auth:expired'));
 

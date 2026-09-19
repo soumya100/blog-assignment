@@ -24,9 +24,11 @@ const OAuthCallback = () => {
       }
 
       try {
-        // HttpOnly cookies were already established by the server before the callback redirect.
-        // Fetch profile to verify session Authoritatively and populate memory state
-        await apiClient.get('/auth/me');
+        const res = await apiClient.get('/auth/me');
+        const currentUser = res.data?.user || res.data;
+        if (currentUser && typeof window !== 'undefined') {
+          localStorage.setItem('devlog_user', JSON.stringify(currentUser));
+        }
         window.location.href = '/';
       } catch (err) {
         console.error('Failed to verify session after OAuth callback:', err);
