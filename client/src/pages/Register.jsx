@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { toast } from 'react-toastify';
 import { useAuth } from '../context/AuthContext';
 import { extractErrorMessage } from '../hooks/useApi';
+import SEO from '../components/SEO';
 import {
   UserPlus,
   Mail,
@@ -116,6 +117,10 @@ const Register = () => {
 
   return (
     <div className="auth-page">
+      <SEO
+        title="Create Your DevLog Account"
+        description="Join the DevLog community to publish technical articles, review system architectures, and collaborate with engineers."
+      />
       <div className="auth-ambient-glow"></div>
 
       <div className="auth-split-wrapper">

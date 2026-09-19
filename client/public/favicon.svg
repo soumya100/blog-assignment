@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="devlog-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6" />
+      <stop offset="100%" stop-color="#6366f1" />
+    </linearGradient>
+    <filter id="needle-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="1.5" stdDeviation="1.5" flood-color="#000000" flood-opacity="0.3" />
+    </filter>
+  </defs>
+
+  <!-- Modern Rounded Icon Base -->
+  <rect width="64" height="64" rx="16" fill="url(#devlog-gradient)" />
+
+  <!-- Compass Ring -->
+  <circle cx="32" cy="32" r="20" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-dasharray="4 2" opacity="0.4" />
+
+  <!-- Compass Needle - North (White) -->
+  <polygon points="32,14 40,29 32,25.5 24,29" fill="#ffffff" filter="url(#needle-shadow)" />
+
+  <!-- Compass Needle - South (Subtle Light Tint) -->
+  <polygon points="32,50 24,35 32,38.5 40,35" fill="#e0e7ff" opacity="0.75" filter="url(#needle-shadow)" />
+
+  <!-- Center Pivot Pin -->
+  <circle cx="32" cy="32" r="3.5" fill="#1e293b" stroke="#ffffff" stroke-width="2" />
+</svg>

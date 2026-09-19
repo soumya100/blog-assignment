@@ -7,6 +7,7 @@ import { toast } from 'react-toastify';
 import { useAuth } from '../context/AuthContext';
 import { extractErrorMessage } from '../hooks/useApi';
 import { API_BASE_URL } from '../api/client';
+import SEO from '../components/SEO';
 import {
   Lock,
   Mail,
@@ -103,6 +104,10 @@ const Login = () => {
 
   return (
     <div className="auth-page">
+      <SEO
+        title="Sign In to DevLog"
+        description="Sign in to your DevLog account to write articles, participate in engineering discussions, and manage settings."
+      />
       <div className="auth-ambient-glow"></div>
 
       <div className="auth-split-wrapper">

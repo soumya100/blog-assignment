@@ -20,6 +20,7 @@ import {
   useDeletePost,
 } from '../hooks/useBlogApi';
 import CommentItem from '../components/CommentItem';
+import SEO from '../components/SEO';
 
 import {
   Calendar,
@@ -209,8 +210,14 @@ const PostDetails = () => {
   const canManagePost = isPostAuthor || isAdmin;
 
   return (
-    <article className="container-narrow" style={{ paddingTop: '3rem' }}>
-      {/* Back Link */}
+    <article className="container" style={{ paddingTop: '2.5rem', maxWidth: '820px' }}>
+      <SEO
+        title={post.title}
+        description={post.content ? post.content.replace(/[#*`_~\[\]]/g, '').slice(0, 160).trim() + '...' : 'Technical article on DevLog'}
+        type="article"
+        keywords={post.tags?.join(', ') || 'software engineering, DevLog'}
+      />
+      {/* Back button */}
       <Link
         to="/"
         style={{

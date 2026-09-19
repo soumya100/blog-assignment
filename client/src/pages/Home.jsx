@@ -4,6 +4,7 @@ import { PostCardSkeleton } from '../components/SkeletonLoader';
 import Pagination from '../components/Pagination';
 import { Search, Tag, MessageSquare, Clock, User as UserIcon, Sparkles } from 'lucide-react';
 import { usePosts } from '../hooks/useBlogApi';
+import SEO from '../components/SEO';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -36,6 +37,10 @@ const Home = () => {
 
   return (
     <div>
+      <SEO
+        title="Explore Engineering Articles & Developer Insights"
+        description="Discover trending software development, cloud infrastructure, app security, and full-stack MERN articles on DevLog."
+      />
       {/* Hero Section */}
       <section
         style={{

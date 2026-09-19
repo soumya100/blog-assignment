@@ -8,6 +8,7 @@ import {
   Activity,
   ShieldAlert,
 } from 'lucide-react';
+import SEO from '../../components/SEO';
 
 const AdminLayout = () => {
   const navItems = [
@@ -20,6 +21,10 @@ const AdminLayout = () => {
 
   return (
     <div className="container" style={{ paddingTop: '2.5rem' }}>
+      <SEO
+        title="Admin Governance Console"
+        description="Administrative management dashboard for DevLog: role-based access control, content moderation, and system audit logs."
+      />
       {/* Top Banner */}
       <div
         style={{
