@@ -1,5 +1,17 @@
 import React, { useState } from 'react';
-import { ThumbsUp, MessageCircle, Edit3, Trash2, Send, X, Check, Shield } from 'lucide-react';
+import {
+  ThumbsUp,
+  MessageCircle,
+  Edit3,
+  Trash2,
+  Send,
+  X,
+  Check,
+  Shield,
+  RotateCcw,
+  AlertCircle,
+  Loader2,
+} from 'lucide-react';
 import { toast } from 'react-toastify';
 
 export default function CommentItem({
@@ -11,6 +23,8 @@ export default function CommentItem({
   onUpdate,
   onReplySubmit,
   onLikeToggle,
+  onRetry,
+  onDiscard,
 }) {
   const [showReplyBox, setShowReplyBox] = useState(false);
   const [replyText, setReplyText] = useState('');
@@ -23,6 +37,11 @@ export default function CommentItem({
   const [editingReplyId, setEditingReplyId] = useState(null);
   const [editReplyText, setEditReplyText] = useState('');
   const [isUpdatingReply, setIsUpdatingReply] = useState(false);
+
+  // Optimistic statuses for root comment
+  const isOptimisticSending =
+    comment.status === 'sending' || (comment.isOptimistic && !comment.isFailed);
+  const isOptimisticError = comment.status === 'error' || comment.isFailed;
 
   // Check if current user has liked
   const isLiked =
@@ -40,6 +59,7 @@ export default function CommentItem({
   const canManage = isAuthor || isAdmin;
 
   const handleLikeClick = () => {
+    if (isOptimisticSending || isOptimisticError) return;
     if (!currentUser) {
       toast.info('Please sign in to like comments', { autoClose: 3000 });
       return;
@@ -48,6 +68,7 @@ export default function CommentItem({
   };
 
   const handleReplyClick = () => {
+    if (isOptimisticSending || isOptimisticError) return;
     if (!currentUser) {
       toast.info('Please sign in to reply to comments', { autoClose: 3000 });
       return;
@@ -57,20 +78,20 @@ export default function CommentItem({
 
   const handleSendReply = async (e) => {
     e.preventDefault();
-    if (!replyText.trim()) return;
+    const text = replyText.trim();
+    if (!text) return;
 
-    setIsSubmittingReply(true);
+    // Reset and collapse reply composer immediately for seamless optimistic UX
+    setReplyText('');
+    setShowReplyBox(false);
+
     try {
       await onReplySubmit({
         parentCommentId: comment._id,
-        content: replyText.trim(),
+        content: text,
       });
-      setReplyText('');
-      setShowReplyBox(false);
     } catch (err) {
-      // Handled by mutation toast
-    } finally {
-      setIsSubmittingReply(false);
+      // Handled in query cache with status: 'error' (inline retry/discard buttons)
     }
   };
 
@@ -120,7 +141,12 @@ export default function CommentItem({
     if (diffSeconds < 60) return 'Just now';
     if (diffSeconds < 3600) return `${Math.floor(diffSeconds / 60)}m`;
     if (diffSeconds < 86400) return `${Math.floor(diffSeconds / 3600)}h`;
-    return date.toLocaleDateString();
+    if (diffSeconds < 604800) return `${Math.floor(diffSeconds / 86400)}d`;
+
+    return date.toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+    });
   };
 
   const authorInitial =
@@ -151,7 +177,11 @@ export default function CommentItem({
 
         <div className="fb-bubble-wrap">
           {/* Facebook Rounded Bubble */}
-          <div className="fb-bubble">
+          <div
+            className={`fb-bubble ${isOptimisticSending ? 'is-optimistic-sending' : ''} ${
+              isOptimisticError ? 'is-optimistic-error' : ''
+            }`}
+          >
             <div className="fb-bubble-header">
               <span className="fb-author-name">
                 {comment.author?.username || 'Anonymous'}
@@ -160,7 +190,7 @@ export default function CommentItem({
                 )}
               </span>
 
-              {canManage && !isEditing && (
+              {canManage && !isEditing && !comment.isOptimistic && (
                 <div style={{ display: 'flex', gap: '0.25rem' }}>
                   {isAuthor && (
                     <button
@@ -231,35 +261,82 @@ export default function CommentItem({
 
             {/* Floating Like Count Badge */}
             {(comment.likesCount > 0 || (comment.likes && comment.likes.length > 0)) && (
-              <div className="fb-like-badge" onClick={handleLikeClick} title={`${comment.likesCount || comment.likes?.length} likes`}>
+              <div
+                className="fb-like-badge"
+                onClick={handleLikeClick}
+                title={`${comment.likesCount || comment.likes?.length} likes`}
+              >
                 <span>👍</span>
                 <span>{comment.likesCount || comment.likes?.length}</span>
               </div>
             )}
           </div>
 
-          {/* Action Bar (Like · Reply · Time) */}
-          <div className="fb-meta-bar">
-            <button
-              type="button"
-              onClick={handleLikeClick}
-              className={`fb-action-btn fb-like-btn ${isLiked ? 'active' : ''}`}
-            >
-              <ThumbsUp size={12} />
-              <span>{isLiked ? 'Liked' : 'Like'}</span>
-            </button>
+          {/* Action Bar / Status / Retry Error Bar */}
+          {isOptimisticError ? (
+            <div className="fb-optimistic-error-bar">
+              <span className="fb-error-label">
+                <AlertCircle size={12} />
+                Failed to post
+              </span>
+              <button
+                type="button"
+                onClick={() =>
+                  onRetry?.(
+                    comment.retryPayload || {
+                      postId,
+                      content: comment.content,
+                      tempId: comment._id,
+                    }
+                  )
+                }
+                className="fb-retry-btn"
+                title="Retry posting this comment"
+              >
+                <RotateCcw size={11} />
+                Retry
+              </button>
+              <button
+                type="button"
+                onClick={() => onDiscard?.(comment._id, null)}
+                className="fb-discard-btn"
+                title="Discard this failed comment"
+              >
+                <X size={11} />
+                Discard
+              </button>
+            </div>
+          ) : isOptimisticSending ? (
+            <div className="fb-meta-bar">
+              <span className="fb-optimistic-status fb-status-sending">
+                <Loader2 size={11} className="spin" />
+                Posting...
+              </span>
+            </div>
+          ) : (
+            <div className="fb-meta-bar">
+              <button
+                type="button"
+                onClick={handleLikeClick}
+                className={`fb-action-btn fb-like-btn ${isLiked ? 'active' : ''}`}
+                title={isLiked ? 'Unlike comment' : 'Like comment'}
+              >
+                <ThumbsUp size={12} />
+                <span>{isLiked ? 'Liked' : 'Like'}</span>
+              </button>
 
-            <button
-              type="button"
-              onClick={handleReplyClick}
-              className="fb-action-btn"
-            >
-              <MessageCircle size={12} />
-              <span>Reply</span>
-            </button>
+              <button
+                type="button"
+                onClick={handleReplyClick}
+                className="fb-action-btn"
+              >
+                <MessageCircle size={12} />
+                <span>Reply</span>
+              </button>
 
-            <span>{formatDate(comment.createdAt)}</span>
-          </div>
+              <span>{formatDate(comment.createdAt)}</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -279,15 +356,16 @@ export default function CommentItem({
           </div>
           <input
             type="text"
-            className="fb-inline-reply-input"
-            placeholder={`Reply to @${comment.author?.username || 'user'}...`}
+            className="fb-composer-input"
+            placeholder={`Reply to ${comment.author?.username || 'comment'}...`}
             value={replyText}
             onChange={(e) => setReplyText(e.target.value)}
+            disabled={isSubmittingReply}
             autoFocus
           />
           <button
             type="submit"
-            disabled={isSubmittingReply || !replyText.trim()}
+            disabled={!replyText.trim() || isSubmittingReply}
             className="btn btn-primary btn-sm"
             style={{ padding: '0.4rem 0.75rem', borderRadius: '16px', fontSize: '0.75rem' }}
           >
@@ -295,7 +373,10 @@ export default function CommentItem({
           </button>
           <button
             type="button"
-            onClick={() => setShowReplyBox(false)}
+            onClick={() => {
+              setShowReplyBox(false);
+              setReplyText('');
+            }}
             className="btn btn-secondary btn-sm"
             style={{ padding: '0.4rem 0.6rem', borderRadius: '16px', fontSize: '0.75rem' }}
           >
@@ -308,6 +389,10 @@ export default function CommentItem({
       {comment.replies && comment.replies.length > 0 && (
         <div className="fb-replies-list">
           {comment.replies.map((reply) => {
+            const isReplySending =
+              reply.status === 'sending' || (reply.isOptimistic && !reply.isFailed);
+            const isReplyError = reply.status === 'error' || reply.isFailed;
+
             const isReplyAuthor =
               currentUser &&
               reply.author &&
@@ -343,7 +428,12 @@ export default function CommentItem({
                 </div>
 
                 <div className="fb-bubble-wrap">
-                  <div className="fb-bubble" style={{ padding: '0.5rem 0.85rem' }}>
+                  <div
+                    className={`fb-bubble ${isReplySending ? 'is-optimistic-sending' : ''} ${
+                      isReplyError ? 'is-optimistic-error' : ''
+                    }`}
+                    style={{ padding: '0.5rem 0.85rem' }}
+                  >
                     <div className="fb-bubble-header">
                       <span className="fb-author-name" style={{ fontSize: '0.8rem' }}>
                         {reply.author?.username || 'Anonymous'}
@@ -352,7 +442,7 @@ export default function CommentItem({
                         )}
                       </span>
 
-                      {canManageReply && !isEditingThisReply && (
+                      {canManageReply && !isEditingThisReply && !reply.isOptimistic && (
                         <div style={{ display: 'flex', gap: '0.25rem' }}>
                           {isReplyAuthor && (
                             <button
@@ -429,6 +519,7 @@ export default function CommentItem({
                       <div
                         className="fb-like-badge"
                         onClick={() => {
+                          if (isReplySending || isReplyError) return;
                           if (!currentUser) {
                             toast.info('Please sign in to like replies', { autoClose: 3000 });
                             return;
@@ -443,33 +534,77 @@ export default function CommentItem({
                     )}
                   </div>
 
-                  {/* Reply Action Bar */}
-                  <div className="fb-meta-bar">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!currentUser) {
-                          toast.info('Please sign in to like replies', { autoClose: 3000 });
-                          return;
+                  {/* Reply Action Bar / Retry Bar */}
+                  {isReplyError ? (
+                    <div className="fb-optimistic-error-bar">
+                      <span className="fb-error-label">
+                        <AlertCircle size={12} />
+                        Failed to post
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onRetry?.(
+                            reply.retryPayload || {
+                              postId,
+                              parentCommentId: comment._id,
+                              content: reply.content,
+                              tempId: reply._id,
+                            }
+                          )
                         }
-                        onLikeToggle(reply._id);
-                      }}
-                      className={`fb-action-btn fb-like-btn ${isReplyLiked ? 'active' : ''}`}
-                    >
-                      <ThumbsUp size={11} />
-                      <span>{isReplyLiked ? 'Liked' : 'Like'}</span>
-                    </button>
+                        className="fb-retry-btn"
+                        title="Retry posting this reply"
+                      >
+                        <RotateCcw size={11} />
+                        Retry
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onDiscard?.(reply._id, comment._id)}
+                        className="fb-discard-btn"
+                        title="Discard this failed reply"
+                      >
+                        <X size={11} />
+                        Discard
+                      </button>
+                    </div>
+                  ) : isReplySending ? (
+                    <div className="fb-meta-bar">
+                      <span className="fb-optimistic-status fb-status-sending">
+                        <Loader2 size={10} className="spin" />
+                        Posting...
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="fb-meta-bar">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!currentUser) {
+                            toast.info('Please sign in to like replies', { autoClose: 3000 });
+                            return;
+                          }
+                          onLikeToggle(reply._id);
+                        }}
+                        className={`fb-action-btn fb-like-btn ${isReplyLiked ? 'active' : ''}`}
+                        title={isReplyLiked ? 'Unlike reply' : 'Like reply'}
+                      >
+                        <ThumbsUp size={11} />
+                        <span>{isReplyLiked ? 'Liked' : 'Like'}</span>
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={handleReplyClick}
-                      className="fb-action-btn"
-                    >
-                      <span>Reply</span>
-                    </button>
+                      <button
+                        type="button"
+                        onClick={handleReplyClick}
+                        className="fb-action-btn"
+                      >
+                        <span>Reply</span>
+                      </button>
 
-                    <span>{formatDate(reply.createdAt)}</span>
-                  </div>
+                      <span>{formatDate(reply.createdAt)}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             );

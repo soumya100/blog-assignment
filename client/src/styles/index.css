@@ -1470,6 +1470,96 @@ input:-webkit-autofill:active {
   z-index: 3;
 }
 
+/* Optimistic Comment & Reply States */
+.fb-comment-bubble.is-optimistic-sending {
+  opacity: 0.75;
+  transition: opacity 0.2s ease;
+}
+
+.fb-comment-bubble.is-optimistic-error {
+  border: 1px solid rgba(239, 68, 68, 0.45) !important;
+  background: rgba(239, 68, 68, 0.06) !important;
+}
+
+.fb-optimistic-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.725rem;
+  font-weight: 500;
+}
+
+.fb-optimistic-status.fb-status-sending {
+  color: var(--accent-primary);
+}
+
+.fb-optimistic-error-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.75rem;
+  margin-top: 0.35rem;
+  padding-left: 0.75rem;
+}
+
+.fb-error-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: #ef4444;
+  font-weight: 600;
+  font-size: 0.725rem;
+}
+
+.fb-retry-btn {
+  background: none;
+  border: none;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  color: var(--accent-primary);
+  background: rgba(59, 130, 246, 0.12);
+  font-weight: 700;
+  font-size: 0.725rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+.fb-retry-btn:hover {
+  background: rgba(59, 130, 246, 0.22);
+}
+
+.fb-discard-btn {
+  background: none;
+  border: none;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.725rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.fb-discard-btn:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
 /* Indented Nested Replies Thread */
 .fb-replies-list {
   margin-left: 2rem;

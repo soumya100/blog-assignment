@@ -32,3 +32,32 @@ export const TableRowSkeleton = ({ columns = 5 }) => {
     </tr>
   );
 };
+
+export const PageLoader = () => {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '60vh',
+        gap: '1rem',
+      }}
+    >
+      <div
+        style={{
+          width: '2.5rem',
+          height: '2.5rem',
+          border: '3px solid var(--border-subtle)',
+          borderTopColor: 'var(--accent-primary)',
+          borderRadius: '50%',
+          animation: 'spin 0.8s linear infinite',
+        }}
+      />
+      <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+        Loading page...
+      </span>
+    </div>
+  );
+};

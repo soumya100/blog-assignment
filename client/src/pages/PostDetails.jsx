@@ -16,6 +16,7 @@ import {
   useComments,
   useCreateComment,
   useLikeComment,
+  useDiscardOptimisticComment,
   useDeleteComment,
   useDeletePost,
 } from '../hooks/useBlogApi';
@@ -29,16 +30,18 @@ import {
   Tag,
   Edit3,
   Trash2,
-  Send,
-  MessageSquare,
-  ArrowLeft,
   Share2,
-  Check,
-  AlertCircle,
+  ArrowLeft,
+  Send,
+  Lock,
+  MessageSquare,
 } from 'lucide-react';
 
 const commentSchema = z.object({
-  content: z.string().min(1, 'Comment cannot be empty').max(2000, 'Comment is too long'),
+  content: z
+    .string()
+    .min(1, 'Comment cannot be empty')
+    .max(1000, 'Comment cannot exceed 1000 characters'),
 });
 
 const PostDetails = () => {
@@ -54,7 +57,8 @@ const PostDetails = () => {
 
   // TanStack Query Mutations
   const createCommentMutation = useCreateComment(post?._id);
-  const likeCommentMutation = useLikeComment();
+  const likeCommentMutation = useLikeComment(post?._id);
+  const discardOptimisticComment = useDiscardOptimisticComment(post?._id);
   const deleteCommentMutation = useDeleteComment(post?._id);
   const deletePostMutation = useDeletePost();
 
@@ -101,20 +105,43 @@ const PostDetails = () => {
 
   const onCommentSubmit = async (values) => {
     if (!post?._id) return;
-    await createCommentMutation.mutateAsync({
-      postId: post._id,
-      content: values.content.trim(),
-    });
+    const content = values.content.trim();
     reset();
+    try {
+      await createCommentMutation.mutateAsync({
+        postId: post._id,
+        content,
+      });
+    } catch (err) {
+      // Failed items remain visible in cache with status: 'error' and can be retried or discarded
+    }
   };
 
-  const onReplySubmit = async ({ parentCommentId, content }) => {
+  const onReplySubmit = async ({ parentCommentId, content, tempId }) => {
     if (!post?._id) return;
-    await createCommentMutation.mutateAsync({
-      postId: post._id,
-      parentCommentId,
-      content,
-    });
+    try {
+      await createCommentMutation.mutateAsync({
+        postId: post._id,
+        parentCommentId,
+        content: content.trim(),
+        tempId,
+      });
+    } catch (err) {
+      // Handled in mutation error state (status: 'error') with Retry/Discard options
+    }
+  };
+
+  const handleRetryComment = async (retryPayload) => {
+    if (!retryPayload) return;
+    try {
+      await createCommentMutation.mutateAsync(retryPayload);
+    } catch (err) {
+      // Will remain in status: 'error' if retry fails
+    }
+  };
+
+  const handleDiscardComment = (tempId, parentCommentId) => {
+    discardOptimisticComment(tempId, parentCommentId);
   };
 
   const handleLikeToggle = async (commentId) => {
@@ -497,6 +524,8 @@ const PostDetails = () => {
                 onUpdate={handleUpdateComment}
                 onReplySubmit={onReplySubmit}
                 onLikeToggle={handleLikeToggle}
+                onRetry={handleRetryComment}
+                onDiscard={handleDiscardComment}
               />
             ))
           )}
