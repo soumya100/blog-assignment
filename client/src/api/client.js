@@ -268,5 +268,4 @@ const apiClient = {
     request(endpoint, { method: 'DELETE', body: config.body || config.data, headers: config.headers }),
 };
 
-export { API_BASE_URL };
 export default apiClient;
