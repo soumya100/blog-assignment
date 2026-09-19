@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { X, Upload, Check, RotateCcw, Sparkles, User, AlertCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { PRESET_AVATARS, compressImageFile } from '../constants/avatars';
@@ -12,8 +11,6 @@ export default function EditProfileModal({
   onSave,
   isLoading,
 }) {
-  if (!isOpen) return null;
-
   const [bio, setBio] = useState(currentUser?.bio || '');
   const [avatar, setAvatar] = useState(currentUser?.avatar || '');
   const [activeTab, setActiveTab] = useState('preset'); // 'preset' | 'upload'
@@ -21,6 +18,15 @@ export default function EditProfileModal({
   const [dialogError, setDialogError] = useState('');
   const errorTimerRef = useRef(null);
   const fileInputRef = useRef(null);
+
+  // Sync state when modal is opened or currentUser updates
+  useEffect(() => {
+    if (isOpen) {
+      setBio(currentUser?.bio || '');
+      setAvatar(currentUser?.avatar || '');
+      setDialogError('');
+    }
+  }, [isOpen, currentUser]);
 
   const showError = (message, durationMs = 4000) => {
     if (errorTimerRef.current) {
@@ -43,6 +49,7 @@ export default function EditProfileModal({
 
   // Lock body scroll, listen for Escape, and clean up timers on unmount
   useEffect(() => {
+    if (!isOpen) return;
     document.body.style.overflow = 'hidden';
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') onClose();
@@ -56,7 +63,7 @@ export default function EditProfileModal({
         clearTimeout(errorTimerRef.current);
       }
     };
-  }, [onClose]);
+  }, [isOpen, onClose]);
 
   const usernameInitial = currentUser?.username?.charAt(0).toUpperCase() || 'U';
 
@@ -79,11 +86,21 @@ export default function EditProfileModal({
     try {
       const compressedDataUrl = await compressImageFile(file, 256, 256, 0.88);
       setAvatar(compressedDataUrl);
-      toast.info('Image loaded and optimized for avatar', { autoClose: 2000 });
+      
+      // Automatically persist the uploaded avatar and close the modal
+      await onSave({
+        bio: bio.trim(),
+        avatar: compressedDataUrl.trim(),
+      });
+      onClose();
     } catch (err) {
-      showError('Failed to process uploaded image');
+      const errorMsg = extractErrorMessage(err, 'Failed to upload and save image. Please try again.');
+      showError(errorMsg);
     } finally {
       setIsProcessingFile(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -106,6 +123,7 @@ export default function EditProfileModal({
         bio: bio.trim(),
         avatar: avatar.trim(),
       });
+      onClose();
     } catch (err) {
       const errorMsg = extractErrorMessage(err, 'Failed to update profile. Please try again.');
       showError(errorMsg);
@@ -117,7 +135,9 @@ export default function EditProfileModal({
   const isCustomUploaded = avatar && avatar.startsWith('data:image');
   const isPresetAvatar = avatar && !avatar.startsWith('data:image');
 
-  return createPortal(
+  if (!isOpen) return null;
+
+  return (
     <div className="modal-overlay" onClick={onClose} style={{ zIndex: 9999 }}>
       <div
         className="modal-content"
@@ -396,10 +416,10 @@ export default function EditProfileModal({
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={isProcessingFile}
+                  disabled={isProcessingFile || isLoading}
                   className="btn btn-secondary btn-sm"
                 >
-                  {isProcessingFile ? 'Optimizing Image...' : 'Browse Local Files'}
+                  {isProcessingFile || isLoading ? 'Uploading & Saving Photo...' : 'Browse Local Files'}
                 </button>
               </div>
             )}
@@ -507,7 +527,6 @@ export default function EditProfileModal({
           </div>
         </form>
       </div>
-    </div>,
-    document.body
+    </div>
   );
 }

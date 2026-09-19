@@ -38,7 +38,8 @@ const PostManagement = () => {
   };
 
   return (
-    <div className="card" style={{ padding: '2rem' }}>
+    <>
+      <div className="card" style={{ padding: '2rem' }}>
       <div
         style={{
           display: 'flex',
@@ -173,22 +174,23 @@ const PostManagement = () => {
         onPageChange={(newPage) => setPage(newPage)}
         itemLabel="articles"
       />
-
-      <ConfirmModal
-        isOpen={deleteModalOpen}
-        title="Soft Delete Article"
-        message={`Are you sure you want to delete "${selectedPost?.title}"? You can restore it at any time from this panel.`}
-        confirmText="Confirm Delete"
-        isDanger={true}
-        isLoading={actionLoading}
-        onConfirm={handleDeleteConfirm}
-        onCancel={() => {
-          setDeleteModalOpen(false);
-          setSelectedPost(null);
-        }}
-      />
     </div>
-  );
+
+    <ConfirmModal
+      isOpen={deleteModalOpen}
+      title="Soft Delete Article"
+      message={`Are you sure you want to delete "${selectedPost?.title}"? You can restore it at any time from this panel.`}
+      confirmText="Confirm Delete"
+      isDanger={true}
+      isLoading={actionLoading}
+      onConfirm={handleDeleteConfirm}
+      onCancel={() => {
+        setDeleteModalOpen(false);
+        setSelectedPost(null);
+      }}
+    />
+  </>
+);
 };
 
 export default PostManagement;

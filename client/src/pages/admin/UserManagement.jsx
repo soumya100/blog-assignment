@@ -59,7 +59,8 @@ const UserManagement = () => {
   };
 
   return (
-    <div className="card" style={{ padding: '2rem' }}>
+    <>
+      <div className="card" style={{ padding: '2rem' }}>
       <div
         style={{
           display: 'flex',
@@ -213,22 +214,23 @@ const UserManagement = () => {
         onPageChange={(newPage) => setPage(newPage)}
         itemLabel="users"
       />
-
-      <ConfirmModal
-        isOpen={deleteModalOpen}
-        title="Delete User Account"
-        message={`Are you sure you want to permanently delete user "${selectedUser?.username}"? Their active refresh tokens will be terminated and their posts soft-deleted.`}
-        confirmText="Confirm Deletion"
-        isDanger={true}
-        isLoading={actionLoading}
-        onConfirm={handleDeleteConfirm}
-        onCancel={() => {
-          setDeleteModalOpen(false);
-          setSelectedUser(null);
-        }}
-      />
     </div>
-  );
+
+    <ConfirmModal
+      isOpen={deleteModalOpen}
+      title="Delete User Account"
+      message={`Are you sure you want to permanently delete user "${selectedUser?.username}"? Their active refresh tokens will be terminated and their posts soft-deleted.`}
+      confirmText="Confirm Deletion"
+      isDanger={true}
+      isLoading={actionLoading}
+      onConfirm={handleDeleteConfirm}
+      onCancel={() => {
+        setDeleteModalOpen(false);
+        setSelectedUser(null);
+      }}
+    />
+  </>
+);
 };
 
 export default UserManagement;

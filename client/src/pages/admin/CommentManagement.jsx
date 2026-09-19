@@ -30,7 +30,8 @@ const CommentManagement = () => {
   };
 
   return (
-    <div className="card" style={{ padding: '2rem' }}>
+    <>
+      <div className="card" style={{ padding: '2rem' }}>
       <div style={{ marginBottom: '1.75rem' }}>
         <h2 style={{ fontSize: '1.25rem' }}>Comment Moderation</h2>
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
@@ -115,22 +116,23 @@ const CommentManagement = () => {
         onPageChange={(newPage) => setPage(newPage)}
         itemLabel="comments"
       />
-
-      <ConfirmModal
-        isOpen={deleteModalOpen}
-        title="Delete Inappropriate Comment"
-        message="Are you sure you want to remove this comment as an administrator?"
-        confirmText="Confirm Delete"
-        isDanger={true}
-        isLoading={actionLoading}
-        onConfirm={handleDeleteConfirm}
-        onCancel={() => {
-          setDeleteModalOpen(false);
-          setSelectedComment(null);
-        }}
-      />
     </div>
-  );
+
+    <ConfirmModal
+      isOpen={deleteModalOpen}
+      title="Delete Inappropriate Comment"
+      message="Are you sure you want to remove this comment as an administrator?"
+      confirmText="Confirm Delete"
+      isDanger={true}
+      isLoading={actionLoading}
+      onConfirm={handleDeleteConfirm}
+      onCancel={() => {
+        setDeleteModalOpen(false);
+        setSelectedComment(null);
+      }}
+    />
+  </>
+);
 };
 
 export default CommentManagement;

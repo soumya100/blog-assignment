@@ -205,6 +205,7 @@ const PostDetails = () => {
   }
 
   const isPostAuthor = user && post.author && (user._id === post.author._id || user._id === post.author);
+  const isAuthor = isPostAuthor;
   const canManagePost = isPostAuthor || isAdmin;
 
   return (
@@ -336,10 +337,10 @@ const PostDetails = () => {
                   }}
                   className="btn btn-danger btn-sm"
                   disabled={deletePostMutation.isPending}
-                  title={isAdmin && !isAuthor ? 'Moderate / Soft-Delete Article (Admin)' : 'Delete Article'}
+                  title={isAdmin && !isPostAuthor ? 'Moderate / Soft-Delete Article (Admin)' : 'Delete Article'}
                 >
                   <Trash2 size={14} />
-                  {isAdmin && !isAuthor ? 'Delete (Admin)' : 'Delete'}
+                  {isAdmin && !isPostAuthor ? 'Delete (Admin)' : 'Delete'}
                 </button>
               </>
             )}
