@@ -1,11 +1,13 @@
-﻿# Render.com Infrastructure as Code
+# Render.com Infrastructure as Code Blueprint
 # Docs: https://render.com/docs/yaml-spec
 
 services:
+  # ─────────────────────────────────────────────────────────────
+  # 1. Backend Web Service (Node.js / Express / Socket.io)
+  # ─────────────────────────────────────────────────────────────
   - type: web
     name: devlog-api
     runtime: node
-    region: singapore
     plan: free
     rootDir: server
     buildCommand: npm install
@@ -15,21 +17,36 @@ services:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: 5000
-      # --- Set these in the Render dashboard (sensitive values) ---
-      # MONGODB_URI
-      # JWT_ACCESS_SECRET
-      # JWT_REFRESH_SECRET
-      # JWT_ACCESS_EXPIRES_IN   -> 15m
-      # JWT_REFRESH_EXPIRES_IN  -> 7d
-      # COOKIE_SECRET
-      # CLIENT_URL              -> https://your-project.vercel.app
-      # ADMIN_EMAIL
-      # ADMIN_PASSWORD
-      # ADMIN_USERNAME
-      # SMTP_HOST               -> smtp.gmail.com
-      # SMTP_PORT               -> 587
-      # SMTP_SECURE             -> false
-      # SMTP_USER
-      # SMTP_PASSWORD           -> 16-char Gmail App Password
-      # SMTP_FROM               -> "DevLog" <your@gmail.com>
+        value: 10000
+      - key: JWT_ACCESS_EXPIRES_IN
+        value: 15m
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 7d
+      # Set these in the Render Dashboard under Environment:
+      # MONGODB_URI: (MongoDB Atlas Connection URI)
+      # JWT_ACCESS_SECRET: (Min 32 characters)
+      # JWT_REFRESH_SECRET: (Min 32 characters)
+      # COOKIE_SECRET: (Min 32 characters)
+      # CLIENT_URL: https://<frontend-subdomain>.onrender.com
+      # ADMIN_EMAIL: admin@blogplatform.dev
+      # ADMIN_PASSWORD: (Your secure admin password)
+
+  # ─────────────────────────────────────────────────────────────
+  # 2. Frontend Static Site (React / Vite SPA)
+  # ─────────────────────────────────────────────────────────────
+  - type: web
+    name: devlog-client
+    runtime: static
+    rootDir: client
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: NODE_VERSION
+        value: 18
+      # Set these in the Render Dashboard under Environment:
+      # VITE_API_URL: https://<backend-subdomain>.onrender.com/api/v1
+      # VITE_SOCKET_URL: https://<backend-subdomain>.onrender.com
