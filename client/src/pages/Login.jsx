@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { toast } from 'react-toastify';
 import { useAuth } from '../context/AuthContext';
 import { extractErrorMessage } from '../hooks/useApi';
+import { API_BASE_URL } from '../api/client';
 import {
   Lock,
   Mail,
@@ -356,7 +357,7 @@ const Login = () => {
           {/* Social Logins */}
           <div className="auth-oauth-group">
             <a
-              href="/api/v1/auth/google"
+              href={`${API_BASE_URL}/auth/google`}
               className="auth-oauth-btn"
             >
               <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
@@ -369,7 +370,7 @@ const Login = () => {
             </a>
 
             <a
-              href="/api/v1/auth/facebook"
+              href={`${API_BASE_URL}/auth/facebook`}
               className="auth-oauth-btn"
             >
               <svg width="17" height="17" viewBox="0 0 24 24" fill="#1877F2">
