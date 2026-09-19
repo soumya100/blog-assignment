@@ -13,10 +13,11 @@ const setAuthCookies = (res, { accessToken, refreshToken }) => {
     res.cookie(REFRESH_COOKIE_NAME, refreshToken, {
       httpOnly: true,
       secure: isProduction,
-      sameSite: isProduction ? 'strict' : 'lax',
+      // 'none' required for cross-domain cookies (Vercel frontend <-> Render backend)
+      // 'none' must always be paired with secure:true (enforced above)
+      sameSite: isProduction ? 'none' : 'lax',
       path: '/',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      domain: env.COOKIE_DOMAIN || undefined,
     });
   }
 
@@ -24,10 +25,9 @@ const setAuthCookies = (res, { accessToken, refreshToken }) => {
     res.cookie(ACCESS_COOKIE_NAME, accessToken, {
       httpOnly: true,
       secure: isProduction,
-      sameSite: isProduction ? 'strict' : 'lax',
+      sameSite: isProduction ? 'none' : 'lax',
       path: '/',
       maxAge: 15 * 60 * 1000, // 15 minutes
-      domain: env.COOKIE_DOMAIN || undefined,
     });
   }
 };
@@ -37,9 +37,8 @@ const clearAuthCookies = (res) => {
   const cookieOptions = {
     httpOnly: true,
     secure: isProduction,
-    sameSite: isProduction ? 'strict' : 'lax',
+    sameSite: isProduction ? 'none' : 'lax',
     path: '/',
-    domain: env.COOKIE_DOMAIN || undefined,
   };
 
   res.clearCookie(ACCESS_COOKIE_NAME, cookieOptions);

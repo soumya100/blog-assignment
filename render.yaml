@@ -1,0 +1,35 @@
+﻿# Render.com Infrastructure as Code
+# Docs: https://render.com/docs/yaml-spec
+
+services:
+  - type: web
+    name: devlog-api
+    runtime: node
+    region: singapore
+    plan: free
+    rootDir: server
+    buildCommand: npm install
+    startCommand: node src/server.js
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      # --- Set these in the Render dashboard (sensitive values) ---
+      # MONGODB_URI
+      # JWT_ACCESS_SECRET
+      # JWT_REFRESH_SECRET
+      # JWT_ACCESS_EXPIRES_IN   -> 15m
+      # JWT_REFRESH_EXPIRES_IN  -> 7d
+      # COOKIE_SECRET
+      # CLIENT_URL              -> https://your-project.vercel.app
+      # ADMIN_EMAIL
+      # ADMIN_PASSWORD
+      # ADMIN_USERNAME
+      # SMTP_HOST               -> smtp.gmail.com
+      # SMTP_PORT               -> 587
+      # SMTP_SECURE             -> false
+      # SMTP_USER
+      # SMTP_PASSWORD           -> 16-char Gmail App Password
+      # SMTP_FROM               -> "DevLog" <your@gmail.com>
