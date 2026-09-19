@@ -15,6 +15,10 @@ export const SocketProvider = ({ children }) => {
   const socketRef = useRef(null);
 
   useEffect(() => {
+    // Socket.io requires a persistent server — not available on Vercel serverless.
+    // Skip connection entirely in production; REST API still works normally.
+    if (import.meta.env.PROD) return;
+
     // Only connect to socket when user is authenticated
     if (!isAuthenticated) {
       // Cleanup any existing socket when user logs out
