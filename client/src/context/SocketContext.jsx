@@ -31,12 +31,13 @@ export const SocketProvider = ({ children }) => {
       return;
     }
 
-    // If VITE_SOCKET_URL is set, use it; otherwise use same-origin (proxied via Vite ws proxy) or localhost:5000
     const socketServerUrl =
       import.meta.env.VITE_SOCKET_URL ||
-      (typeof window !== 'undefined' && window.location.port === '5173'
-        ? window.location.origin
-        : 'http://localhost:5000');
+      (typeof window !== 'undefined' && window.location.hostname.includes('onrender.com')
+        ? 'https://blog-assignment-ds1d.onrender.com'
+        : (typeof window !== 'undefined' && window.location.port === '5173'
+            ? window.location.origin
+            : 'http://localhost:5000'));
 
     // Use default reliable transport order (polling -> websocket upgrade)
     const newSocket = io(socketServerUrl, {

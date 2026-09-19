@@ -13,7 +13,9 @@
 
 export const API_BASE_URL =
   import.meta.env.VITE_API_URL ||
-  (typeof window !== 'undefined' ? '/api/v1' : 'http://localhost:5000/api/v1');
+  (typeof window !== 'undefined' && window.location.hostname.includes('onrender.com')
+    ? 'https://blog-assignment-ds1d.onrender.com/api/v1'
+    : (typeof window !== 'undefined' ? '/api/v1' : 'http://localhost:5000/api/v1'));
 
 // ─── Custom API Error ───────────────────────────────────────
 export class ApiError extends Error {
