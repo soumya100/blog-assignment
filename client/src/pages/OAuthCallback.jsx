@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import apiClient from '../api/client';
+import apiClient, { setInMemoryToken } from '../api/client';
 
 const OAuthCallback = () => {
   const [searchParams] = useSearchParams();
@@ -20,17 +20,16 @@ const OAuthCallback = () => {
       }
 
       if (token) {
-        localStorage.setItem('accessToken', token);
-        try {
-          const res = await apiClient.get('/auth/me');
-          const userData = res.data?.user || res.data?.data?.user || res.data;
-          localStorage.setItem('user', JSON.stringify(userData));
-          window.location.href = '/';
-        } catch (err) {
-          console.error('Failed to load profile after OAuth callback:', err);
-          navigate('/login');
-        }
-      } else {
+        setInMemoryToken(token);
+      }
+
+      try {
+        // HttpOnly cookies were already established by the server before the callback redirect.
+        // Fetch profile to verify session Authoritatively and populate memory state
+        await apiClient.get('/auth/me');
+        window.location.href = '/';
+      } catch (err) {
+        console.error('Failed to verify session after OAuth callback:', err);
         navigate('/login');
       }
     };

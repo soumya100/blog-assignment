@@ -3,11 +3,15 @@ const { z } = require('zod');
 const registerSchema = z.object({
   username: z
     .string({ required_error: 'Username is required' })
+    .trim()
+    .toLowerCase()
     .min(3, 'Username must be at least 3 characters')
     .max(30, 'Username cannot exceed 30 characters')
     .regex(/^[a-zA-Z0-9_]+$/, 'Username can only contain letters, numbers, and underscores'),
   email: z
     .string({ required_error: 'Email is required' })
+    .trim()
+    .toLowerCase()
     .email('Please provide a valid email address')
     .max(100, 'Email cannot exceed 100 characters'),
   password: z
@@ -23,6 +27,8 @@ const registerSchema = z.object({
 const loginSchema = z.object({
   email: z
     .string({ required_error: 'Email is required' })
+    .trim()
+    .toLowerCase()
     .email('Please provide a valid email address'),
   password: z
     .string({ required_error: 'Password is required' })
@@ -31,7 +37,7 @@ const loginSchema = z.object({
 
 const oauthDevSchema = z.object({
   provider: z.enum(['google', 'facebook']),
-  email: z.string().email(),
+  email: z.string().trim().toLowerCase().email(),
   name: z.string().min(1),
   avatar: z.string().optional(),
 });
@@ -39,6 +45,8 @@ const oauthDevSchema = z.object({
 const forgotPasswordSchema = z.object({
   email: z
     .string({ required_error: 'Email is required' })
+    .trim()
+    .toLowerCase()
     .email('Please provide a valid email address'),
 });
 
@@ -56,10 +64,18 @@ const resetPasswordSchema = z.object({
 const verifyOtpSchema = z.object({
   email: z
     .string({ required_error: 'Email is required' })
+    .trim()
+    .toLowerCase()
     .email('Please provide a valid email address'),
   otp: z
     .string({ required_error: 'OTP code is required' })
+    .trim()
     .regex(/^\d{6}$/, 'OTP must be a 6-digit numeric code'),
+});
+
+const updateProfileSchema = z.object({
+  bio: z.string().max(250, 'Bio cannot exceed 250 characters').optional().nullable(),
+  avatar: z.string().max(3000000, 'Avatar payload exceeds limit').optional().nullable(),
 });
 
 module.exports = {
@@ -69,4 +85,5 @@ module.exports = {
   forgotPasswordSchema,
   resetPasswordSchema,
   verifyOtpSchema,
+  updateProfileSchema,
 };

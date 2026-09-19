@@ -5,32 +5,100 @@ const logger = require('./logger');
 let cachedTransporter = null;
 
 /**
+ * HTML entity escaping for user input interpolation into email templates
+ */
+const escapeHtml = (unsafe) => {
+  if (!unsafe) return '';
+  return String(unsafe)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
+
+/**
+ * Mask email address for safe diagnostic logging
+ */
+const maskEmail = (email) => {
+  if (!email || !email.includes('@')) return '***';
+  const [local, domain] = email.split('@');
+  const maskedLocal = local.length <= 2 ? `${local[0]}*` : `${local.slice(0, 2)}***${local.slice(-1)}`;
+  return `${maskedLocal}@${domain}`;
+};
+
+/**
  * Obtain or create a real SMTP nodemailer transporter.
- * If production SMTP credentials exist in env, uses them.
- * Otherwise, provisions a real Ethereal SMTP test account on the fly.
+ * If SMTP credentials exist in env, uses them (supporting Gmail and custom SMTP hosts).
+ * Otherwise, provisions an Ethereal SMTP sandbox account in dev/test, or throws in production.
  */
 const getTransporter = async () => {
   if (cachedTransporter) {
     return cachedTransporter;
   }
 
-  if (env.SMTP_HOST && env.SMTP_USER) {
-    logger.info(`Configuring custom SMTP transport via ${env.SMTP_HOST}:${env.SMTP_PORT}`);
-    cachedTransporter = nodemailer.createTransport({
-      host: env.SMTP_HOST,
-      port: env.SMTP_PORT,
-      secure: env.SMTP_SECURE,
-      auth: {
-        user: env.SMTP_USER,
-        pass: env.SMTP_PASS,
-      },
-    });
-    return cachedTransporter;
+  const emailUser = env.EMAIL_USER || env.SMTP_USER;
+  const emailPass = env.EMAIL_PASS || env.SMTP_PASS;
+
+  if (emailUser && emailPass) {
+    const cleanPass = emailPass.replace(/\s+/g, ''); // Strip spaces from Google App Passwords
+    const isGmail =
+      emailUser.toLowerCase().includes('@gmail.com') ||
+      (env.SMTP_HOST && env.SMTP_HOST.toLowerCase().includes('gmail.com')) ||
+      env.SMTP_SERVICE === 'gmail';
+
+    // 1. Explicit SMTP Host Configuration (e.g. smtp.gmail.com with custom port/secure settings)
+    if (env.SMTP_HOST) {
+      const port = env.SMTP_PORT || (env.SMTP_SECURE ? 465 : 587);
+      const secure = env.SMTP_SECURE !== undefined ? env.SMTP_SECURE : port === 465;
+
+      logger.info(`[EmailService] Configuring SMTP transport: ${env.SMTP_HOST}:${port} (secure: ${secure}, user: ${maskEmail(emailUser)})`);
+      cachedTransporter = nodemailer.createTransport({
+        host: env.SMTP_HOST,
+        port,
+        secure,
+        auth: {
+          user: emailUser,
+          pass: cleanPass,
+        },
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 15000,
+      });
+      return cachedTransporter;
+    }
+
+    // 2. Built-in Gmail Service Transport (defaulting to port 465 / SSL)
+    if (isGmail) {
+      logger.info(`[EmailService] Configuring Gmail service for ${maskEmail(emailUser)}`);
+      cachedTransporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: emailUser,
+          pass: cleanPass,
+        },
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 15000,
+      });
+      return cachedTransporter;
+    }
   }
+
+  // In production, failure to configure real SMTP is fatal
+  if (env.NODE_ENV === 'production') {
+    const error = new Error('SMTP credentials are not configured in production environment.');
+    logger.error(`[EmailService] ${error.message}`);
+    throw error;
+  }
+
+  // Development / Test fallback: Ethereal Sandbox
+  logger.warn('[EmailService] NOTICE: Real SMTP credentials (SMTP_USER / SMTP_PASSWORD) not configured in .env.');
+  logger.warn('[EmailService] Falling back to Ethereal sandbox test account. EMAILS WILL NOT BE DELIVERED TO REAL GMAIL INBOXES.');
 
   try {
     const testAccount = await nodemailer.createTestAccount();
-    logger.info(`[EmailService] Generated live Ethereal SMTP account: ${testAccount.user}`);
+    logger.info(`[EmailService] Generated live Ethereal sandbox account: ${testAccount.user}`);
     cachedTransporter = nodemailer.createTransport({
       host: 'smtp.ethereal.email',
       port: 587,
@@ -51,12 +119,30 @@ const getTransporter = async () => {
 };
 
 /**
+ * Reset cached transporter (useful for testing and configuration changes)
+ */
+const resetTransporter = () => {
+  cachedTransporter = null;
+};
+
+/**
+ * Verify current email transport connection and authentication
+ */
+const verifyEmailTransport = async () => {
+  const transporter = await getTransporter();
+  return transporter.verify();
+};
+
+/**
  * Send Password Recovery Email containing 6-digit OTP code & 1-click Magic Link
  */
 const sendPasswordRecoveryEmail = async ({ to, otp, resetUrl, username }) => {
   try {
     const transporter = await getTransporter();
-    const fromAddress = env.EMAIL_FROM || '"DevLog Security" <security@blogplatform.dev>';
+    const emailUser = env.EMAIL_USER || env.SMTP_USER;
+    const fromAddress = env.EMAIL_FROM || env.SMTP_FROM || (emailUser ? `"DevLog Security" <${emailUser}>` : '"DevLog Security" <security@blogplatform.dev>');
+
+    const safeUsername = escapeHtml(username) || 'Developer';
 
     const htmlContent = `
 <!DOCTYPE html>
@@ -98,7 +184,7 @@ const sendPasswordRecoveryEmail = async ({ to, otp, resetUrl, username }) => {
                 Account Recovery Verification
               </h1>
               <p style="margin: 0 0 24px 0; font-size: 14px; line-height: 1.6; color: #94a3b8;">
-                Hello <strong style="color: #f1f5f9;">${username || 'Developer'}</strong>,<br>
+                Hello <strong style="color: #f1f5f9;">${safeUsername}</strong>,<br>
                 We received a request to access your DevLog account. Enter the 6-digit one-time passcode below into the verification prompt:
               </p>
 
@@ -161,9 +247,9 @@ const sendPasswordRecoveryEmail = async ({ to, otp, resetUrl, username }) => {
     });
 
     const previewUrl = nodemailer.getTestMessageUrl(info);
-    logger.info(`[EmailService] Recovery email dispatched to ${to} (MessageId: ${info.messageId})`);
+    logger.info(`[EmailService] Recovery email dispatched to ${maskEmail(to)} (MessageId: ${info.messageId})`);
     if (previewUrl) {
-      logger.info(`[EmailService] Live Real Email Web Inbox Link: ${previewUrl}`);
+      logger.info(`[EmailService] Ethereal Development Sandbox Link: ${previewUrl}`);
     }
 
     return {
@@ -172,7 +258,7 @@ const sendPasswordRecoveryEmail = async ({ to, otp, resetUrl, username }) => {
       previewUrl: previewUrl || null,
     };
   } catch (err) {
-    logger.error(`[EmailService] Failed to send email to ${to}: ${err.message}`);
+    logger.error(`[EmailService] Failed to send email to ${maskEmail(to)}: ${err.message}`);
     throw err;
   }
 };
@@ -180,4 +266,7 @@ const sendPasswordRecoveryEmail = async ({ to, otp, resetUrl, username }) => {
 module.exports = {
   sendPasswordRecoveryEmail,
   getTransporter,
+  resetTransporter,
+  verifyEmailTransport,
+  maskEmail,
 };

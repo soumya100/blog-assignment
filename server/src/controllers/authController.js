@@ -2,28 +2,56 @@ const authService = require('../services/authService');
 const { successResponse, errorResponse } = require('../utils/apiResponse');
 const env = require('../config/env');
 
-const COOKIE_NAME = 'refreshToken';
+const ACCESS_COOKIE_NAME = 'accessToken';
+const REFRESH_COOKIE_NAME = 'refreshToken';
+const COOKIE_NAME = REFRESH_COOKIE_NAME;
 
-const setRefreshTokenCookie = (res, token) => {
+const setAuthCookies = (res, { accessToken, refreshToken }) => {
   const isProduction = env.NODE_ENV === 'production';
-  res.cookie(COOKIE_NAME, token, {
+
+  if (refreshToken) {
+    res.cookie(REFRESH_COOKIE_NAME, refreshToken, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'strict' : 'lax',
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      domain: env.COOKIE_DOMAIN || undefined,
+    });
+  }
+
+  if (accessToken) {
+    res.cookie(ACCESS_COOKIE_NAME, accessToken, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'strict' : 'lax',
+      path: '/',
+      maxAge: 15 * 60 * 1000, // 15 minutes
+      domain: env.COOKIE_DOMAIN || undefined,
+    });
+  }
+};
+
+const clearAuthCookies = (res) => {
+  const isProduction = env.NODE_ENV === 'production';
+  const cookieOptions = {
     httpOnly: true,
     secure: isProduction,
     sameSite: isProduction ? 'strict' : 'lax',
     path: '/',
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     domain: env.COOKIE_DOMAIN || undefined,
-  });
+  };
+
+  res.clearCookie(ACCESS_COOKIE_NAME, cookieOptions);
+  res.clearCookie(REFRESH_COOKIE_NAME, cookieOptions);
+};
+
+const setRefreshTokenCookie = (res, token) => {
+  setAuthCookies(res, { refreshToken: token });
 };
 
 const clearRefreshTokenCookie = (res) => {
-  res.clearCookie(COOKIE_NAME, {
-    httpOnly: true,
-    secure: env.NODE_ENV === 'production',
-    sameSite: env.NODE_ENV === 'production' ? 'strict' : 'lax',
-    path: '/',
-    domain: env.COOKIE_DOMAIN || undefined,
-  });
+  clearAuthCookies(res);
 };
 
 const register = async (req, res, next) => {
@@ -31,7 +59,10 @@ const register = async (req, res, next) => {
     const { username, email, password } = req.body;
     const result = await authService.register({ username, email, password, req });
 
-    setRefreshTokenCookie(res, result.refreshToken);
+    setAuthCookies(res, {
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+    });
 
     return successResponse(res, 201, 'Registration successful', {
       user: result.user,
@@ -48,7 +79,10 @@ const login = async (req, res, next) => {
     const { email, password } = req.body;
     const result = await authService.login({ email, password, req });
 
-    setRefreshTokenCookie(res, result.refreshToken);
+    setAuthCookies(res, {
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+    });
 
     return successResponse(res, 200, 'Login successful', {
       user: result.user,
@@ -62,13 +96,16 @@ const login = async (req, res, next) => {
 
 const refresh = async (req, res, next) => {
   try {
-    const incomingRefreshToken = req.cookies[COOKIE_NAME] || req.body.refreshToken;
+    const incomingRefreshToken = req.cookies[REFRESH_COOKIE_NAME] || req.cookies[COOKIE_NAME] || req.body.refreshToken;
     if (!incomingRefreshToken) {
       return errorResponse(res, 401, 'Refresh token not found in cookies or request body', null, 'REFRESH_TOKEN_REQUIRED');
     }
 
     const result = await authService.refresh({ incomingRefreshToken, req });
-    setRefreshTokenCookie(res, result.refreshToken);
+    setAuthCookies(res, {
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+    });
 
     return successResponse(res, 200, 'Token refreshed successfully', {
       accessToken: result.accessToken,
@@ -76,28 +113,71 @@ const refresh = async (req, res, next) => {
       user: result.user,
     });
   } catch (err) {
-    clearRefreshTokenCookie(res);
+    clearAuthCookies(res);
     next(err);
   }
 };
 
 const logout = async (req, res, next) => {
   try {
-    const incomingRefreshToken = req.cookies[COOKIE_NAME] || req.body.refreshToken;
+    const incomingRefreshToken = req.cookies[REFRESH_COOKIE_NAME] || req.cookies[COOKIE_NAME] || req.body.refreshToken;
     await authService.logout({ incomingRefreshToken, req });
-    clearRefreshTokenCookie(res);
+    clearAuthCookies(res);
 
     return successResponse(res, 200, 'Logged out successfully');
   } catch (err) {
-    clearRefreshTokenCookie(res);
+    clearAuthCookies(res);
+    next(err);
+  }
+};
+
+const revoke = async (req, res, next) => {
+  try {
+    const incomingRefreshToken = req.cookies[REFRESH_COOKIE_NAME] || req.cookies[COOKIE_NAME] || req.body.refreshToken || req.body.token;
+    if (!incomingRefreshToken) {
+      return errorResponse(res, 400, 'Refresh token required for revocation', null, 'TOKEN_REQUIRED');
+    }
+
+    await authService.revokeToken({ incomingRefreshToken, req });
+    clearAuthCookies(res);
+
+    return successResponse(res, 200, 'Token revoked successfully');
+  } catch (err) {
+    clearAuthCookies(res);
     next(err);
   }
 };
 
 const getMe = async (req, res) => {
+  const token =
+    (req.cookies && req.cookies.accessToken) ||
+    (req.signedCookies && req.signedCookies.accessToken) ||
+    (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')
+      ? req.headers.authorization.split(' ')[1]
+      : null);
+
   return successResponse(res, 200, 'User profile retrieved', {
     user: req.user.toSafeObject(),
+    accessToken: token,
   });
+};
+
+const updateProfile = async (req, res, next) => {
+  try {
+    const { bio, avatar } = req.body;
+    const user = await authService.updateProfile({
+      userId: req.user._id,
+      bio,
+      avatar,
+      req,
+    });
+
+    return successResponse(res, 200, 'Profile updated successfully', {
+      user,
+    });
+  } catch (err) {
+    next(err);
+  }
 };
 
 /**
@@ -117,7 +197,10 @@ const oauthDevLogin = async (req, res, next) => {
       req,
     });
 
-    setRefreshTokenCookie(res, result.refreshToken);
+    setAuthCookies(res, {
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+    });
 
     return successResponse(res, 200, `${provider} authentication successful`, {
       user: result.user,
@@ -209,7 +292,10 @@ const googleCallback = async (req, res, next) => {
       req,
     });
 
-    setRefreshTokenCookie(res, result.refreshToken);
+    setAuthCookies(res, {
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+    });
     return res.redirect(`${env.CLIENT_URL}/oauth/callback?token=${result.accessToken}`);
   } catch (err) {
     next(err);
@@ -238,7 +324,7 @@ const facebookAuth = (req, res) => {
     client_id: env.FACEBOOK_CLIENT_ID,
     redirect_uri: env.FACEBOOK_CALLBACK_URL,
     state,
-    scope: 'email,public_profile',
+    scope: env.FACEBOOK_SCOPE || 'public_profile',
     response_type: 'code',
   });
 
@@ -297,7 +383,10 @@ const facebookCallback = async (req, res, next) => {
       req,
     });
 
-    setRefreshTokenCookie(res, result.refreshToken);
+    setAuthCookies(res, {
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+    });
     return res.redirect(`${env.CLIENT_URL}/oauth/callback?token=${result.accessToken}`);
   } catch (err) {
     next(err);
@@ -309,10 +398,14 @@ const forgotPassword = async (req, res, next) => {
     const { email } = req.body;
     const result = await authService.requestPasswordReset({ email, req });
 
-    return successResponse(res, 200, result.message, {
-      resetUrl: result.resetUrl,
+    const responseData = {
       previewUrl: result.previewUrl,
-    });
+    };
+    if (env.NODE_ENV === 'test') {
+      responseData.resetUrl = result.resetUrl;
+    }
+
+    return successResponse(res, 200, result.message, responseData);
   } catch (err) {
     next(err);
   }
@@ -346,7 +439,7 @@ const resetPassword = async (req, res, next) => {
       req,
     });
 
-    clearRefreshTokenCookie(res);
+    clearAuthCookies(res);
 
     return successResponse(res, 200, result.message);
   } catch (err) {
@@ -359,7 +452,9 @@ module.exports = {
   login,
   refresh,
   logout,
+  revoke,
   getMe,
+  updateProfile,
   oauthDevLogin,
   googleAuth,
   googleCallback,

@@ -1,7 +1,15 @@
 const express = require('express');
 const authController = require('../controllers/authController');
 const validate = require('../middleware/validate');
-const { registerSchema, loginSchema, oauthDevSchema, forgotPasswordSchema, resetPasswordSchema, verifyOtpSchema } = require('../validators/authValidator');
+const {
+  registerSchema,
+  loginSchema,
+  oauthDevSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+  verifyOtpSchema,
+  updateProfileSchema,
+} = require('../validators/authValidator');
 const { authLimiter } = require('../middleware/rateLimiter');
 const { requireAuth } = require('../middleware/auth');
 
@@ -12,12 +20,14 @@ router.post('/register', authLimiter, validate(registerSchema), authController.r
 router.post('/login', authLimiter, validate(loginSchema), authController.login);
 router.post('/refresh', authLimiter, authController.refresh);
 router.post('/logout', authController.logout);
+router.post('/revoke', authLimiter, authController.revoke);
 router.post('/forgot-password', authLimiter, validate(forgotPasswordSchema), authController.forgotPassword);
 router.post('/verify-otp', authLimiter, validate(verifyOtpSchema), authController.verifyOtp);
 router.post('/reset-password/:token', validate(resetPasswordSchema), authController.resetPassword);
 
-// Current user profile
+// Current user profile & account updates
 router.get('/me', requireAuth, authController.getMe);
+router.patch('/profile', requireAuth, validate(updateProfileSchema), authController.updateProfile);
 
 // Live Google OAuth 2.0 endpoints
 router.get('/google', authController.googleAuth);

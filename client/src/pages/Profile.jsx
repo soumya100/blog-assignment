@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
-import { User, Shield, Mail, Calendar, Edit3, Trash2, BookOpen } from 'lucide-react';
+import { User, Shield, Mail, Calendar, Edit3, Trash2, BookOpen, Camera, Plus } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
-import { usePosts, useDeletePost } from '../hooks/useBlogApi';
+import EditProfileModal from '../components/EditProfileModal';
+import { usePosts, useDeletePost, useUpdateProfile } from '../hooks/useBlogApi';
 
 const Profile = () => {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState(null);
+  const [editProfileOpen, setEditProfileOpen] = useState(false);
 
   // TanStack Query server data store
   const { data, isLoading: loading } = usePosts({
@@ -17,8 +19,18 @@ const Profile = () => {
   });
   const myPosts = data?.posts || [];
 
-  // TanStack Query Delete Mutation with auto-dismissing toast
+  // TanStack Query Mutations with auto-dismissing toast
   const deletePostMutation = useDeletePost();
+  const updateProfileMutation = useUpdateProfile({ errorToast: false });
+
+  const handleSaveProfile = async (profileData) => {
+    const res = await updateProfileMutation.mutateAsync(profileData);
+    const updatedUser = res?.data?.user || res?.data;
+    if (updatedUser) {
+      updateUser(updatedUser);
+    }
+    setEditProfileOpen(false);
+  };
 
   const handleDeletePost = async () => {
     if (!selectedPostId) return;
@@ -41,31 +53,100 @@ const Profile = () => {
           flexWrap: 'wrap',
         }}
       >
+        {/* Clickable Profile Avatar with Edit Badge */}
         <div
-          style={{
-            width: '5rem',
-            height: '5rem',
-            borderRadius: 'var(--radius-full)',
-            background: 'linear-gradient(135deg, var(--accent-primary), #6366f1)',
-            color: '#ffffff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '2rem',
-            fontWeight: 700,
-          }}
+          style={{ position: 'relative', cursor: 'pointer' }}
+          onClick={() => setEditProfileOpen(true)}
+          title="Click to customize profile picture or avatar"
         >
-          {user?.username?.charAt(0).toUpperCase() || 'U'}
+          <div
+            style={{
+              width: '5.25rem',
+              height: '5.25rem',
+              borderRadius: '50%',
+              overflow: 'hidden',
+              background: 'linear-gradient(135deg, var(--accent-primary), #6366f1)',
+              color: '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '2rem',
+              fontWeight: 700,
+              boxShadow: '0 4px 16px rgba(59, 130, 246, 0.35)',
+              border: '2px solid rgba(255, 255, 255, 0.15)',
+              transition: 'transform 0.2s ease',
+            }}
+          >
+            {user?.avatar ? (
+              <img
+                src={user.avatar}
+                alt={user.username}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            ) : (
+              user?.username?.charAt(0).toUpperCase() || 'U'
+            )}
+          </div>
+          <div
+            style={{
+              position: 'absolute',
+              bottom: '-2px',
+              right: '-2px',
+              background: 'var(--accent-primary)',
+              color: '#ffffff',
+              borderRadius: '50%',
+              width: '1.65rem',
+              height: '1.65rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: '2px solid var(--bg-surface)',
+              boxShadow: '0 2px 6px rgba(0, 0, 0, 0.4)',
+            }}
+            title="Update photo or avatar"
+          >
+            <Camera size={11} />
+          </div>
         </div>
 
-        <div style={{ flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
-            <h1 style={{ fontSize: '1.75rem' }}>{user?.username}</h1>
-            <span
-              className={`badge ${user?.role === 'ADMIN' ? 'badge-primary' : 'badge-success'}`}
+        <div style={{ flex: 1, minWidth: '240px' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '0.75rem',
+              marginBottom: '0.5rem',
+              flexWrap: 'wrap',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <h1 style={{ fontSize: '1.75rem' }}>{user?.username}</h1>
+              <span
+                className={`badge ${user?.role === 'ADMIN' ? 'badge-primary' : 'badge-success'}`}
+              >
+                {user?.role === 'ADMIN' ? 'Administrator' : 'Standard Author'}
+              </span>
+            </div>
+
+            {/* Edit Profile Action Button */}
+            <button
+              type="button"
+              onClick={() => setEditProfileOpen(true)}
+              className="btn btn-secondary btn-sm"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                padding: '0.35rem 0.85rem',
+                fontSize: '0.8rem',
+                borderRadius: 'var(--radius-sm)',
+              }}
+              title="Edit bio description and profile avatar"
             >
-              {user?.role === 'ADMIN' ? 'Administrator' : 'Standard Author'}
-            </span>
+              <Edit3 size={13} />
+              <span>Edit Profile</span>
+            </button>
           </div>
 
           <div
@@ -86,10 +167,40 @@ const Profile = () => {
               Member since {new Date(user?.createdAt || Date.now()).toLocaleDateString()}
             </div>
           </div>
-          {user?.bio && (
-            <p style={{ marginTop: '0.75rem', color: 'var(--text-primary)', fontSize: '0.9rem' }}>
+
+          {/* User Bio / Description */}
+          {user?.bio ? (
+            <p
+              style={{
+                marginTop: '0.85rem',
+                color: 'var(--text-primary)',
+                fontSize: '0.925rem',
+                lineHeight: 1.6,
+                maxWidth: '680px',
+              }}
+            >
               {user.bio}
             </p>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setEditProfileOpen(true)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--accent-primary)',
+                fontSize: '0.85rem',
+                marginTop: '0.75rem',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                padding: 0,
+                fontWeight: 500,
+              }}
+            >
+              <Plus size={14} /> Add a description or bio about yourself
+            </button>
           )}
         </div>
       </div>
@@ -181,11 +292,24 @@ const Profile = () => {
       <ConfirmModal
         isOpen={deleteModalOpen}
         title="Delete Article"
-        message="Are you sure you want to delete this article? This action soft-deletes it."
+        message={
+          user?.role === 'ADMIN'
+            ? 'Are you sure you want to delete this article? As an administrator, it will be soft-deleted and you can restore it at any time from the Admin Panel.'
+            : 'Are you sure you want to delete this article? It will be soft-deleted and can be recovered by an administrator.'
+        }
         confirmText="Delete"
         isDanger={true}
         onConfirm={handleDeletePost}
         onCancel={() => setDeleteModalOpen(false)}
+      />
+
+      {/* Edit Profile Modal (Avatar Photo / Presets & Bio) */}
+      <EditProfileModal
+        isOpen={editProfileOpen}
+        onClose={() => setEditProfileOpen(false)}
+        currentUser={user}
+        onSave={handleSaveProfile}
+        isLoading={updateProfileMutation.isPending}
       />
     </div>
   );

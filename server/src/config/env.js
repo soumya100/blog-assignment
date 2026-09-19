@@ -35,19 +35,24 @@ const env = {
   FACEBOOK_CLIENT_ID: process.env.FACEBOOK_CLIENT_ID || '',
   FACEBOOK_CLIENT_SECRET: process.env.FACEBOOK_CLIENT_SECRET || '',
   FACEBOOK_CALLBACK_URL: process.env.FACEBOOK_CALLBACK_URL || 'http://localhost:5000/api/v1/auth/facebook/callback',
+  FACEBOOK_SCOPE: process.env.FACEBOOK_SCOPE || 'public_profile',
 
   // Admin seed defaults
   ADMIN_EMAIL: process.env.ADMIN_EMAIL || 'admin@blogplatform.dev',
   ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || 'AdminSecurePass123!',
   ADMIN_USERNAME: process.env.ADMIN_USERNAME || 'systemadmin',
 
-  // SMTP Email Configuration
-  SMTP_HOST: process.env.SMTP_HOST || '',
-  SMTP_PORT: parseInt(process.env.SMTP_PORT || '587', 10),
-  SMTP_SECURE: process.env.SMTP_SECURE === 'true',
-  SMTP_USER: process.env.SMTP_USER || '',
-  SMTP_PASS: process.env.SMTP_PASS || '',
-  EMAIL_FROM: process.env.EMAIL_FROM || 'DevLog Security <security@blogplatform.dev>',
+  // SMTP / Gmail Email Configuration
+  SMTP_HOST: process.env.SMTP_HOST || process.env.MAIL_HOST || process.env.EMAIL_HOST || '',
+  SMTP_PORT: parseInt(process.env.SMTP_PORT || process.env.MAIL_PORT || process.env.EMAIL_PORT || '587', 10),
+  SMTP_SECURE: process.env.SMTP_SECURE === 'true' || process.env.MAIL_SECURE === 'true',
+  SMTP_SERVICE: process.env.SMTP_SERVICE || '',
+  SMTP_USER: process.env.SMTP_USER || process.env.EMAIL_USER || process.env.MAIL_USER || '',
+  SMTP_PASS: process.env.SMTP_PASS || process.env.SMTP_PASSWORD || process.env.EMAIL_PASS || process.env.EMAIL_PASSWORD || process.env.MAIL_PASS || process.env.MAIL_PASSWORD || '',
+  EMAIL_USER: process.env.EMAIL_USER || process.env.SMTP_USER || process.env.MAIL_USER || '',
+  EMAIL_PASS: process.env.EMAIL_PASS || process.env.EMAIL_PASSWORD || process.env.SMTP_PASS || process.env.SMTP_PASSWORD || process.env.MAIL_PASS || process.env.MAIL_PASSWORD || '',
+  SMTP_FROM: process.env.SMTP_FROM || process.env.EMAIL_FROM || process.env.MAIL_FROM || '',
+  EMAIL_FROM: process.env.EMAIL_FROM || process.env.SMTP_FROM || process.env.MAIL_FROM || '',
 };
 
 module.exports = env;

@@ -4,16 +4,31 @@ const { errorResponse } = require('../utils/apiResponse');
 const { USER_STATUS, ROLES } = require('../constants/roles');
 
 /**
- * Require valid JWT access token in Authorization header
+ * Extract access token from HttpOnly cookie or Authorization header
+ */
+const extractAccessToken = (req) => {
+  if (req.cookies && req.cookies.accessToken) {
+    return req.cookies.accessToken;
+  }
+  if (req.signedCookies && req.signedCookies.accessToken) {
+    return req.signedCookies.accessToken;
+  }
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authHeader.split(' ')[1];
+  }
+  return null;
+};
+
+/**
+ * Require valid JWT access token from HttpOnly cookie or Authorization header
  */
 const requireAuth = async (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const token = extractAccessToken(req);
+    if (!token) {
       return errorResponse(res, 401, 'Authentication token missing or malformed', null, 'UNAUTHORIZED');
     }
-
-    const token = authHeader.split(' ')[1];
     let decoded;
     try {
       decoded = verifyAccessToken(token);
@@ -103,9 +118,8 @@ const requireOwnership = (Model, idParamName = 'id', authorFieldName = 'author')
  */
 const optionalAuth = async (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.split(' ')[1];
+    const token = extractAccessToken(req);
+    if (token) {
       try {
         const decoded = verifyAccessToken(token);
         const user = await User.findById(decoded.sub);

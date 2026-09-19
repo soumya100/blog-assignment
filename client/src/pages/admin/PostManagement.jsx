@@ -171,6 +171,7 @@ const PostManagement = () => {
       <Pagination
         pagination={pagination}
         onPageChange={(newPage) => setPage(newPage)}
+        itemLabel="articles"
       />
 
       <ConfirmModal

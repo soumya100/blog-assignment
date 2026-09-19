@@ -113,6 +113,7 @@ const CommentManagement = () => {
       <Pagination
         pagination={pagination}
         onPageChange={(newPage) => setPage(newPage)}
+        itemLabel="comments"
       />
 
       <ConfirmModal

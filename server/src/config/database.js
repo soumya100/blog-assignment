@@ -1,6 +1,14 @@
 const mongoose = require('mongoose');
+const dns = require('dns');
 const env = require('./env');
 const logger = require('../utils/logger');
+
+// Prevent querySrv ETIMEOUT on Windows / ISPs that drop DNS SRV queries
+try {
+  dns.setServers(['8.8.8.8', '1.1.1.1', '8.8.4.4']);
+} catch (dnsErr) {
+  // Fallback to default system resolver if custom DNS cannot be configured
+}
 
 let mongoMemoryServer = null;
 

@@ -9,7 +9,8 @@
     "seed": "node src/scripts/seed.js",
     "test": "jest --runInBand --detectOpenHandles",
     "test:watch": "jest --watch",
-    "test:security": "jest tests/security --runInBand --detectOpenHandles"
+    "test:security": "jest tests/security --runInBand --detectOpenHandles",
+    "test:email": "node src/scripts/testEmail.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

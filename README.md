@@ -95,7 +95,7 @@ Request -> Helmet/CORS -> RateLimiter -> NoSQL Sanitizer -> Router -> Zod Valida
 companyvlog-assignment/
 ├── client/                     # Vite + React 18 Single Page Application
 │   ├── src/
-│   │   ├── api/                # Axios client with transparent token refresh queue
+│   │   ├── api/                # Custom Fetch API client with transparent token refresh queue
 │   │   ├── components/         # Navbar, Footer, Modal, Skeleton, Pagination, Toast
 │   │   ├── context/            # AuthContext, ThemeContext, SocketContext
 │   │   ├── pages/              # Home, PostDetails, CreateEditPost, Login, Register, Profile

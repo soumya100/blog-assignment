@@ -199,17 +199,64 @@ const startServer = async () => {
   }
 };
 
-// Graceful Shutdown
+// Graceful Shutdown Management
+let isShuttingDown = false;
+
 const handleShutdown = async (signal) => {
-  logger.info(`Received ${signal}. Shutting down gracefully...`);
-  server.close(async () => {
+  if (isShuttingDown) {
+    logger.warn('Repeated termination signal received. Forcing immediate exit.');
+    process.exit(1);
+  }
+  isShuttingDown = true;
+  logger.info(`Received ${signal}. Starting graceful shutdown...`);
+
+  // Failsafe: Force termination if teardown exceeds 10 seconds
+  const forceTimeout = setTimeout(() => {
+    logger.error('Graceful shutdown timed out after 10s. Forcing exit.');
+    process.exit(1);
+  }, 10000);
+  forceTimeout.unref();
+
+  try {
+    // 1. Close Socket.io server to cleanly disconnect WebSocket clients
+    if (io) {
+      logger.info('Closing Socket.io server...');
+      await new Promise((resolve) => io.close(resolve));
+    }
+
+    // 2. Stop accepting new HTTP requests and finish in-flight requests
+    await new Promise((resolve, reject) => {
+      server.close((err) => {
+        if (err) return reject(err);
+        resolve();
+      });
+    });
+    logger.info('HTTP server closed.');
+
+    // 3. Cleanly disconnect MongoDB and stop embedded engine if running
     await disconnectDB();
+
+    clearTimeout(forceTimeout);
+    logger.info('Graceful shutdown completed. Exiting process.');
     process.exit(0);
-  });
+  } catch (err) {
+    logger.error(`Error during graceful shutdown: ${err.message}`);
+    clearTimeout(forceTimeout);
+    process.exit(1);
+  }
 };
 
 process.on('SIGTERM', () => handleShutdown('SIGTERM'));
 process.on('SIGINT', () => handleShutdown('SIGINT'));
+
+process.on('unhandledRejection', (reason) => {
+  logger.error('Unhandled Promise Rejection:', { reason: reason?.message || reason });
+});
+
+process.on('uncaughtException', (err) => {
+  logger.error(`Uncaught Exception: ${err.message}`, { stack: err.stack });
+  handleShutdown('uncaughtException');
+});
 
 if (require.main === module) {
   startServer();

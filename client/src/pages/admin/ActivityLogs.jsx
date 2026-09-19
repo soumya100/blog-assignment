@@ -75,6 +75,7 @@ const ActivityLogs = () => {
       <Pagination
         pagination={pagination}
         onPageChange={(newPage) => setPage(newPage)}
+        itemLabel="audit entries"
       />
     </div>
   );

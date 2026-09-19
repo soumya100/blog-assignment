@@ -256,8 +256,8 @@ const PostDetails = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <div
                 style={{
-                  width: '2rem',
-                  height: '2rem',
+                  width: '2.15rem',
+                  height: '2.15rem',
                   borderRadius: 'var(--radius-full)',
                   background: 'var(--bg-elevated)',
                   border: '1px solid var(--border-subtle)',
@@ -267,9 +267,18 @@ const PostDetails = () => {
                   fontSize: '0.875rem',
                   fontWeight: 600,
                   color: 'var(--accent-primary)',
+                  overflow: 'hidden',
                 }}
               >
-                {post.author?.username?.charAt(0).toUpperCase() || 'U'}
+                {post.author?.avatar ? (
+                  <img
+                    src={post.author.avatar}
+                    alt={post.author.username || ''}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                ) : (
+                  post.author?.username?.charAt(0).toUpperCase() || 'U'
+                )}
               </div>
               <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>
                 {post.author?.username || 'Unknown Author'}
@@ -327,9 +336,10 @@ const PostDetails = () => {
                   }}
                   className="btn btn-danger btn-sm"
                   disabled={deletePostMutation.isPending}
+                  title={isAdmin && !isAuthor ? 'Moderate / Soft-Delete Article (Admin)' : 'Delete Article'}
                 >
                   <Trash2 size={14} />
-                  Delete
+                  {isAdmin && !isAuthor ? 'Delete (Admin)' : 'Delete'}
                 </button>
               </>
             )}
@@ -366,20 +376,30 @@ const PostDetails = () => {
         >
           <div
             style={{
-              width: '3.5rem',
-              height: '3.5rem',
+              width: '3.75rem',
+              height: '3.75rem',
               borderRadius: 'var(--radius-full)',
               background: 'linear-gradient(135deg, var(--accent-primary), #6366f1)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               color: '#ffffff',
-              fontSize: '1.25rem',
+              fontSize: '1.35rem',
               fontWeight: 700,
               flexShrink: 0,
+              overflow: 'hidden',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
             }}
           >
-            {post.author.username.charAt(0).toUpperCase()}
+            {post.author.avatar ? (
+              <img
+                src={post.author.avatar}
+                alt={post.author.username}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            ) : (
+              post.author.username.charAt(0).toUpperCase()
+            )}
           </div>
           <div>
             <h4 style={{ fontSize: '1rem', marginBottom: '0.25rem' }}>About {post.author.username}</h4>
@@ -462,8 +482,8 @@ const PostDetails = () => {
                 postId={post._id}
                 currentUser={user}
                 isAdmin={isAdmin}
-                onDelete={(id) => {
-                  setDeleteTarget({ type: 'comment', id });
+                onDelete={(id, isCommentAuthor) => {
+                  setDeleteTarget({ type: 'comment', id, isAuthor: isCommentAuthor });
                   setDeleteModalOpen(true);
                 }}
                 onUpdate={handleUpdateComment}
@@ -483,13 +503,31 @@ const PostDetails = () => {
           setDeleteTarget(null);
         }}
         onConfirm={confirmDeleteAction}
-        title={deleteTarget?.type === 'post' ? 'Delete Blog Article' : 'Delete Comment'}
+        title={
+          deleteTarget?.type === 'post'
+            ? isAdmin && !isAuthor
+              ? 'Moderate & Soft-Delete Article (Admin)'
+              : 'Delete Blog Article'
+            : isAdmin && deleteTarget?.isAuthor === false
+            ? 'Moderate Comment (Admin)'
+            : 'Delete Comment'
+        }
         message={
           deleteTarget?.type === 'post'
-            ? 'Are you sure you want to delete this article? It will be soft-deleted and can be recovered by an administrator.'
-            : 'Are you sure you want to permanently delete this comment?'
+            ? isAdmin
+              ? !isAuthor
+                ? 'Are you sure you want to delete this article as an administrator? It will be soft-deleted and you can restore it at any time from the Admin Panel.'
+                : 'Are you sure you want to delete your article? As an administrator, it will be soft-deleted and you can restore it at any time from the Admin Panel.'
+              : 'Are you sure you want to delete this article? It will be soft-deleted and can be recovered by an administrator.'
+            : isAdmin && deleteTarget?.isAuthor === false
+            ? 'Are you sure you want to remove this comment as an administrator?'
+            : 'Are you sure you want to delete this comment?'
         }
-        confirmText="Confirm Delete"
+        confirmText={
+          isAdmin && (deleteTarget?.type === 'post' ? !isAuthor : deleteTarget?.isAuthor === false)
+            ? 'Delete as Admin'
+            : 'Confirm Delete'
+        }
         isDanger
         isLoading={deletePostMutation.isPending || deleteCommentMutation.isPending}
       />

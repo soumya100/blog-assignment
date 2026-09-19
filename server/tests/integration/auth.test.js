@@ -151,5 +151,111 @@ describe('Authentication Integration Tests', () => {
     expect(userInDb).toBeDefined();
     expect(userInDb.facebookId).toBeDefined();
   });
+
+  test('GET /api/v1/auth/me - authenticates via HttpOnly accessToken cookie without Authorization header', async () => {
+    const regRes = await request(app).post('/api/v1/auth/register').send(validUser);
+    const cookies = regRes.headers['set-cookie'];
+    const accessCookie = cookies.find((c) => c.startsWith('accessToken='));
+    expect(accessCookie).toBeDefined();
+    expect(accessCookie).toMatch(/HttpOnly/i);
+
+    // Send request with only Cookie header
+    const meRes = await request(app)
+      .get('/api/v1/auth/me')
+      .set('Cookie', [accessCookie]);
+
+    expect(meRes.statusCode).toBe(200);
+    expect(meRes.body.success).toBe(true);
+    expect(meRes.body.data.user.email).toBe(validUser.email);
+  });
+
+  test('POST /api/v1/auth/logout - revokes refresh token in database and clears auth cookies', async () => {
+    const regRes = await request(app).post('/api/v1/auth/register').send(validUser);
+    const refreshToken = regRes.body.data.refreshToken;
+    const cookies = regRes.headers['set-cookie'];
+    const refreshCookie = cookies.find((c) => c.startsWith('refreshToken='));
+
+    // Check token is active in DB before logout
+    const { hashToken } = require('../../src/utils/jwt');
+    const tokenRecordBefore = await RefreshToken.findOne({ tokenHash: hashToken(refreshToken) });
+    expect(tokenRecordBefore.isRevoked).toBe(false);
+
+    // Call logout sending the refresh cookie
+    const logoutRes = await request(app)
+      .post('/api/v1/auth/logout')
+      .set('Cookie', [refreshCookie]);
+
+    expect(logoutRes.statusCode).toBe(200);
+    expect(logoutRes.body.success).toBe(true);
+
+    // Verify token is marked revoked in DB
+    const tokenRecordAfter = await RefreshToken.findOne({ tokenHash: hashToken(refreshToken) });
+    expect(tokenRecordAfter.isRevoked).toBe(true);
+    expect(tokenRecordAfter.revokedAt).toBeDefined();
+
+    // Verify cookies are cleared (max-age=0 or expires in the past)
+    const clearCookies = logoutRes.headers['set-cookie'];
+    expect(clearCookies).toBeDefined();
+    expect(clearCookies.some((c) => c.startsWith('accessToken=;') || c.includes('accessToken=;'))).toBe(true);
+    expect(clearCookies.some((c) => c.startsWith('refreshToken=;') || c.includes('refreshToken=;'))).toBe(true);
+  });
+
+  test('POST /api/v1/auth/revoke - revokes refresh token and prevents further rotation', async () => {
+    const regRes = await request(app).post('/api/v1/auth/register').send(validUser);
+    const initialRefreshToken = regRes.body.data.refreshToken;
+    const { hashToken } = require('../../src/utils/jwt');
+
+    // Call /revoke endpoint
+    const revokeRes = await request(app)
+      .post('/api/v1/auth/revoke')
+      .send({ refreshToken: initialRefreshToken });
+
+    expect(revokeRes.statusCode).toBe(200);
+    expect(revokeRes.body.success).toBe(true);
+
+    // Verify revoked in DB
+    const tokenRecord = await RefreshToken.findOne({ tokenHash: hashToken(initialRefreshToken) });
+    expect(tokenRecord.isRevoked).toBe(true);
+
+    // Attempting to refresh with the revoked token must trigger reuse detection
+    const refreshRes = await request(app)
+      .post('/api/v1/auth/refresh')
+      .send({ refreshToken: initialRefreshToken });
+
+    expect(refreshRes.statusCode).toBe(403);
+    expect(refreshRes.body.error.code).toBe('TOKEN_REUSE_DETECTED');
+  });
+
+  test('PATCH /api/v1/auth/profile - updates user bio and avatar successfully', async () => {
+    const regRes = await request(app).post('/api/v1/auth/register').send(validUser);
+    const token = regRes.body.data.accessToken;
+
+    const updateRes = await request(app)
+      .patch('/api/v1/auth/profile')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        bio: 'Full-stack software engineer interested in distributed architectures.',
+        avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=CyberBot',
+      });
+
+    expect(updateRes.statusCode).toBe(200);
+    expect(updateRes.body.success).toBe(true);
+    expect(updateRes.body.data.user.bio).toBe('Full-stack software engineer interested in distributed architectures.');
+    expect(updateRes.body.data.user.avatar).toBe('https://api.dicebear.com/7.x/bottts/svg?seed=CyberBot');
+
+    // Verify persisted in DB
+    const dbUser = await User.findById(regRes.body.data.user._id);
+    expect(dbUser.bio).toBe('Full-stack software engineer interested in distributed architectures.');
+    expect(dbUser.avatar).toBe('https://api.dicebear.com/7.x/bottts/svg?seed=CyberBot');
+  });
+
+  test('PATCH /api/v1/auth/profile - rejects unauthenticated profile update with 401', async () => {
+    const res = await request(app)
+      .patch('/api/v1/auth/profile')
+      .send({ bio: 'Hacker bio' });
+
+    expect(res.statusCode).toBe(401);
+  });
 });
+
 

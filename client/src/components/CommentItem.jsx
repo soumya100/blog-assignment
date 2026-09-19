@@ -20,6 +20,10 @@ export default function CommentItem({
   const [editText, setEditText] = useState(comment.content);
   const [isUpdating, setIsUpdating] = useState(false);
 
+  const [editingReplyId, setEditingReplyId] = useState(null);
+  const [editReplyText, setEditReplyText] = useState('');
+  const [isUpdatingReply, setIsUpdatingReply] = useState(false);
+
   // Check if current user has liked
   const isLiked =
     currentUser &&
@@ -29,7 +33,10 @@ export default function CommentItem({
   const isAuthor =
     currentUser &&
     comment.author &&
-    (currentUser._id === comment.author._id || currentUser._id === comment.author);
+    (
+      (comment.author._id && currentUser._id?.toString() === comment.author._id?.toString()) ||
+      currentUser._id?.toString() === comment.author?.toString()
+    );
   const canManage = isAuthor || isAdmin;
 
   const handleLikeClick = () => {
@@ -80,6 +87,30 @@ export default function CommentItem({
     }
   };
 
+  const handleStartEditReply = (reply) => {
+    setEditingReplyId(reply._id);
+    setEditReplyText(reply.content);
+  };
+
+  const handleCancelEditReply = () => {
+    setEditingReplyId(null);
+    setEditReplyText('');
+  };
+
+  const handleSaveEditReply = async (replyId) => {
+    if (!editReplyText.trim()) return;
+    setIsUpdatingReply(true);
+    try {
+      await onUpdate(replyId, editReplyText.trim());
+      setEditingReplyId(null);
+      setEditReplyText('');
+    } catch (err) {
+      // Handled by caller
+    } finally {
+      setIsUpdatingReply(false);
+    }
+  };
+
   const formatDate = (dateStr) => {
     if (!dateStr) return '';
     const date = new Date(dateStr);
@@ -106,8 +137,16 @@ export default function CommentItem({
     <div className="fb-comment-item">
       {/* Root Comment Row */}
       <div className="fb-comment-root">
-        <div className="fb-avatar" title={comment.author?.username}>
-          {authorInitial}
+        <div className="fb-avatar" title={comment.author?.username} style={{ overflow: 'hidden' }}>
+          {comment.author?.avatar ? (
+            <img
+              src={comment.author.avatar}
+              alt=""
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          ) : (
+            authorInitial
+          )}
         </div>
 
         <div className="fb-bubble-wrap">
@@ -141,7 +180,7 @@ export default function CommentItem({
                   )}
                   <button
                     type="button"
-                    onClick={() => onDelete(comment._id)}
+                    onClick={() => onDelete(comment._id, isAuthor)}
                     style={{
                       background: 'none',
                       border: 'none',
@@ -149,7 +188,7 @@ export default function CommentItem({
                       cursor: 'pointer',
                       padding: '2px',
                     }}
-                    title="Delete"
+                    title={isAdmin && !isAuthor ? 'Moderate / Delete (Admin)' : 'Delete'}
                   >
                     <Trash2 size={12} />
                   </button>
@@ -227,8 +266,16 @@ export default function CommentItem({
       {/* Inline Reply Composer */}
       {showReplyBox && (
         <form onSubmit={handleSendReply} className="fb-inline-reply-box">
-          <div className="fb-avatar fb-avatar-sm">
-            {userInitial}
+          <div className="fb-avatar fb-avatar-sm" style={{ overflow: 'hidden' }}>
+            {currentUser?.avatar ? (
+              <img
+                src={currentUser.avatar}
+                alt=""
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            ) : (
+              userInitial
+            )}
           </div>
           <input
             type="text"
@@ -264,8 +311,12 @@ export default function CommentItem({
             const isReplyAuthor =
               currentUser &&
               reply.author &&
-              (currentUser._id === reply.author._id || currentUser._id === reply.author);
+              (
+                (reply.author._id && currentUser._id?.toString() === reply.author._id?.toString()) ||
+                currentUser._id?.toString() === reply.author?.toString()
+              );
             const canManageReply = isReplyAuthor || isAdmin;
+            const isEditingThisReply = editingReplyId === reply._id;
 
             const isReplyLiked =
               currentUser &&
@@ -279,8 +330,16 @@ export default function CommentItem({
 
             return (
               <div key={reply._id} className="fb-comment-root">
-                <div className="fb-avatar fb-avatar-sm" title={reply.author?.username}>
-                  {replyAuthorInitial}
+                <div className="fb-avatar fb-avatar-sm" title={reply.author?.username} style={{ overflow: 'hidden' }}>
+                  {reply.author?.avatar ? (
+                    <img
+                      src={reply.author.avatar}
+                      alt=""
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  ) : (
+                    replyAuthorInitial
+                  )}
                 </div>
 
                 <div className="fb-bubble-wrap">
@@ -293,27 +352,77 @@ export default function CommentItem({
                         )}
                       </span>
 
-                      {canManageReply && (
-                        <button
-                          type="button"
-                          onClick={() => onDelete(reply._id)}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: 'var(--text-muted)',
-                            cursor: 'pointer',
-                            padding: '2px',
-                          }}
-                          title="Delete Reply"
-                        >
-                          <Trash2 size={11} />
-                        </button>
+                      {canManageReply && !isEditingThisReply && (
+                        <div style={{ display: 'flex', gap: '0.25rem' }}>
+                          {isReplyAuthor && (
+                            <button
+                              type="button"
+                              onClick={() => handleStartEditReply(reply)}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: 'var(--text-muted)',
+                                cursor: 'pointer',
+                                padding: '2px',
+                              }}
+                              title="Edit Reply"
+                            >
+                              <Edit3 size={11} />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => onDelete(reply._id, isReplyAuthor)}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: 'var(--text-muted)',
+                              cursor: 'pointer',
+                              padding: '2px',
+                            }}
+                            title={isAdmin && !isReplyAuthor ? 'Moderate / Delete (Admin)' : 'Delete Reply'}
+                          >
+                            <Trash2 size={11} />
+                          </button>
+                        </div>
                       )}
                     </div>
 
-                    <div className="fb-comment-text" style={{ fontSize: '0.825rem' }}>
-                      {reply.content}
-                    </div>
+                    {isEditingThisReply ? (
+                      <div style={{ marginTop: '0.35rem' }}>
+                        <textarea
+                          className="fb-composer-input"
+                          rows={2}
+                          value={editReplyText}
+                          onChange={(e) => setEditReplyText(e.target.value)}
+                          style={{ minHeight: '50px', padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
+                          autoFocus
+                        />
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.4rem', marginTop: '0.35rem' }}>
+                          <button
+                            type="button"
+                            onClick={handleCancelEditReply}
+                            className="btn btn-secondary btn-sm"
+                            style={{ padding: '0.15rem 0.45rem', fontSize: '0.7rem' }}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSaveEditReply(reply._id)}
+                            disabled={isUpdatingReply}
+                            className="btn btn-primary btn-sm"
+                            style={{ padding: '0.15rem 0.55rem', fontSize: '0.7rem' }}
+                          >
+                            {isUpdatingReply ? 'Saving...' : 'Save'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="fb-comment-text" style={{ fontSize: '0.825rem' }}>
+                        {reply.content}
+                      </div>
+                    )}
 
                     {/* Floating Like Count Badge for Reply */}
                     {(reply.likesCount > 0 || (reply.likes && reply.likes.length > 0)) && (

@@ -328,6 +328,7 @@ const Home = () => {
         <Pagination
           pagination={pagination}
           onPageChange={(newPage) => setPage(newPage)}
+          itemLabel="articles"
         />
       </div>
     </div>

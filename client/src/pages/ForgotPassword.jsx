@@ -158,12 +158,14 @@ const ForgotPassword = () => {
 
   // STEP 1 SUBMIT: Request OTP
   const onEmailSubmit = async (values) => {
-    const targetEmail = values.email.trim();
+    const targetEmail = values.email.trim().toLowerCase();
     try {
       const res = await forgotPasswordMutation.mutateAsync({ email: targetEmail });
       setEmail(targetEmail);
       if (res.data?.previewUrl) {
         setPreviewUrl(res.data.previewUrl);
+      } else {
+        setPreviewUrl(null);
       }
       setTimeLeft(600);
       setResendCooldown(60);
@@ -172,7 +174,7 @@ const ForgotPassword = () => {
       setStep(2);
       toast.success('Recovery code dispatched to your email!', { autoClose: 3500 });
     } catch (err) {
-      toast.error(extractErrorMessage(err, 'Failed to request recovery code'), { autoClose: 4000 });
+      toast.error(extractErrorMessage(err, 'Unable to send password recovery email. Please check your email configuration or try again.'), { autoClose: 5000 });
     }
   };
 
@@ -265,9 +267,12 @@ const ForgotPassword = () => {
   const handleResendOtp = async () => {
     if (resendCooldown > 0) return;
     try {
-      const res = await forgotPasswordMutation.mutateAsync({ email });
+      const normalizedEmail = (email || '').trim().toLowerCase();
+      const res = await forgotPasswordMutation.mutateAsync({ email: normalizedEmail });
       if (res.data?.previewUrl) {
         setPreviewUrl(res.data.previewUrl);
+      } else {
+        setPreviewUrl(null);
       }
       setTimeLeft(600);
       setResendCooldown(60);
@@ -276,7 +281,7 @@ const ForgotPassword = () => {
       toast.success('A fresh 6-digit recovery code has been sent!', { autoClose: 3500 });
       otpInputRefs.current[0]?.focus();
     } catch (err) {
-      toast.error(extractErrorMessage(err, 'Failed to resend code'), { autoClose: 4000 });
+      toast.error(extractErrorMessage(err, 'Unable to resend recovery code. Please try again.'), { autoClose: 4000 });
     }
   };
 
@@ -484,7 +489,7 @@ const ForgotPassword = () => {
                 </p>
               </div>
 
-              {/* Real Email Inbox Notification */}
+              {/* Development Sandbox Preview Notification */}
               {previewUrl && (
                 <div
                   style={{
@@ -502,7 +507,7 @@ const ForgotPassword = () => {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <Mail size={16} style={{ color: 'var(--accent-primary)', flexShrink: 0 }} />
                     <span style={{ fontSize: '0.8rem', color: 'var(--text-primary)' }}>
-                      Real email delivered via SMTP!
+                      Dev Sandbox Preview (Ethereal Mail):
                     </span>
                   </div>
                   <a
@@ -513,7 +518,7 @@ const ForgotPassword = () => {
                     style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', padding: '0.25rem 0.6rem' }}
                   >
                     <ExternalLink size={12} />
-                    Open Real Inbox
+                    View Sandbox Email
                   </a>
                 </div>
               )}

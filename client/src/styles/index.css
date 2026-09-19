@@ -82,6 +82,74 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition: background-color 0.2s ease, color 0.2s ease;
+  /* Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(59, 130, 246, 0.4) transparent;
+}
+
+/* =====================================================
+   PREMIUM SCROLLBAR — WebKit (Chrome, Edge, Safari)
+   ===================================================== */
+
+/* Track */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: var(--radius-full);
+}
+
+/* Thumb default */
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    rgba(59, 130, 246, 0.55) 0%,
+    rgba(99, 102, 241, 0.55) 100%
+  );
+  border-radius: var(--radius-full);
+  transition: background 0.25s ease, box-shadow 0.25s ease;
+  box-shadow: 0 0 6px rgba(59, 130, 246, 0.3);
+}
+
+/* Thumb hover — brighter glow */
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(
+    180deg,
+    rgba(59, 130, 246, 0.85) 0%,
+    rgba(99, 102, 241, 0.85) 100%
+  );
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+}
+
+/* Corner piece */
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Light theme overrides */
+[data-theme='light'] body {
+  scrollbar-color: rgba(37, 99, 235, 0.35) transparent;
+}
+
+[data-theme='light'] ::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    rgba(37, 99, 235, 0.45) 0%,
+    rgba(79, 70, 229, 0.45) 100%
+  );
+  box-shadow: 0 0 6px rgba(37, 99, 235, 0.2);
+}
+
+[data-theme='light'] ::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(
+    180deg,
+    rgba(37, 99, 235, 0.75) 0%,
+    rgba(79, 70, 229, 0.75) 100%
+  );
+  box-shadow: 0 0 10px rgba(37, 99, 235, 0.35);
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -307,16 +375,24 @@ a:hover {
   }
 }
 
-/* Modal Backdrop */
-.modal-overlay {
+/* Modal Backdrop & Fullscreen Overlays */
+.modal-overlay,
+.modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(4px);
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 999;
+  z-index: 9999;
   padding: 1rem;
 }
 
@@ -1504,5 +1580,244 @@ input:-webkit-autofill:active {
   color: var(--success);
 }
 
+/* ==========================================================================
+   Premium SaaS Pagination Component
+   ========================================================================== */
+.saas-pagination-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 2.75rem;
+  margin-bottom: 1.25rem;
+  width: 100%;
+}
 
+@media (min-width: 680px) {
+  .saas-pagination-wrapper {
+    flex-direction: row;
+    justify-content: space-between;
+  }
+}
 
+.saas-pagination-info {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.saas-pagination-info strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.saas-pagination-dock {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.4rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 9999px;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+[data-theme='dark'] .saas-pagination-dock {
+  background: rgba(18, 22, 31, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+[data-theme='light'] .saas-pagination-dock {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.saas-pagination-dock:hover {
+  border-color: var(--border-strong);
+}
+
+.saas-page-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  min-width: 32px;
+  padding: 0 0.6rem;
+  border-radius: 9999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  gap: 0.35rem;
+}
+
+.saas-page-btn:hover:not(:disabled):not(.active) {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  border-color: var(--border-subtle);
+  transform: translateY(-1px);
+}
+
+.saas-page-btn:active:not(:disabled):not(.active) {
+  transform: translateY(0);
+}
+
+.saas-page-btn.active {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  color: #ffffff !important;
+  font-weight: 700;
+  box-shadow: 0 0 14px rgba(59, 130, 246, 0.45), inset 0 1px 1px rgba(255, 255, 255, 0.3);
+  border-color: transparent;
+  cursor: default;
+}
+
+.saas-page-btn.nav-btn {
+  font-weight: 500;
+  padding: 0 0.75rem;
+}
+
+.saas-page-btn.nav-btn svg {
+  transition: transform 0.18s ease;
+}
+
+.saas-page-btn.nav-btn.prev:hover:not(:disabled) svg {
+  transform: translateX(-2px);
+}
+
+.saas-page-btn.nav-btn.next:hover:not(:disabled) svg {
+  transform: translateX(2px);
+}
+
+.saas-page-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+@media (max-width: 480px) {
+  .saas-page-btn.nav-btn span {
+    display: none;
+  }
+  .saas-page-btn.nav-btn {
+    padding: 0 0.5rem;
+    min-width: 32px;
+  }
+}
+
+.saas-page-ellipsis {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 32px;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  user-select: none;
+}
+
+/* ==========================================================
+   IN-DIALOG BOTTOM TOAST / NOTIFICATION (Auto-dismissing)
+   ========================================================== */
+.modal-bottom-toast {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-left: 4px solid #ef4444;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: #f87171;
+  font-size: 0.85rem;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25), 0 0 12px rgba(239, 68, 68, 0.15);
+  animation: modalToastSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  overflow: hidden;
+}
+
+[data-theme="light"] .modal-bottom-toast {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  border-left-color: #ef4444;
+  color: #dc2626;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.12);
+}
+
+.modal-bottom-toast-content {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex: 1;
+}
+
+.modal-bottom-toast-close {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0.2rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.75;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.modal-bottom-toast-close:hover {
+  opacity: 1;
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.modal-bottom-toast-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2.5px;
+  background: #ef4444;
+  border-radius: 0 2px 2px 0;
+  animation: modalToastProgress linear forwards;
+}
+
+@keyframes modalToastSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes modalToastProgress {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}

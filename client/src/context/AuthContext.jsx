@@ -1,49 +1,39 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import apiClient from '../api/client';
+import apiClient, { setInMemoryToken, queuePendingRevocation } from '../api/client';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('user');
-    return saved ? JSON.parse(saved) : null;
-  });
-  const [token, setToken] = useState(() => localStorage.getItem('accessToken') || null);
+  // In-memory state only - Zero localStorage usage
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const saveAuthSession = (newUser, newAccessToken, newRefreshToken) => {
+  const saveAuthSession = (newUser, newAccessToken) => {
     setUser(newUser);
-    setToken(newAccessToken);
-    localStorage.setItem('user', JSON.stringify(newUser));
-    localStorage.setItem('accessToken', newAccessToken);
-    if (newRefreshToken) {
-      localStorage.setItem('refreshToken', newRefreshToken);
+    setToken(newAccessToken || null);
+    if (newAccessToken) {
+      setInMemoryToken(newAccessToken);
     }
   };
 
   const clearAuthSession = useCallback(() => {
     setUser(null);
     setToken(null);
-    localStorage.removeItem('user');
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
+    setInMemoryToken(null);
   }, []);
 
-  // Check auth session on startup
+  // Check auth session on startup via HttpOnly cookies
   useEffect(() => {
     const verifySession = async () => {
-      const storedToken = localStorage.getItem('accessToken');
-      if (!storedToken) {
-        setLoading(false);
-        return;
-      }
       try {
-        // Fetch client returns parsed JSON directly (no axios .data wrapper)
+        // Fetch client sends HttpOnly cookies automatically via credentials: 'include'
         const res = await apiClient.get('/auth/me');
-        setUser(res.data.user);
-        localStorage.setItem('user', JSON.stringify(res.data.user));
+        const currentUser = res.data?.user || res.data;
+        const currentToken = res.data?.accessToken || null;
+        saveAuthSession(currentUser, currentToken);
       } catch (err) {
-        // If refresh failed in interceptor, clear session
+        // If not authenticated or refresh failed in interceptor, session is clear
         clearAuthSession();
       } finally {
         setLoading(false);
@@ -63,25 +53,25 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const res = await apiClient.post('/auth/login', { email, password });
-    const { user: loggedInUser, accessToken, refreshToken } = res.data;
-    saveAuthSession(loggedInUser, accessToken, refreshToken);
+    const { user: loggedInUser, accessToken } = res.data;
+    saveAuthSession(loggedInUser, accessToken);
     return loggedInUser;
   };
 
   const register = async (username, email, password) => {
     const res = await apiClient.post('/auth/register', { username, email, password });
-    const { user: registeredUser, accessToken, refreshToken } = res.data;
-    saveAuthSession(registeredUser, accessToken, refreshToken);
+    const { user: registeredUser, accessToken } = res.data;
+    saveAuthSession(registeredUser, accessToken);
     return registeredUser;
   };
 
   const logout = async () => {
     try {
-      await apiClient.post('/auth/logout', {
-        refreshToken: localStorage.getItem('refreshToken'),
-      });
+      // HttpOnly cookie sent automatically; backend revokes refresh token & clears cookies
+      await apiClient.post('/auth/logout');
     } catch (e) {
-      // Ignore network errors during logout
+      // If server is unreachable/offline, queue revocation to flush upon connectivity return
+      queuePendingRevocation();
     } finally {
       clearAuthSession();
     }
@@ -93,8 +83,8 @@ export const AuthProvider = ({ children }) => {
       email,
       name,
     });
-    const { user: oauthUser, accessToken, refreshToken } = res.data;
-    saveAuthSession(oauthUser, accessToken, refreshToken);
+    const { user: oauthUser, accessToken } = res.data;
+    saveAuthSession(oauthUser, accessToken);
     return oauthUser;
   };
 
@@ -108,6 +98,8 @@ export const AuthProvider = ({ children }) => {
         loading,
         isAuthenticated: !!user,
         isAdmin,
+        updateUser: (updatedUser) =>
+          setUser((prev) => (prev ? { ...prev, ...updatedUser } : updatedUser)),
         login,
         register,
         logout,

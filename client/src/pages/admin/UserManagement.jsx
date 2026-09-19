@@ -211,6 +211,7 @@ const UserManagement = () => {
       <Pagination
         pagination={pagination}
         onPageChange={(newPage) => setPage(newPage)}
+        itemLabel="users"
       />
 
       <ConfirmModal

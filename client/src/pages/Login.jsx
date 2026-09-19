@@ -356,7 +356,7 @@ const Login = () => {
           {/* Social Logins */}
           <div className="auth-oauth-group">
             <a
-              href="http://localhost:5000/api/v1/auth/google"
+              href="/api/v1/auth/google"
               className="auth-oauth-btn"
             >
               <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
@@ -369,7 +369,7 @@ const Login = () => {
             </a>
 
             <a
-              href="http://localhost:5000/api/v1/auth/facebook"
+              href="/api/v1/auth/facebook"
               className="auth-oauth-btn"
             >
               <svg width="17" height="17" viewBox="0 0 24 24" fill="#1877F2">

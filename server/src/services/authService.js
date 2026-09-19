@@ -6,7 +6,8 @@ const { ROLES, USER_STATUS } = require('../constants/roles');
 const { ACTIVITY_TYPES } = require('../constants/activityTypes');
 const { recordActivity } = require('../middleware/activityLogger');
 const env = require('../config/env');
-const { sendPasswordRecoveryEmail } = require('../utils/emailService');
+const logger = require('../utils/logger');
+const emailService = require('../utils/emailService');
 
 /**
  * Register a new user
@@ -241,6 +242,11 @@ const logout = async ({ incomingRefreshToken, req }) => {
       { tokenHash },
       { $set: { isRevoked: true, revokedAt: new Date() } }
     );
+  } else if (req && req.user) {
+    await RefreshToken.updateMany(
+      { user: req.user._id, isRevoked: false },
+      { $set: { isRevoked: true, revokedAt: new Date() } }
+    );
   }
 
   if (req && req.user) {
@@ -254,6 +260,33 @@ const logout = async ({ incomingRefreshToken, req }) => {
   }
 
   return true;
+};
+
+/**
+ * Authoritatively revoke a specific refresh token (RFC 7009 compliant)
+ */
+const revokeToken = async ({ incomingRefreshToken, req }) => {
+  if (!incomingRefreshToken) {
+    return false;
+  }
+  const tokenHash = hashToken(incomingRefreshToken);
+  const tokenRecord = await RefreshToken.findOneAndUpdate(
+    { tokenHash },
+    { $set: { isRevoked: true, revokedAt: new Date() } },
+    { new: true }
+  );
+
+  if (req && tokenRecord) {
+    recordActivity({
+      action: ACTIVITY_TYPES.AUTH_TOKEN_REVOKED,
+      resourceType: 'AUTH',
+      resourceId: tokenRecord.user.toString(),
+      details: { familyId: tokenRecord.familyId },
+      req,
+    });
+  }
+
+  return !!tokenRecord;
 };
 
 /**
@@ -368,14 +401,19 @@ const requestPasswordReset = async ({ email, req }) => {
   // 4. Dispatch real email with both 6-digit OTP and 1-Click Magic Link via Nodemailer
   let emailResult = null;
   try {
-    emailResult = await sendPasswordRecoveryEmail({
+    emailResult = await emailService.sendPasswordRecoveryEmail({
       to: user.email,
       otp: rawOtp,
       resetUrl,
       username: user.username,
     });
   } catch (emailErr) {
-    console.error('Failed to dispatch recovery email:', emailErr.message);
+    logger.error(`[AuthService] Password recovery email dispatch failed: ${emailErr.message}`);
+    const deliveryError = new Error('Unable to send password recovery email. Please check your email configuration or try again later.');
+    deliveryError.statusCode = 503;
+    deliveryError.code = 'EMAIL_DELIVERY_FAILED';
+    deliveryError.isOperational = true;
+    throw deliveryError;
   }
 
   if (req) {
@@ -532,13 +570,53 @@ const resetPassword = async ({ token, newPassword, req }) => {
   };
 };
 
+/**
+ * Update authenticated user profile (bio, avatar)
+ */
+const updateProfile = async ({ userId, bio, avatar, req }) => {
+  const user = await User.findById(userId);
+  if (!user) {
+    const error = new Error('User not found');
+    error.statusCode = 404;
+    error.code = 'USER_NOT_FOUND';
+    throw error;
+  }
+
+  if (typeof bio === 'string') {
+    user.bio = bio.trim().slice(0, 250);
+  }
+
+  if (typeof avatar === 'string') {
+    user.avatar = avatar.trim();
+  }
+
+  await user.save();
+
+  if (req) {
+    recordActivity({
+      action: ACTIVITY_TYPES.USER_PROFILE_UPDATE,
+      resourceType: 'USER',
+      resourceId: user._id.toString(),
+      details: {
+        bioUpdated: typeof bio === 'string',
+        avatarUpdated: typeof avatar === 'string',
+      },
+      req,
+    });
+  }
+
+  return user.toSafeObject();
+};
+
 module.exports = {
   register,
   login,
   refresh,
   logout,
+  revokeToken,
   oauthLogin,
   requestPasswordReset,
   verifyPasswordResetOtp,
   resetPassword,
+  updateProfile,
 };

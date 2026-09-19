@@ -4,13 +4,16 @@
  * A highly customizable and scalable HTTP client built on native JS `fetch`.
  * Features:
  *   - Automatic JSON request/response handling
- *   - Bearer token injection from localStorage
+ *   - HttpOnly cookie authentication (credentials: 'include')
+ *   - In-memory access token support (zero localStorage)
  *   - Silent 401 token refresh with request queuing
  *   - Custom error class for structured error handling
- *   - Configurable base URL, headers, and credentials
+ *   - Offline token revocation queue for server-unavailability resilience
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL ||
+  (typeof window !== 'undefined' ? '/api/v1' : 'http://localhost:5000/api/v1');
 
 // ─── Custom API Error ───────────────────────────────────────
 export class ApiError extends Error {
@@ -26,6 +29,44 @@ export class ApiError extends Error {
       data: data || { error: { message }, message },
     };
   }
+}
+
+// ─── In-Memory Token Cache (Zero localStorage) ──────────────
+let inMemoryAccessToken = null;
+
+export const setInMemoryToken = (token) => {
+  inMemoryAccessToken = token || null;
+};
+
+export const getInMemoryToken = () => inMemoryAccessToken;
+
+// ─── Offline Pending Revocation Queue ─────────────────────────
+// Resiliency for when server is unavailable during logout/revocation.
+// Automatically flushed when server connectivity returns (online event).
+let pendingRevocations = [];
+
+export const queuePendingRevocation = () => {
+  pendingRevocations.push({ timestamp: Date.now() });
+};
+
+export const flushPendingRevocations = async () => {
+  if (pendingRevocations.length === 0) return;
+  try {
+    await fetch(`${API_BASE_URL}/auth/revoke`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+    });
+    pendingRevocations = [];
+  } catch (err) {
+    // Server still unavailable; will be retried when connectivity returns
+  }
+};
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => {
+    flushPendingRevocations();
+  });
 }
 
 // ─── Token Refresh Queue ────────────────────────────────────
@@ -46,7 +87,7 @@ const processQueue = (error, token = null) => {
 // ─── Core Request Function ──────────────────────────────────
 
 /**
- * Execute a fetch request with automatic auth headers, JSON handling, and token refresh.
+ * Execute a fetch request with automatic credentials, JSON handling, and token refresh.
  *
  * @param {string} endpoint - API endpoint (e.g. '/posts', '/auth/login')
  * @param {Object} options - Request options
@@ -85,16 +126,15 @@ async function request(endpoint, options = {}) {
     ...customHeaders,
   };
 
-  const token = localStorage.getItem('accessToken');
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+  if (inMemoryAccessToken) {
+    headers['Authorization'] = `Bearer ${inMemoryAccessToken}`;
   }
 
-  // Build fetch config
+  // Build fetch config with credentials: 'include' for HttpOnly cookies
   const fetchConfig = {
     method,
     headers,
-    credentials: 'include', // Crucial for HttpOnly refresh token cookie
+    credentials: 'include',
   };
 
   if (body && method !== 'GET' && method !== 'HEAD') {
@@ -102,7 +142,17 @@ async function request(endpoint, options = {}) {
   }
 
   // Execute request
-  const response = await fetch(url, fetchConfig);
+  let response;
+  try {
+    response = await fetch(url, fetchConfig);
+  } catch (networkErr) {
+    throw new ApiError(
+      networkErr.message || 'Network error: Server is currently unavailable',
+      0,
+      null,
+      'SERVER_UNAVAILABLE'
+    );
+  }
 
   // Handle non-JSON responses (e.g. 204 No Content)
   if (response.status === 204) {
@@ -132,10 +182,12 @@ async function request(endpoint, options = {}) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         }).then((newToken) => {
+          const retryHeaders = { ...customHeaders };
+          if (newToken) retryHeaders['Authorization'] = `Bearer ${newToken}`;
           return request(endpoint, {
             ...options,
             _retry: true,
-            headers: { ...customHeaders, Authorization: `Bearer ${newToken}` },
+            headers: retryHeaders,
           });
         });
       }
@@ -143,12 +195,11 @@ async function request(endpoint, options = {}) {
       isRefreshing = true;
 
       try {
-        const storedRefreshToken = localStorage.getItem('refreshToken');
+        // Using credentials: 'include' sends the HttpOnly refreshToken cookie automatically
         const refreshResponse = await fetch(`${API_BASE_URL}/auth/refresh`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ refreshToken: storedRefreshToken }),
         });
 
         if (!refreshResponse.ok) {
@@ -156,31 +207,28 @@ async function request(endpoint, options = {}) {
         }
 
         const refreshData = await refreshResponse.json();
-        const newAccessToken = refreshData.data.accessToken;
-        const newRefreshToken = refreshData.data.refreshToken;
-
-        localStorage.setItem('accessToken', newAccessToken);
-        if (newRefreshToken) {
-          localStorage.setItem('refreshToken', newRefreshToken);
+        const newAccessToken = refreshData?.data?.accessToken || null;
+        if (newAccessToken) {
+          setInMemoryToken(newAccessToken);
         }
 
         processQueue(null, newAccessToken);
         isRefreshing = false;
 
-        // Retry original request with new token
+        // Retry original request
+        const retryHeaders = { ...customHeaders };
+        if (newAccessToken) retryHeaders['Authorization'] = `Bearer ${newAccessToken}`;
+
         return request(endpoint, {
           ...options,
           _retry: true,
-          headers: { ...customHeaders, Authorization: `Bearer ${newAccessToken}` },
+          headers: retryHeaders,
         });
       } catch (refreshErr) {
         processQueue(refreshErr, null);
         isRefreshing = false;
+        setInMemoryToken(null);
 
-        // Revoke local tokens on failure
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('user');
         window.dispatchEvent(new CustomEvent('auth:expired'));
 
         throw new ApiError('Session expired. Please log in again.', 401, null, 'SESSION_EXPIRED');

@@ -148,6 +148,16 @@ export function useResetPassword(options = {}) {
   );
 }
 
+export function useUpdateProfile(options = {}) {
+  return useApiMutation(
+    (profileData) => apiClient.patch('/auth/profile', profileData),
+    {
+      successToast: 'Profile updated successfully!',
+      ...options,
+    }
+  );
+}
+
 // ==========================================
 // Admin Governance Hooks
 // ==========================================

@@ -148,7 +148,20 @@ const Navbar = () => {
                   className="btn btn-secondary btn-sm"
                   style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                 >
-                  <UserIcon size={16} />
+                  {user?.avatar ? (
+                    <img
+                      src={user.avatar}
+                      alt=""
+                      style={{
+                        width: '1.25rem',
+                        height: '1.25rem',
+                        borderRadius: '50%',
+                        objectFit: 'cover',
+                      }}
+                    />
+                  ) : (
+                    <UserIcon size={16} />
+                  )}
                   <span>{user?.username}</span>
                 </Link>
 
@@ -235,7 +248,20 @@ const Navbar = () => {
                 className="btn btn-secondary btn-sm"
                 style={{ width: '100%', justifyContent: 'center', gap: '0.5rem' }}
               >
-                <UserIcon size={16} />
+                {user?.avatar ? (
+                  <img
+                    src={user.avatar}
+                    alt=""
+                    style={{
+                      width: '1.25rem',
+                      height: '1.25rem',
+                      borderRadius: '50%',
+                      objectFit: 'cover',
+                    }}
+                  />
+                ) : (
+                  <UserIcon size={16} />
+                )}
                 <span>Signed in as @{user?.username}</span>
               </Link>
 
