@@ -1,103 +1,83 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import apiClient, { setInMemoryToken, setRefreshToken, queuePendingRevocation } from '../api/client';
+import apiClient, { setInMemoryToken, queuePendingRevocation } from '../api/client';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  // Initialize state from storage so page reload is instant and never flickers logout
-  const [user, setUser] = useState(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const cached = localStorage.getItem('devlog_user');
-        return cached ? JSON.parse(cached) : null;
-      } catch {
-        return null;
-      }
-    }
-    return null;
-  });
+  // Pure in-memory session state - zero localStorage / sessionStorage persistence
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
+  const [loading, setLoading] = useState(true); // Begins in INITIALIZING state to check HttpOnly cookie with server
 
-  const [token, setToken] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('devlog_token') || null;
-    }
-    return null;
-  });
-
-  const [loading, setLoading] = useState(false);
-
-  const saveAuthSession = (newUser, newAccessToken, newRefreshToken) => {
-    setUser(newUser);
+  const saveAuthSession = useCallback((newUser, newAccessToken) => {
+    setUser(newUser || null);
     setToken(newAccessToken || null);
     if (newAccessToken) {
       setInMemoryToken(newAccessToken);
+    } else {
+      setInMemoryToken(null);
     }
-    if (newRefreshToken) {
-      setRefreshToken(newRefreshToken);
-    }
-    if (typeof window !== 'undefined') {
-      if (newUser) {
-        localStorage.setItem('devlog_user', JSON.stringify(newUser));
-      } else {
-        localStorage.removeItem('devlog_user');
-      }
-    }
-  };
+  }, []);
 
   const clearAuthSession = useCallback(() => {
     setUser(null);
     setToken(null);
     setInMemoryToken(null);
-    setRefreshToken(null);
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('devlog_user');
-    }
   }, []);
 
-  // Verify auth session in background on startup
+  // Restore session from server via HttpOnly cookie on application startup & page reloads
   useEffect(() => {
-    const verifySession = async () => {
-      // Only verify with server if user or token exists
-      const hasStoredToken = typeof window !== 'undefined' && localStorage.getItem('devlog_token');
-      if (!hasStoredToken) {
-        return;
-      }
+    let isMounted = true;
 
+    const verifySession = async () => {
       try {
+        // credentials: 'include' automatically sends the HttpOnly accessToken/refreshToken cookies
         const res = await apiClient.get('/auth/me');
         const currentUser = res.data?.user || res.data;
-        const currentToken = res.data?.accessToken || localStorage.getItem('devlog_token');
-        saveAuthSession(currentUser, currentToken);
+        const currentToken = res.data?.accessToken || null;
+
+        if (isMounted) {
+          saveAuthSession(currentUser, currentToken);
+          setLoading(false);
+        }
       } catch (err) {
-        // Only clear if server explicitly rejects with 401 session expired
-        if (err.status === 401 || err.code === 'SESSION_EXPIRED') {
+        if (isMounted) {
           clearAuthSession();
+          setLoading(false);
         }
       }
     };
 
     verifySession();
 
-    // Listen for custom expired event from fetch interceptor
+    // Listen for custom expired event from fetch interceptor when refresh token is revoked/expired
     const handleAuthExpired = () => {
-      clearAuthSession();
+      if (isMounted) {
+        clearAuthSession();
+        setLoading(false);
+      }
     };
     window.addEventListener('auth:expired', handleAuthExpired);
 
-    return () => window.removeEventListener('auth:expired', handleAuthExpired);
-  }, [clearAuthSession]);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('auth:expired', handleAuthExpired);
+    };
+  }, [clearAuthSession, saveAuthSession]);
 
   const login = async (email, password) => {
     const res = await apiClient.post('/auth/login', { email, password });
-    const { user: loggedInUser, accessToken, refreshToken } = res.data;
-    saveAuthSession(loggedInUser, accessToken, refreshToken);
+    const { user: loggedInUser, accessToken } = res.data;
+    saveAuthSession(loggedInUser, accessToken);
+    setLoading(false);
     return loggedInUser;
   };
 
   const register = async (username, email, password) => {
     const res = await apiClient.post('/auth/register', { username, email, password });
-    const { user: registeredUser, accessToken, refreshToken } = res.data;
-    saveAuthSession(registeredUser, accessToken, refreshToken);
+    const { user: registeredUser, accessToken } = res.data;
+    saveAuthSession(registeredUser, accessToken);
+    setLoading(false);
     return registeredUser;
   };
 
@@ -110,6 +90,7 @@ export const AuthProvider = ({ children }) => {
       queuePendingRevocation();
     } finally {
       clearAuthSession();
+      setLoading(false);
     }
   };
 
@@ -121,6 +102,7 @@ export const AuthProvider = ({ children }) => {
     });
     const { user: oauthUser, accessToken } = res.data;
     saveAuthSession(oauthUser, accessToken);
+    setLoading(false);
     return oauthUser;
   };
 

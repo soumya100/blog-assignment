@@ -28,16 +28,37 @@ const allowedOrigins = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'http://localhost:3000',
-];
+  'http://localhost:5174',
+  'http://127.0.0.1:5174',
+]
+  .filter(Boolean)
+  .map((url) => url.replace(/\/$/, ''));
+
+const isOriginAllowed = (origin) => {
+  if (!origin) return true;
+  const normalized = origin.replace(/\/$/, '');
+  if (allowedOrigins.includes(normalized)) return true;
+
+  // In development, permit local dev servers on any port (localhost, 127.0.0.1, LAN)
+  if (env.NODE_ENV !== 'production') {
+    if (
+      /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(normalized) ||
+      /^https?:\/\/(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)(:\d+)?$/.test(normalized)
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+};
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps or curl)
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (isOriginAllowed(origin)) {
         callback(null, true);
       } else {
-        callback(null, true); // Permissive in dev, or specify strict origins
+        callback(new Error('Cross-Origin Request Blocked by CORS Policy'));
       }
     },
     credentials: true,

@@ -238,6 +238,12 @@ const deleteComment = async (commentId, user, req) => {
   comment.deletedAt = new Date();
   await comment.save();
 
+  // Also soft-delete all child replies if this was a parent comment
+  await Comment.updateMany(
+    { parentComment: comment._id },
+    { $set: { isDeleted: true, deletedAt: new Date() } }
+  );
+
   if (req) {
     recordActivity({
       action: ACTIVITY_TYPES.COMMENT_DELETE,

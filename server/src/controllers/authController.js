@@ -1,6 +1,64 @@
+const crypto = require('crypto');
 const authService = require('../services/authService');
 const { successResponse, errorResponse } = require('../utils/apiResponse');
 const env = require('../config/env');
+
+/**
+ * Generate cryptographically signed OAuth state token
+ * Combines timestamp, random nonce, and HMAC-SHA256 signature
+ */
+const generateOAuthState = () => {
+  const timestamp = Date.now().toString(36);
+  const nonce = crypto.randomBytes(16).toString('hex');
+  const payload = `${timestamp}.${nonce}`;
+  const signature = crypto
+    .createHmac('sha256', env.COOKIE_SECRET || env.JWT_ACCESS_SECRET || 'dev_oauth_secret')
+    .update(payload)
+    .digest('hex');
+  return `${payload}.${signature}`;
+};
+
+/**
+ * Verify OAuth state against cookie or cryptographic HMAC
+ * Resilient across localhost / 127.0.0.1 port and proxy partitions in development
+ */
+const verifyOAuthState = (state, cookieState) => {
+  if (!state) return false;
+
+  // 1. Direct cookie match if available
+  if (cookieState && state === cookieState) return true;
+
+  // 2. Cryptographic HMAC validation (resilient against cookie drops)
+  try {
+    const parts = state.split('.');
+    if (parts.length === 3) {
+      const [timestampStr, nonce, receivedSig] = parts;
+      const timestamp = parseInt(timestampStr, 36);
+
+      // Enforce 15-minute expiration
+      if (Date.now() - timestamp > 15 * 60 * 1000) {
+        return false;
+      }
+
+      const payload = `${timestampStr}.${nonce}`;
+      const expectedSig = crypto
+        .createHmac('sha256', env.COOKIE_SECRET || env.JWT_ACCESS_SECRET || 'dev_oauth_secret')
+        .update(payload)
+        .digest('hex');
+
+      if (
+        receivedSig.length === expectedSig.length &&
+        crypto.timingSafeEqual(Buffer.from(receivedSig), Buffer.from(expectedSig))
+      ) {
+        return true;
+      }
+    }
+  } catch (err) {
+    // Malformed state
+  }
+
+  return false;
+};
 
 const ACCESS_COOKIE_NAME = 'accessToken';
 const REFRESH_COOKIE_NAME = 'refreshToken';
@@ -219,13 +277,13 @@ const googleAuth = (req, res) => {
     return res.redirect(`${env.CLIENT_URL}/login?notice=OAUTH_SETUP_REQUIRED`);
   }
 
-  const crypto = require('crypto');
-  const state = crypto.randomBytes(24).toString('hex');
+  const state = generateOAuthState();
 
   res.cookie('oauth_state', state, {
     httpOnly: true,
     secure: env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    sameSite: env.NODE_ENV === 'production' ? 'none' : 'lax',
+    path: '/',
     maxAge: 10 * 60 * 1000,
   });
 
@@ -250,9 +308,14 @@ const googleCallback = async (req, res, next) => {
     }
 
     const storedState = req.cookies.oauth_state;
-    res.clearCookie('oauth_state');
+    res.clearCookie('oauth_state', {
+      httpOnly: true,
+      secure: env.NODE_ENV === 'production',
+      sameSite: env.NODE_ENV === 'production' ? 'none' : 'lax',
+      path: '/',
+    });
 
-    if (!state || !storedState || state !== storedState) {
+    if (!verifyOAuthState(state, storedState)) {
       return res.redirect(`${env.CLIENT_URL}/oauth/callback?error=INVALID_OAUTH_STATE`);
     }
 
@@ -309,13 +372,13 @@ const facebookAuth = (req, res) => {
     return res.redirect(`${env.CLIENT_URL}/login?notice=OAUTH_SETUP_REQUIRED&provider=facebook`);
   }
 
-  const crypto = require('crypto');
-  const state = crypto.randomBytes(24).toString('hex');
+  const state = generateOAuthState();
 
   res.cookie('oauth_facebook_state', state, {
     httpOnly: true,
     secure: env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    sameSite: env.NODE_ENV === 'production' ? 'none' : 'lax',
+    path: '/',
     maxAge: 10 * 60 * 1000,
   });
 
@@ -338,9 +401,14 @@ const facebookCallback = async (req, res, next) => {
     }
 
     const storedState = req.cookies.oauth_facebook_state;
-    res.clearCookie('oauth_facebook_state');
+    res.clearCookie('oauth_facebook_state', {
+      httpOnly: true,
+      secure: env.NODE_ENV === 'production',
+      sameSite: env.NODE_ENV === 'production' ? 'none' : 'lax',
+      path: '/',
+    });
 
-    if (!state || !storedState || state !== storedState) {
+    if (!verifyOAuthState(state, storedState)) {
       return res.redirect(`${env.CLIENT_URL}/oauth/callback?error=INVALID_OAUTH_STATE`);
     }
 

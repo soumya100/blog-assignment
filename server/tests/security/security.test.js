@@ -50,4 +50,13 @@ describe('VAPT Security & Injection Tests', () => {
     expect(res.statusCode).toBe(401);
     expect(res.body.error.code).toBe('INVALID_TOKEN');
   });
+
+  test('CORS Policy: Blocks requests from unauthorized origins', async () => {
+    const res = await request(app)
+      .get('/api/v1/health')
+      .set('Origin', 'https://malicious-attacker-domain.evil.com');
+
+    expect(res.statusCode).toBe(403);
+    expect(res.body.error.code).toBe('CORS_ERROR');
+  });
 });

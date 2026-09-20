@@ -13,9 +13,7 @@
 
 export const API_BASE_URL =
   import.meta.env.VITE_API_URL ||
-  (typeof window !== 'undefined' && window.location.hostname.includes('onrender.com')
-    ? 'https://blog-assignment-ds1d.onrender.com/api/v1'
-    : (typeof window !== 'undefined' ? '/api/v1' : 'http://localhost:5000/api/v1'));
+  (typeof window !== 'undefined' ? '/api/v1' : 'http://localhost:5000/api/v1');
 
 // ─── Custom API Error ───────────────────────────────────────
 export class ApiError extends Error {
@@ -33,48 +31,20 @@ export class ApiError extends Error {
   }
 }
 
-// ─── Resilient Token Storage (Cross-domain & memory cache) ───
-const TOKEN_KEY = 'devlog_token';
-const REFRESH_TOKEN_KEY = 'devlog_refresh_token';
-
-let inMemoryAccessToken = typeof window !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null;
-let inMemoryRefreshToken = typeof window !== 'undefined' ? localStorage.getItem(REFRESH_TOKEN_KEY) : null;
+// ─── Pure In-Memory Token Storage (Zero localStorage / sessionStorage) ───
+let inMemoryAccessToken = null;
 
 export const setInMemoryToken = (token) => {
   inMemoryAccessToken = token || null;
-  if (typeof window !== 'undefined') {
-    if (token) {
-      localStorage.setItem(TOKEN_KEY, token);
-    } else {
-      localStorage.removeItem(TOKEN_KEY);
-    }
-  }
 };
 
 export const getInMemoryToken = () => {
-  if (!inMemoryAccessToken && typeof window !== 'undefined') {
-    inMemoryAccessToken = localStorage.getItem(TOKEN_KEY);
-  }
   return inMemoryAccessToken;
 };
 
-export const setRefreshToken = (token) => {
-  inMemoryRefreshToken = token || null;
-  if (typeof window !== 'undefined') {
-    if (token) {
-      localStorage.setItem(REFRESH_TOKEN_KEY, token);
-    } else {
-      localStorage.removeItem(REFRESH_TOKEN_KEY);
-    }
-  }
-};
-
-export const getRefreshToken = () => {
-  if (!inMemoryRefreshToken && typeof window !== 'undefined') {
-    inMemoryRefreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
-  }
-  return inMemoryRefreshToken;
-};
+// Maintained for backward compatibility; refresh token is server-managed HttpOnly cookie
+export const setRefreshToken = () => {};
+export const getRefreshToken = () => null;
 
 // ─── Offline Pending Revocation Queue ─────────────────────────
 // Resiliency for when server is unavailable during logout/revocation.
@@ -231,14 +201,11 @@ async function request(endpoint, options = {}) {
       isRefreshing = true;
 
       try {
-        // Using credentials: 'include' sends the HttpOnly refreshToken cookie automatically,
-        // and body refreshToken ensures resilience if third-party cookies are blocked by browser.
-        const currentRefreshToken = getRefreshToken();
+        // Credentials: 'include' automatically sends the HttpOnly refreshToken cookie
         const refreshResponse = await fetch(`${API_BASE_URL}/auth/refresh`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify(currentRefreshToken ? { refreshToken: currentRefreshToken } : {}),
         });
 
         if (!refreshResponse.ok) {
@@ -247,12 +214,8 @@ async function request(endpoint, options = {}) {
 
         const refreshData = await refreshResponse.json();
         const newAccessToken = refreshData?.data?.accessToken || null;
-        const newRefreshToken = refreshData?.data?.refreshToken || null;
         if (newAccessToken) {
           setInMemoryToken(newAccessToken);
-        }
-        if (newRefreshToken) {
-          setRefreshToken(newRefreshToken);
         }
 
         processQueue(null, newAccessToken);
@@ -271,7 +234,6 @@ async function request(endpoint, options = {}) {
         processQueue(refreshErr, null);
         isRefreshing = false;
         setInMemoryToken(null);
-        setRefreshToken(null);
 
         window.dispatchEvent(new CustomEvent('auth:expired'));
 

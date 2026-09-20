@@ -8,6 +8,12 @@ const notFoundHandler = (req, res) => {
 
 // Centralized Express error-handling middleware
 const centralizedErrorHandler = (err, req, res, next) => {
+  // CORS policy violation error
+  if (err.message && err.message.includes('CORS Policy')) {
+    logger.warn(`CORS blocked request from origin: ${req.headers.origin || 'unknown'}`);
+    return errorResponse(res, 403, err.message, null, 'CORS_ERROR');
+  }
+
   logger.error(`Unhandled Request Error: ${err.message}`, {
     stack: env.NODE_ENV === 'development' ? err.stack : undefined,
     url: req.originalUrl,
@@ -47,7 +53,8 @@ const centralizedErrorHandler = (err, req, res, next) => {
 
   // Custom operational errors with explicit status
   const statusCode = err.statusCode || err.status || 500;
-  const message = err.isOperational || env.NODE_ENV !== 'production' ? err.message : 'Internal Server Error';
+  const isOperational = err.isOperational || (statusCode >= 400 && statusCode < 500);
+  const message = isOperational || env.NODE_ENV !== 'production' ? err.message : 'Internal Server Error';
   const code = err.code && typeof err.code === 'string' ? err.code : 'INTERNAL_SERVER_ERROR';
 
   return errorResponse(res, statusCode, message, null, code);

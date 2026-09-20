@@ -12,7 +12,28 @@ const allowedOrigins = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'http://localhost:3000',
-];
+  'http://localhost:5174',
+  'http://127.0.0.1:5174',
+]
+  .filter(Boolean)
+  .map((url) => url.replace(/\/$/, ''));
+
+const isOriginAllowed = (origin) => {
+  if (!origin) return true;
+  const normalized = origin.replace(/\/$/, '');
+  if (allowedOrigins.includes(normalized)) return true;
+
+  if (env.NODE_ENV !== 'production') {
+    if (
+      /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(normalized) ||
+      /^https?:\/\/(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)(:\d+)?$/.test(normalized)
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+};
 
 // Initialize HTTP server
 const server = http.createServer(app);
@@ -21,10 +42,10 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (isOriginAllowed(origin)) {
         callback(null, true);
       } else {
-        callback(null, true);
+        callback(new Error('Cross-Origin Request Blocked by CORS Policy'));
       }
     },
     methods: ['GET', 'POST'],

@@ -24,11 +24,7 @@ const OAuthCallback = () => {
       }
 
       try {
-        const res = await apiClient.get('/auth/me');
-        const currentUser = res.data?.user || res.data;
-        if (currentUser && typeof window !== 'undefined') {
-          localStorage.setItem('devlog_user', JSON.stringify(currentUser));
-        }
+        await apiClient.get('/auth/me');
         window.location.href = '/';
       } catch (err) {
         console.error('Failed to verify session after OAuth callback:', err);
