@@ -700,26 +700,17 @@ const oauthSession = async (req, res, next) => {
       return errorResponse(res, 401, 'User account invalid or deactivated', null, 'USER_INACTIVE');
     }
 
-    // Look for active refresh token or create new rotation family
-    let refreshTokenRecord = await RefreshToken.findOne({
+    // Issue a fresh rotation family refresh token for the client origin session
+    const refreshTokenRaw = generateRefreshTokenString();
+    const tokenHash = hashToken(refreshTokenRaw);
+    await RefreshToken.create({
+      tokenHash,
       user: user._id,
-      isRevoked: false,
-      expiresAt: { $gt: new Date() },
-    }).sort({ createdAt: -1 });
-
-    let refreshTokenRaw = null;
-    if (!refreshTokenRecord) {
-      refreshTokenRaw = generateRefreshTokenString();
-      const tokenHash = hashToken(refreshTokenRaw);
-      await RefreshToken.create({
-        tokenHash,
-        user: user._id,
-        familyId: crypto.randomUUID(),
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        ipAddress: req.ip,
-        userAgent: req.headers['user-agent'],
-      });
-    }
+      familyId: crypto.randomUUID(),
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
 
     setAuthCookies(res, {
       accessToken: token,

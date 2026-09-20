@@ -36,8 +36,15 @@ const OAuthCallback = () => {
       try {
         // Establish HttpOnly cookies directly on the caller's origin (including through Render proxy)
         const sessionRes = await apiClient.post('/auth/oauth/session', { token });
-        const authUser = sessionRes.data?.user || sessionRes.data?.data?.user;
-        const freshAccessToken = sessionRes.data?.accessToken || sessionRes.data?.data?.accessToken || token;
+        const authUser =
+          sessionRes?.data?.user ||
+          sessionRes?.user ||
+          sessionRes?.data?.data?.user;
+        const freshAccessToken =
+          sessionRes?.data?.accessToken ||
+          sessionRes?.accessToken ||
+          sessionRes?.data?.data?.accessToken ||
+          token;
 
         if (authUser) {
           saveAuthSession(authUser, freshAccessToken);
@@ -52,8 +59,16 @@ const OAuthCallback = () => {
       try {
         // Fallback: Query /auth/me with Bearer token
         const meRes = await apiClient.get('/auth/me');
-        const authUser = meRes.data?.user || meRes.data?.data?.user || meRes.data;
-        const freshAccessToken = meRes.data?.accessToken || meRes.data?.data?.accessToken || token;
+        const authUser =
+          meRes?.data?.user ||
+          meRes?.user ||
+          meRes?.data?.data?.user ||
+          meRes?.data;
+        const freshAccessToken =
+          meRes?.data?.accessToken ||
+          meRes?.accessToken ||
+          meRes?.data?.data?.accessToken ||
+          token;
 
         if (authUser) {
           saveAuthSession(authUser, freshAccessToken);

@@ -12,6 +12,7 @@ export const AuthProvider = ({ children }) => {
   const saveAuthSession = useCallback((newUser, newAccessToken) => {
     setUser(newUser || null);
     setToken(newAccessToken || null);
+    setLoading(false);
     if (newAccessToken) {
       setInMemoryToken(newAccessToken);
     } else {
@@ -29,16 +30,25 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     let isMounted = true;
 
+    // Do NOT run initial verifySession if currently landing on OAuth callback route.
+    // The OAuthCallback component handles credential exchange and sets the session.
+    const isOAuthCallback =
+      typeof window !== 'undefined' &&
+      window.location.pathname.startsWith('/oauth/callback');
+
+    if (isOAuthCallback) {
+      return;
+    }
+
     const verifySession = async () => {
       try {
         // credentials: 'include' automatically sends the HttpOnly accessToken/refreshToken cookies
         const res = await apiClient.get('/auth/me');
-        const currentUser = res.data?.user || res.data;
-        const currentToken = res.data?.accessToken || null;
+        const currentUser = res.data?.user || res.data?.data?.user || res.data;
+        const currentToken = res.data?.accessToken || res.data?.data?.accessToken || null;
 
         if (isMounted) {
           saveAuthSession(currentUser, currentToken);
-          setLoading(false);
         }
       } catch (err) {
         if (isMounted) {
@@ -106,6 +116,23 @@ export const AuthProvider = ({ children }) => {
     return oauthUser;
   };
 
+  const checkAuth = useCallback(async () => {
+    try {
+      const res = await apiClient.get('/auth/me');
+      const currentUser = res.data?.user || res.data?.data?.user || res.data;
+      const currentToken = res.data?.accessToken || res.data?.data?.accessToken || null;
+      if (currentUser) {
+        saveAuthSession(currentUser, currentToken);
+        return currentUser;
+      }
+      return null;
+    } catch (err) {
+      clearAuthSession();
+      setLoading(false);
+      return null;
+    }
+  }, [clearAuthSession, saveAuthSession]);
+
   const isAdmin = user?.role === 'ADMIN';
 
   return (
@@ -119,6 +146,7 @@ export const AuthProvider = ({ children }) => {
         updateUser: (updatedUser) =>
           setUser((prev) => (prev ? { ...prev, ...updatedUser } : updatedUser)),
         saveAuthSession,
+        checkAuth,
         login,
         register,
         logout,
