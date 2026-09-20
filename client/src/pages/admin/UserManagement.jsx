@@ -3,6 +3,7 @@ import apiClient from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import ConfirmModal from '../../components/ConfirmModal';
 import Pagination from '../../components/Pagination';
+import Switch from '../../components/Switch';
 import { Search, UserX, Shield, CheckCircle, XCircle, Trash2 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
@@ -36,9 +37,13 @@ const UserManagement = () => {
     await updateRoleMutation.mutateAsync({ userId: targetUser._id, role: newRole });
   };
 
-  const handleStatusToggle = async (targetUser) => {
+  const handleStatusToggle = (targetUser) => {
+    if (targetUser._id === currentAdmin?._id) {
+      toast.warning('You cannot deactivate your own administrative account');
+      return;
+    }
     const newStatus = targetUser.status === 'ACTIVE' ? 'DEACTIVATED' : 'ACTIVE';
-    await updateStatusMutation.mutateAsync({ userId: targetUser._id, status: newStatus });
+    updateStatusMutation.mutate({ userId: targetUser._id, status: newStatus });
   };
 
   const handleDeleteConfirm = async () => {
@@ -175,16 +180,14 @@ const UserManagement = () => {
                     </td>
 
                     <td>
-                      <button
-                        onClick={() => handleStatusToggle(u)}
+                      <Switch
+                        checked={u.status === 'ACTIVE'}
                         disabled={isCurrent}
-                        className={`badge ${u.status === 'ACTIVE' ? 'badge-success' : 'badge-danger'}`}
-                        style={{ cursor: isCurrent ? 'default' : 'pointer', border: 'none' }}
-                        title={isCurrent ? 'Cannot deactivate self' : 'Click to toggle status'}
-                      >
-                        {u.status === 'ACTIVE' ? <CheckCircle size={12} /> : <XCircle size={12} />}
-                        {u.status}
-                      </button>
+                        onChange={() => handleStatusToggle(u)}
+                        activeText="Active"
+                        inactiveText="Deactivated"
+                        title={isCurrent ? 'Cannot deactivate self' : `Click to toggle status to ${u.status === 'ACTIVE' ? 'Deactivated' : 'Active'}`}
+                      />
                     </td>
 
                     <td>

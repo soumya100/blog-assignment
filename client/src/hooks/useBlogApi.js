@@ -427,10 +427,48 @@ export function useAdminUsers(params = {}) {
 }
 
 export function useUpdateUserRole(options = {}) {
+  const queryClient = useQueryClient();
+
   return useApiMutation(
     ({ userId, role }) => apiClient.patch(`/admin/users/${userId}/role`, { role }),
     {
-      invalidateKeys: [queryKeys.admin.users(), queryKeys.admin.stats()],
+      onMutate: async ({ userId, role }) => {
+        await queryClient.cancelQueries({ queryKey: ['admin', 'users'] });
+        const previousQueries = queryClient.getQueriesData({ queryKey: ['admin', 'users'] });
+
+        queryClient.setQueriesData({ queryKey: ['admin', 'users'] }, (old) => {
+          if (!old) return old;
+          if (Array.isArray(old.data)) {
+            return {
+              ...old,
+              data: old.data.map((u) => (u._id === userId ? { ...u, role } : u)),
+            };
+          }
+          if (Array.isArray(old.users)) {
+            return {
+              ...old,
+              users: old.users.map((u) => (u._id === userId ? { ...u, role } : u)),
+            };
+          }
+          if (Array.isArray(old)) {
+            return old.map((u) => (u._id === userId ? { ...u, role } : u));
+          }
+          return old;
+        });
+
+        return { previousQueries };
+      },
+      onError: (err, variables, context) => {
+        if (context?.previousQueries) {
+          context.previousQueries.forEach(([queryKey, previousData]) => {
+            queryClient.setQueryData(queryKey, previousData);
+          });
+        }
+      },
+      onSettled: () => {
+        queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+        queryClient.invalidateQueries({ queryKey: queryKeys.admin.stats() });
+      },
       successToast: 'User permissions updated successfully',
       ...options,
     }
@@ -438,10 +476,48 @@ export function useUpdateUserRole(options = {}) {
 }
 
 export function useUpdateUserStatus(options = {}) {
+  const queryClient = useQueryClient();
+
   return useApiMutation(
     ({ userId, status }) => apiClient.patch(`/admin/users/${userId}/status`, { status }),
     {
-      invalidateKeys: [queryKeys.admin.users(), queryKeys.admin.stats()],
+      onMutate: async ({ userId, status }) => {
+        await queryClient.cancelQueries({ queryKey: ['admin', 'users'] });
+        const previousQueries = queryClient.getQueriesData({ queryKey: ['admin', 'users'] });
+
+        queryClient.setQueriesData({ queryKey: ['admin', 'users'] }, (old) => {
+          if (!old) return old;
+          if (Array.isArray(old.data)) {
+            return {
+              ...old,
+              data: old.data.map((u) => (u._id === userId ? { ...u, status } : u)),
+            };
+          }
+          if (Array.isArray(old.users)) {
+            return {
+              ...old,
+              users: old.users.map((u) => (u._id === userId ? { ...u, status } : u)),
+            };
+          }
+          if (Array.isArray(old)) {
+            return old.map((u) => (u._id === userId ? { ...u, status } : u));
+          }
+          return old;
+        });
+
+        return { previousQueries };
+      },
+      onError: (err, variables, context) => {
+        if (context?.previousQueries) {
+          context.previousQueries.forEach(([queryKey, previousData]) => {
+            queryClient.setQueryData(queryKey, previousData);
+          });
+        }
+      },
+      onSettled: () => {
+        queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+        queryClient.invalidateQueries({ queryKey: queryKeys.admin.stats() });
+      },
       successToast: (_, { status }) => `User account status changed to ${status}`,
       ...options,
     }
