@@ -64,51 +64,54 @@ const ACCESS_COOKIE_NAME = 'accessToken';
 const REFRESH_COOKIE_NAME = 'refreshToken';
 const COOKIE_NAME = REFRESH_COOKIE_NAME;
 
-const setAuthCookies = (res, { accessToken, refreshToken }) => {
-  const isProduction = env.NODE_ENV === 'production';
+const getAuthCookieOptions = (req = null) => {
+  const isHttps =
+    Boolean(req && (req.secure || req.headers?.['x-forwarded-proto'] === 'https')) ||
+    env.NODE_ENV === 'production' ||
+    process.env.RENDER === 'true';
+
+  return {
+    httpOnly: true,
+    secure: isHttps,
+    // 'none' is mandatory for cross-site cookie transmission (e.g. Vercel <-> Render or Render Static <-> Web Service)
+    sameSite: isHttps ? 'none' : 'lax',
+    path: '/',
+    // Chrome CHIPS (Cookies Having Independent Partitioned State)
+    // Ensures Chrome 2024+ retains cross-site cookies between separate onrender.com subdomains
+    ...(isHttps ? { partitioned: true } : {}),
+  };
+};
+
+const setAuthCookies = (res, { accessToken, refreshToken }, req = null) => {
+  const baseOptions = getAuthCookieOptions(req);
 
   if (refreshToken) {
     res.cookie(REFRESH_COOKIE_NAME, refreshToken, {
-      httpOnly: true,
-      secure: isProduction,
-      // 'none' required for cross-domain cookies (Vercel frontend <-> Render backend)
-      // 'none' must always be paired with secure:true (enforced above)
-      sameSite: isProduction ? 'none' : 'lax',
-      path: '/',
+      ...baseOptions,
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
   }
 
   if (accessToken) {
     res.cookie(ACCESS_COOKIE_NAME, accessToken, {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: isProduction ? 'none' : 'lax',
-      path: '/',
+      ...baseOptions,
       maxAge: 15 * 60 * 1000, // 15 minutes
     });
   }
 };
 
-const clearAuthCookies = (res) => {
-  const isProduction = env.NODE_ENV === 'production';
-  const cookieOptions = {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: isProduction ? 'none' : 'lax',
-    path: '/',
-  };
-
-  res.clearCookie(ACCESS_COOKIE_NAME, cookieOptions);
-  res.clearCookie(REFRESH_COOKIE_NAME, cookieOptions);
+const clearAuthCookies = (res, req = null) => {
+  const baseOptions = getAuthCookieOptions(req);
+  res.clearCookie(ACCESS_COOKIE_NAME, baseOptions);
+  res.clearCookie(REFRESH_COOKIE_NAME, baseOptions);
 };
 
-const setRefreshTokenCookie = (res, token) => {
-  setAuthCookies(res, { refreshToken: token });
+const setRefreshTokenCookie = (res, token, req = null) => {
+  setAuthCookies(res, { refreshToken: token }, req);
 };
 
-const clearRefreshTokenCookie = (res) => {
-  clearAuthCookies(res);
+const clearRefreshTokenCookie = (res, req = null) => {
+  clearAuthCookies(res, req);
 };
 
 const register = async (req, res, next) => {
@@ -119,7 +122,7 @@ const register = async (req, res, next) => {
     setAuthCookies(res, {
       accessToken: result.accessToken,
       refreshToken: result.refreshToken,
-    });
+    }, req);
 
     return successResponse(res, 201, 'Registration successful', {
       user: result.user,
@@ -139,7 +142,7 @@ const login = async (req, res, next) => {
     setAuthCookies(res, {
       accessToken: result.accessToken,
       refreshToken: result.refreshToken,
-    });
+    }, req);
 
     return successResponse(res, 200, 'Login successful', {
       user: result.user,
@@ -162,7 +165,7 @@ const refresh = async (req, res, next) => {
     setAuthCookies(res, {
       accessToken: result.accessToken,
       refreshToken: result.refreshToken,
-    });
+    }, req);
 
     return successResponse(res, 200, 'Token refreshed successfully', {
       accessToken: result.accessToken,
@@ -170,7 +173,7 @@ const refresh = async (req, res, next) => {
       user: result.user,
     });
   } catch (err) {
-    clearAuthCookies(res);
+    clearAuthCookies(res, req);
     next(err);
   }
 };
@@ -179,11 +182,11 @@ const logout = async (req, res, next) => {
   try {
     const incomingRefreshToken = req.cookies[REFRESH_COOKIE_NAME] || req.cookies[COOKIE_NAME] || req.body.refreshToken;
     await authService.logout({ incomingRefreshToken, req });
-    clearAuthCookies(res);
+    clearAuthCookies(res, req);
 
     return successResponse(res, 200, 'Logged out successfully');
   } catch (err) {
-    clearAuthCookies(res);
+    clearAuthCookies(res, req);
     next(err);
   }
 };
@@ -196,11 +199,11 @@ const revoke = async (req, res, next) => {
     }
 
     await authService.revokeToken({ incomingRefreshToken, req });
-    clearAuthCookies(res);
+    clearAuthCookies(res, req);
 
     return successResponse(res, 200, 'Token revoked successfully');
   } catch (err) {
-    clearAuthCookies(res);
+    clearAuthCookies(res, req);
     next(err);
   }
 };
@@ -257,7 +260,7 @@ const oauthDevLogin = async (req, res, next) => {
     setAuthCookies(res, {
       accessToken: result.accessToken,
       refreshToken: result.refreshToken,
-    });
+    }, req);
 
     return successResponse(res, 200, `${provider} authentication successful`, {
       user: result.user,
@@ -357,7 +360,7 @@ const googleCallback = async (req, res, next) => {
     setAuthCookies(res, {
       accessToken: result.accessToken,
       refreshToken: result.refreshToken,
-    });
+    }, req);
     return res.redirect(`${env.CLIENT_URL}/oauth/callback?token=${result.accessToken}`);
   } catch (err) {
     next(err);
@@ -453,7 +456,7 @@ const facebookCallback = async (req, res, next) => {
     setAuthCookies(res, {
       accessToken: result.accessToken,
       refreshToken: result.refreshToken,
-    });
+    }, req);
     return res.redirect(`${env.CLIENT_URL}/oauth/callback?token=${result.accessToken}`);
   } catch (err) {
     next(err);
@@ -506,7 +509,7 @@ const resetPassword = async (req, res, next) => {
       req,
     });
 
-    clearAuthCookies(res);
+    clearAuthCookies(res, req);
 
     return successResponse(res, 200, result.message);
   } catch (err) {

@@ -41,6 +41,11 @@ services:
     buildCommand: npm install && npm run build
     staticPublishPath: dist
     routes:
+      # Reverse proxy /api calls to backend to make cookies 100% first-party (bypasses 3P cookie blocks)
+      # Replace <backend-subdomain> with your actual devlog-api subdomain
+      - type: rewrite
+        source: /api/*
+        destination: https://blog-assignment-ds1d.onrender.com/api/*
       - type: rewrite
         source: /*
         destination: /index.html

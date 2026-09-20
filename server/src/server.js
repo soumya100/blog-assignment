@@ -7,8 +7,13 @@ const logger = require('./utils/logger');
 const User = require('./models/User');
 const { ROLES, USER_STATUS } = require('./constants/roles');
 
+const configuredOrigins = (env.CLIENT_URL || '')
+  .split(',')
+  .map((url) => url.trim().replace(/\/$/, ''))
+  .filter(Boolean);
+
 const allowedOrigins = [
-  env.CLIENT_URL,
+  ...configuredOrigins,
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'http://localhost:3000',
@@ -22,6 +27,10 @@ const isOriginAllowed = (origin) => {
   if (!origin) return true;
   const normalized = origin.replace(/\/$/, '');
   if (allowedOrigins.includes(normalized)) return true;
+
+  // Permit Render and Vercel cloud deployments for the platform
+  if (/^https:\/\/[a-zA-Z0-9-_]+\.onrender\.com$/.test(normalized)) return true;
+  if (/^https:\/\/[a-zA-Z0-9-_]+\.vercel\.app$/.test(normalized)) return true;
 
   if (env.NODE_ENV !== 'production') {
     if (

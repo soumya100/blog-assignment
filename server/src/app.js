@@ -1,4 +1,6 @@
 const express = require('express');
+const path = require('path');
+const fs = require('fs');
 const cors = require('cors');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
@@ -11,7 +13,7 @@ const { notFoundHandler, centralizedErrorHandler } = require('./middleware/error
 
 const app = express();
 
-// Trust reverse proxies if running behind Nginx / Heroku / AWS ALB
+// Trust reverse proxies (Render, Heroku, Cloudflare) - 1 hop
 app.set('trust proxy', 1);
 
 // Security Headers
@@ -23,8 +25,13 @@ app.use(
 );
 
 // CORS setup
+const configuredOrigins = (env.CLIENT_URL || '')
+  .split(',')
+  .map((url) => url.trim().replace(/\/$/, ''))
+  .filter(Boolean);
+
 const allowedOrigins = [
-  env.CLIENT_URL,
+  ...configuredOrigins,
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'http://localhost:3000',
@@ -38,6 +45,10 @@ const isOriginAllowed = (origin) => {
   if (!origin) return true;
   const normalized = origin.replace(/\/$/, '');
   if (allowedOrigins.includes(normalized)) return true;
+
+  // Permit Render and Vercel cloud deployments for the platform
+  if (/^https:\/\/[a-zA-Z0-9-_]+\.onrender\.com$/.test(normalized)) return true;
+  if (/^https:\/\/[a-zA-Z0-9-_]+\.vercel\.app$/.test(normalized)) return true;
 
   // In development, permit local dev servers on any port (localhost, 127.0.0.1, LAN)
   if (env.NODE_ENV !== 'production') {
@@ -86,6 +97,18 @@ app.use('/api', apiLimiter);
 
 // Versioned API Routes
 app.use('/api/v1', routes);
+
+// Serve static client build if present (Unified Single-Service Deployment on Render)
+const clientDist = path.resolve(__dirname, '../../client/dist');
+if (fs.existsSync(clientDist)) {
+  app.use(express.static(clientDist));
+  app.get('*', (req, res, next) => {
+    if (req.originalUrl.startsWith('/api') || req.originalUrl.startsWith('/socket.io')) {
+      return next();
+    }
+    res.sendFile(path.join(clientDist, 'index.html'));
+  });
+}
 
 // 404 Route Handler
 app.use(notFoundHandler);
