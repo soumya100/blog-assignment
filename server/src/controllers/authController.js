@@ -366,6 +366,33 @@ const oauthDevLogin = async (req, res, next) => {
   }
 };
 
+// Short-lived in-memory cache to deduplicate rapid or replayed OAuth callback requests
+// Prevents "This authorization code has been used" from Facebook / Google on rapid retries
+const oauthCodeCache = new Map();
+
+const getCachedOAuthResult = (code) => {
+  if (!code) return null;
+  const entry = oauthCodeCache.get(code);
+  if (entry && Date.now() - entry.timestamp < 60 * 1000) {
+    return entry;
+  }
+  if (entry) {
+    oauthCodeCache.delete(code);
+  }
+  return null;
+};
+
+const setCachedOAuthResult = (code, result) => {
+  if (!code) return;
+  const now = Date.now();
+  for (const [k, v] of oauthCodeCache.entries()) {
+    if (now - v.timestamp > 60 * 1000) {
+      oauthCodeCache.delete(k);
+    }
+  }
+  oauthCodeCache.set(code, { ...result, timestamp: now });
+};
+
 /**
  * Live Google OAuth 2.0 Flow
  */
@@ -429,6 +456,16 @@ const googleCallback = async (req, res, next) => {
 
     const callbackUrl = stateVerification.callbackUrl || resolveCallbackUrl('google', req);
 
+    // Check if this exact code was already processed in the last 60s
+    const cached = getCachedOAuthResult(code);
+    if (cached && cached.accessToken) {
+      setAuthCookies(res, {
+        accessToken: cached.accessToken,
+        refreshToken: cached.refreshToken,
+      }, req);
+      return res.redirect(`${targetClientUrl}/oauth/callback?token=${cached.accessToken}`);
+    }
+
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -475,6 +512,11 @@ const googleCallback = async (req, res, next) => {
       accessToken: result.accessToken,
       refreshToken: result.refreshToken,
     }, req);
+
+    setCachedOAuthResult(code, {
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+    });
 
     return res.redirect(`${targetClientUrl}/oauth/callback?token=${result.accessToken}`);
   } catch (err) {
@@ -543,6 +585,16 @@ const facebookCallback = async (req, res, next) => {
 
     const callbackUrl = stateVerification.callbackUrl || resolveCallbackUrl('facebook', req);
 
+    // Check if this exact code was already processed in the last 60s
+    const cached = getCachedOAuthResult(code);
+    if (cached && cached.accessToken) {
+      setAuthCookies(res, {
+        accessToken: cached.accessToken,
+        refreshToken: cached.refreshToken,
+      }, req);
+      return res.redirect(`${targetClientUrl}/oauth/callback?token=${cached.accessToken}`);
+    }
+
     const tokenUrl = `https://graph.facebook.com/v18.0/oauth/access_token?${new URLSearchParams({
       client_id: env.FACEBOOK_CLIENT_ID,
       client_secret: env.FACEBOOK_CLIENT_SECRET,
@@ -554,11 +606,15 @@ const facebookCallback = async (req, res, next) => {
     const tokenData = await tokenRes.json();
 
     if (!tokenRes.ok || !tokenData.access_token) {
+      const fbErrMsg = tokenData.error?.message || tokenData.error || '';
       logger.error('Facebook OAuth token exchange failed:', {
         status: tokenRes.status,
-        error: tokenData.error?.message || tokenData.error,
+        error: fbErrMsg,
       });
-      const errMsg = tokenData.error?.message || 'TOKEN_EXCHANGE_FAILED';
+      if (typeof fbErrMsg === 'string' && fbErrMsg.includes('authorization code has been used')) {
+        return res.redirect(`${targetClientUrl}/login?notice=OAUTH_CODE_EXPIRED&provider=facebook`);
+      }
+      const errMsg = fbErrMsg || 'TOKEN_EXCHANGE_FAILED';
       return res.redirect(`${targetClientUrl}/oauth/callback?error=${encodeURIComponent(errMsg)}`);
     }
 
@@ -598,6 +654,11 @@ const facebookCallback = async (req, res, next) => {
       accessToken: result.accessToken,
       refreshToken: result.refreshToken,
     }, req);
+
+    setCachedOAuthResult(code, {
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+    });
 
     return res.redirect(`${targetClientUrl}/oauth/callback?token=${result.accessToken}`);
   } catch (err) {

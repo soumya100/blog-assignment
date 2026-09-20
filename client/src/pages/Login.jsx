@@ -266,6 +266,34 @@ const Login = () => {
             </div>
           )}
 
+          {/* OAuth Code Expired / Reused Notice */}
+          {searchParams.get('notice') === 'OAUTH_CODE_EXPIRED' && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '0.625rem',
+                padding: '0.85rem 1rem',
+                borderRadius: '10px',
+                background: 'rgba(239, 68, 68, 0.1)',
+                color: 'var(--text-primary)',
+                fontSize: '0.825rem',
+                marginBottom: '1.25rem',
+                border: '1px solid rgba(239, 68, 68, 0.25)',
+              }}
+            >
+              <AlertCircle size={18} style={{ color: '#ef4444', flexShrink: 0, marginTop: '2px' }} />
+              <div>
+                <strong style={{ display: 'block', marginBottom: '0.2rem', color: '#ef4444' }}>
+                  Session Expired
+                </strong>
+                <span>
+                  Your previous {searchParams.get('provider') === 'facebook' ? 'Facebook' : 'Google'} login authorization link was already used or expired. Please click <strong>Sign in with {searchParams.get('provider') === 'facebook' ? 'Facebook' : 'Google'} OAuth 2.0</strong> below to sign in fresh.
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Login Form */}
           <form onSubmit={handleSubmit(onSubmit)} noValidate>
             <div className="form-group" style={{ marginBottom: '1.15rem' }}>
