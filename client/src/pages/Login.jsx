@@ -362,7 +362,7 @@ const Login = () => {
           {/* Social Logins */}
           <div className="auth-oauth-group">
             <a
-              href={`${API_BASE_URL}/auth/google`}
+              href={`${API_BASE_URL}/auth/google${typeof window !== 'undefined' ? `?client_url=${encodeURIComponent(window.location.origin)}` : ''}`}
               className="auth-oauth-btn"
             >
               <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
@@ -375,7 +375,7 @@ const Login = () => {
             </a>
 
             <a
-              href={`${API_BASE_URL}/auth/facebook`}
+              href={`${API_BASE_URL}/auth/facebook${typeof window !== 'undefined' ? `?client_url=${encodeURIComponent(window.location.origin)}` : ''}`}
               className="auth-oauth-btn"
             >
               <svg width="17" height="17" viewBox="0 0 24 24" fill="#1877F2">

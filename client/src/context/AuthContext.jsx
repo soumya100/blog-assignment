@@ -118,6 +118,7 @@ export const AuthProvider = ({ children }) => {
         isAdmin,
         updateUser: (updatedUser) =>
           setUser((prev) => (prev ? { ...prev, ...updatedUser } : updatedUser)),
+        saveAuthSession,
         login,
         register,
         logout,

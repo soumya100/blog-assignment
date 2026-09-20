@@ -95,8 +95,9 @@ app.use(sanitizeInput);
 // General rate limiter on all API endpoints
 app.use('/api', apiLimiter);
 
-// Versioned API Routes
+// Versioned API Routes (and /api compatibility alias for provider callbacks)
 app.use('/api/v1', routes);
+app.use('/api', routes);
 
 // Serve static client build if present (Unified Single-Service Deployment on Render)
 const clientDist = path.resolve(__dirname, '../../client/dist');

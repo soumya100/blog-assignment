@@ -8,7 +8,8 @@ dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 const env = {
   NODE_ENV: process.env.NODE_ENV || 'development',
   PORT: parseInt(process.env.PORT || '5000', 10),
-  CLIENT_URL: process.env.CLIENT_URL || 'http://localhost:5173',
+  CLIENT_URL: process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:5173',
+  BACKEND_URL: process.env.BACKEND_URL || process.env.RENDER_EXTERNAL_URL || '',
   MONGODB_URI: process.env.MONGODB_URI || '',
 
   // JWT configuration
@@ -28,14 +29,14 @@ const env = {
   AUTH_RATE_LIMIT_MAX_REQUESTS: parseInt(process.env.AUTH_RATE_LIMIT_MAX_REQUESTS || '10', 10),
 
   // OAuth 2.0 Credentials
-  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
-  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || '',
-  GOOGLE_CALLBACK_URL: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:5000/api/v1/auth/google/callback',
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_APP_ID || '',
+  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || process.env.GOOGLE_APP_SECRET || '',
+  GOOGLE_CALLBACK_URL: process.env.GOOGLE_CALLBACK_URL || '',
 
-  FACEBOOK_CLIENT_ID: process.env.FACEBOOK_CLIENT_ID || '',
-  FACEBOOK_CLIENT_SECRET: process.env.FACEBOOK_CLIENT_SECRET || '',
-  FACEBOOK_CALLBACK_URL: process.env.FACEBOOK_CALLBACK_URL || 'http://localhost:5000/api/v1/auth/facebook/callback',
-  FACEBOOK_SCOPE: process.env.FACEBOOK_SCOPE || 'public_profile',
+  FACEBOOK_CLIENT_ID: process.env.FACEBOOK_CLIENT_ID || process.env.FACEBOOK_APP_ID || '',
+  FACEBOOK_CLIENT_SECRET: process.env.FACEBOOK_CLIENT_SECRET || process.env.FACEBOOK_APP_SECRET || '',
+  FACEBOOK_CALLBACK_URL: process.env.FACEBOOK_CALLBACK_URL || '',
+  FACEBOOK_SCOPE: process.env.FACEBOOK_SCOPE || 'email,public_profile',
 
   // Admin seed defaults
   ADMIN_EMAIL: process.env.ADMIN_EMAIL || 'admin@blogplatform.dev',

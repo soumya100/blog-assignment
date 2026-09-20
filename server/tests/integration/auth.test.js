@@ -256,6 +256,45 @@ describe('Authentication Integration Tests', () => {
 
     expect(res.statusCode).toBe(401);
   });
+
+  test('GET /api/v1/auth/google - initiates OAuth and responds with redirect', async () => {
+    const res = await request(app).get('/api/v1/auth/google');
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toBeDefined();
+  });
+
+  test('GET /api/auth/google - alias route functions identically', async () => {
+    const res = await request(app).get('/api/auth/google');
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toBeDefined();
+  });
+
+  test('POST /api/v1/auth/oauth/session - validates OAuth token and binds HttpOnly cookies', async () => {
+    const regRes = await request(app).post('/api/v1/auth/register').send({
+      username: 'oauth_session_user',
+      email: 'oauth_session@test.com',
+      password: 'SecurePassword123!',
+    });
+    const token = regRes.body.data.accessToken;
+
+    const sessionRes = await request(app)
+      .post('/api/v1/auth/oauth/session')
+      .send({ token });
+
+    expect(sessionRes.statusCode).toBe(200);
+    expect(sessionRes.body.success).toBe(true);
+    expect(sessionRes.body.data.user.email).toBe('oauth_session@test.com');
+    expect(sessionRes.headers['set-cookie']).toBeDefined();
+    expect(sessionRes.headers['set-cookie'].some((c) => c.startsWith('accessToken='))).toBe(true);
+  });
+
+  test('POST /api/v1/auth/oauth/session - rejects invalid token with 401', async () => {
+    const sessionRes = await request(app)
+      .post('/api/v1/auth/oauth/session')
+      .send({ token: 'invalid.token.payload' });
+
+    expect(sessionRes.statusCode).toBe(401);
+  });
 });
 
 

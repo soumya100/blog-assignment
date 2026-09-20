@@ -2,15 +2,84 @@ const crypto = require('crypto');
 const authService = require('../services/authService');
 const { successResponse, errorResponse } = require('../utils/apiResponse');
 const env = require('../config/env');
+const logger = require('../utils/logger');
+
+/**
+ * Resolve target frontend client URL for OAuth redirects
+ * Prioritizes explicit client query, request origin/referer, and falls back to CLIENT_URL
+ */
+const resolveClientUrl = (req, explicitClientUrl = null) => {
+  const candidate =
+    explicitClientUrl ||
+    req?.query?.client_url ||
+    req?.headers?.origin ||
+    (req?.headers?.referer
+      ? (() => {
+          try {
+            return new URL(req.headers.referer).origin;
+          } catch (e) {
+            return null;
+          }
+        })()
+      : null) ||
+    env.CLIENT_URL;
+
+  if (candidate) {
+    try {
+      const normalized = candidate.trim().replace(/\/$/, '');
+      if (
+        /^https:\/\/[a-zA-Z0-9-_]+\.onrender\.com$/.test(normalized) ||
+        /^https:\/\/[a-zA-Z0-9-_]+\.vercel\.app$/.test(normalized) ||
+        normalized === env.CLIENT_URL.replace(/\/$/, '') ||
+        normalized === 'http://localhost:5173' ||
+        normalized === 'http://127.0.0.1:5173' ||
+        normalized === 'http://localhost:3000' ||
+        normalized === 'http://localhost:5174' ||
+        (env.NODE_ENV !== 'production' && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(normalized))
+      ) {
+        return normalized;
+      }
+    } catch (e) {
+      // Fallback
+    }
+  }
+  return env.CLIENT_URL.replace(/\/$/, '');
+};
+
+/**
+ * Dynamically resolve provider OAuth callback URL
+ * Prevents accidental localhost callback in production / Render deployment
+ */
+const resolveCallbackUrl = (provider, req = null) => {
+  const configured = provider === 'google' ? env.GOOGLE_CALLBACK_URL : env.FACEBOOK_CALLBACK_URL;
+  const isProd = env.NODE_ENV === 'production' || process.env.RENDER === 'true';
+
+  if (configured && (!isProd || !configured.includes('localhost'))) {
+    return configured;
+  }
+
+  // Auto-detect production backend host from Render or request headers
+  const backendBase =
+    env.BACKEND_URL ||
+    process.env.RENDER_EXTERNAL_URL ||
+    (req
+      ? `${req.secure || req.headers?.['x-forwarded-proto'] === 'https' ? 'https' : req.protocol}://${req.get('host')}`
+      : '') ||
+    'http://localhost:5000';
+
+  return `${backendBase.replace(/\/$/, '')}/api/v1/auth/${provider}/callback`;
+};
 
 /**
  * Generate cryptographically signed OAuth state token
- * Combines timestamp, random nonce, and HMAC-SHA256 signature
+ * Combines timestamp, nonce, optional client return origin, and callback URI with HMAC-SHA256 signature
  */
-const generateOAuthState = () => {
+const generateOAuthState = (clientUrl = '', callbackUrl = '') => {
   const timestamp = Date.now().toString(36);
   const nonce = crypto.randomBytes(16).toString('hex');
-  const payload = `${timestamp}.${nonce}`;
+  const clientB64 = clientUrl ? Buffer.from(clientUrl).toString('base64url') : '';
+  const cbB64 = callbackUrl ? Buffer.from(callbackUrl).toString('base64url') : '';
+  const payload = `${timestamp}.${nonce}.${clientB64}.${cbB64}`;
   const signature = crypto
     .createHmac('sha256', env.COOKIE_SECRET || env.JWT_ACCESS_SECRET || 'dev_oauth_secret')
     .update(payload)
@@ -20,26 +89,21 @@ const generateOAuthState = () => {
 
 /**
  * Verify OAuth state against cookie or cryptographic HMAC
- * Resilient across localhost / 127.0.0.1 port and proxy partitions in development
+ * Resilient across cross-subdomain redirections and proxy partitions on Render
  */
 const verifyOAuthState = (state, cookieState) => {
-  if (!state) return false;
+  if (!state) return { isValid: false, clientUrl: null, callbackUrl: null };
 
-  // 1. Direct cookie match if available
-  if (cookieState && state === cookieState) return true;
+  const isDirectMatch = Boolean(cookieState && state === cookieState);
 
-  // 2. Cryptographic HMAC validation (resilient against cookie drops)
   try {
     const parts = state.split('.');
     if (parts.length === 3) {
       const [timestampStr, nonce, receivedSig] = parts;
       const timestamp = parseInt(timestampStr, 36);
-
-      // Enforce 15-minute expiration
       if (Date.now() - timestamp > 15 * 60 * 1000) {
-        return false;
+        return { isValid: false, clientUrl: null, callbackUrl: null };
       }
-
       const payload = `${timestampStr}.${nonce}`;
       const expectedSig = crypto
         .createHmac('sha256', env.COOKIE_SECRET || env.JWT_ACCESS_SECRET || 'dev_oauth_secret')
@@ -50,14 +114,38 @@ const verifyOAuthState = (state, cookieState) => {
         receivedSig.length === expectedSig.length &&
         crypto.timingSafeEqual(Buffer.from(receivedSig), Buffer.from(expectedSig))
       ) {
-        return true;
+        return { isValid: true, clientUrl: null, callbackUrl: null };
+      }
+    } else if (parts.length === 5) {
+      const [timestampStr, nonce, clientB64, cbB64, receivedSig] = parts;
+      const timestamp = parseInt(timestampStr, 36);
+      if (Date.now() - timestamp > 15 * 60 * 1000) {
+        return { isValid: false, clientUrl: null, callbackUrl: null };
+      }
+      const payload = `${timestampStr}.${nonce}.${clientB64}.${cbB64}`;
+      const expectedSig = crypto
+        .createHmac('sha256', env.COOKIE_SECRET || env.JWT_ACCESS_SECRET || 'dev_oauth_secret')
+        .update(payload)
+        .digest('hex');
+
+      if (
+        receivedSig.length === expectedSig.length &&
+        crypto.timingSafeEqual(Buffer.from(receivedSig), Buffer.from(expectedSig))
+      ) {
+        const clientUrl = clientB64 ? Buffer.from(clientB64, 'base64url').toString('utf8') : null;
+        const callbackUrl = cbB64 ? Buffer.from(cbB64, 'base64url').toString('utf8') : null;
+        return { isValid: true, clientUrl, callbackUrl };
       }
     }
   } catch (err) {
     // Malformed state
   }
 
-  return false;
+  if (isDirectMatch) {
+    return { isValid: true, clientUrl: null, callbackUrl: null };
+  }
+
+  return { isValid: false, clientUrl: null, callbackUrl: null };
 };
 
 const ACCESS_COOKIE_NAME = 'accessToken';
@@ -216,6 +304,12 @@ const getMe = async (req, res) => {
       ? req.headers.authorization.split(' ')[1]
       : null);
 
+  // If authenticated via Bearer token without cookies (e.g. cross-origin/proxy callback landing),
+  // ensure HttpOnly cookies are established for the caller's origin as well:
+  if (!req.cookies?.accessToken && token && req.user) {
+    setAuthCookies(res, { accessToken: token }, req);
+  }
+
   return successResponse(res, 200, 'User profile retrieved', {
     user: req.user.toSafeObject(),
     accessToken: token,
@@ -276,22 +370,27 @@ const oauthDevLogin = async (req, res, next) => {
  * Live Google OAuth 2.0 Flow
  */
 const googleAuth = (req, res) => {
+  const targetClientUrl = resolveClientUrl(req);
+
   if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) {
-    return res.redirect(`${env.CLIENT_URL}/login?notice=OAUTH_SETUP_REQUIRED`);
+    logger.warn('Google OAuth initiated but credentials are missing in environment.');
+    return res.redirect(`${targetClientUrl}/login?notice=OAUTH_SETUP_REQUIRED&provider=google`);
   }
 
-  const state = generateOAuthState();
+  const callbackUrl = resolveCallbackUrl('google', req);
+  const state = generateOAuthState(targetClientUrl, callbackUrl);
 
   res.cookie('oauth_state', state, {
     httpOnly: true,
-    secure: env.NODE_ENV === 'production',
-    sameSite: env.NODE_ENV === 'production' ? 'none' : 'lax',
+    secure: env.NODE_ENV === 'production' || process.env.RENDER === 'true',
+    sameSite: (env.NODE_ENV === 'production' || process.env.RENDER === 'true') ? 'none' : 'lax',
     path: '/',
     maxAge: 10 * 60 * 1000,
+    ...((env.NODE_ENV === 'production' || process.env.RENDER === 'true') ? { partitioned: true } : {}),
   });
 
   const queryParams = new URLSearchParams({
-    redirect_uri: env.GOOGLE_CALLBACK_URL,
+    redirect_uri: callbackUrl,
     client_id: env.GOOGLE_CLIENT_ID,
     access_type: 'offline',
     response_type: 'code',
@@ -305,22 +404,30 @@ const googleAuth = (req, res) => {
 
 const googleCallback = async (req, res, next) => {
   try {
-    const { code, state, error } = req.query;
-    if (error) {
-      return res.redirect(`${env.CLIENT_URL}/oauth/callback?error=${encodeURIComponent(error)}`);
-    }
+    const { code, state, error, error_description } = req.query;
+    const storedState = req.cookies?.oauth_state;
 
-    const storedState = req.cookies.oauth_state;
     res.clearCookie('oauth_state', {
       httpOnly: true,
-      secure: env.NODE_ENV === 'production',
-      sameSite: env.NODE_ENV === 'production' ? 'none' : 'lax',
+      secure: env.NODE_ENV === 'production' || process.env.RENDER === 'true',
+      sameSite: (env.NODE_ENV === 'production' || process.env.RENDER === 'true') ? 'none' : 'lax',
       path: '/',
     });
 
-    if (!verifyOAuthState(state, storedState)) {
-      return res.redirect(`${env.CLIENT_URL}/oauth/callback?error=INVALID_OAUTH_STATE`);
+    const stateVerification = verifyOAuthState(state, storedState);
+    const targetClientUrl = resolveClientUrl(req, stateVerification.clientUrl);
+
+    if (error) {
+      logger.warn('Google OAuth provider returned error:', { error, error_description });
+      return res.redirect(`${targetClientUrl}/oauth/callback?error=${encodeURIComponent(error_description || error)}`);
     }
+
+    if (!stateVerification.isValid) {
+      logger.warn('Google OAuth state verification failed.');
+      return res.redirect(`${targetClientUrl}/oauth/callback?error=INVALID_OAUTH_STATE`);
+    }
+
+    const callbackUrl = stateVerification.callbackUrl || resolveCallbackUrl('google', req);
 
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
@@ -329,14 +436,20 @@ const googleCallback = async (req, res, next) => {
         code,
         client_id: env.GOOGLE_CLIENT_ID,
         client_secret: env.GOOGLE_CLIENT_SECRET,
-        redirect_uri: env.GOOGLE_CALLBACK_URL,
+        redirect_uri: callbackUrl,
         grant_type: 'authorization_code',
       }),
     });
 
     const tokenData = await tokenRes.json();
     if (!tokenRes.ok || !tokenData.access_token) {
-      return res.redirect(`${env.CLIENT_URL}/oauth/callback?error=TOKEN_EXCHANGE_FAILED`);
+      logger.error('Google OAuth token exchange failed:', {
+        status: tokenRes.status,
+        error: tokenData.error,
+        description: tokenData.error_description,
+      });
+      const errMsg = tokenData.error_description || tokenData.error || 'TOKEN_EXCHANGE_FAILED';
+      return res.redirect(`${targetClientUrl}/oauth/callback?error=${encodeURIComponent(errMsg)}`);
     }
 
     const profileRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
@@ -344,8 +457,9 @@ const googleCallback = async (req, res, next) => {
     });
     const profile = await profileRes.json();
 
-    if (!profile.email) {
-      return res.redirect(`${env.CLIENT_URL}/oauth/callback?error=NO_EMAIL_FROM_GOOGLE`);
+    if (!profileRes.ok || !profile || !profile.email) {
+      logger.error('Failed to retrieve user profile from Google:', { status: profileRes.status });
+      return res.redirect(`${targetClientUrl}/oauth/callback?error=NO_EMAIL_FROM_GOOGLE`);
     }
 
     const result = await authService.oauthLogin({
@@ -361,7 +475,8 @@ const googleCallback = async (req, res, next) => {
       accessToken: result.accessToken,
       refreshToken: result.refreshToken,
     }, req);
-    return res.redirect(`${env.CLIENT_URL}/oauth/callback?token=${result.accessToken}`);
+
+    return res.redirect(`${targetClientUrl}/oauth/callback?token=${result.accessToken}`);
   } catch (err) {
     next(err);
   }
@@ -371,25 +486,30 @@ const googleCallback = async (req, res, next) => {
  * Live Facebook OAuth 2.0 Flow
  */
 const facebookAuth = (req, res) => {
+  const targetClientUrl = resolveClientUrl(req);
+
   if (!env.FACEBOOK_CLIENT_ID || !env.FACEBOOK_CLIENT_SECRET) {
-    return res.redirect(`${env.CLIENT_URL}/login?notice=OAUTH_SETUP_REQUIRED&provider=facebook`);
+    logger.warn('Facebook OAuth initiated but credentials are missing in environment.');
+    return res.redirect(`${targetClientUrl}/login?notice=OAUTH_SETUP_REQUIRED&provider=facebook`);
   }
 
-  const state = generateOAuthState();
+  const callbackUrl = resolveCallbackUrl('facebook', req);
+  const state = generateOAuthState(targetClientUrl, callbackUrl);
 
   res.cookie('oauth_facebook_state', state, {
     httpOnly: true,
-    secure: env.NODE_ENV === 'production',
-    sameSite: env.NODE_ENV === 'production' ? 'none' : 'lax',
+    secure: env.NODE_ENV === 'production' || process.env.RENDER === 'true',
+    sameSite: (env.NODE_ENV === 'production' || process.env.RENDER === 'true') ? 'none' : 'lax',
     path: '/',
     maxAge: 10 * 60 * 1000,
+    ...((env.NODE_ENV === 'production' || process.env.RENDER === 'true') ? { partitioned: true } : {}),
   });
 
   const queryParams = new URLSearchParams({
     client_id: env.FACEBOOK_CLIENT_ID,
-    redirect_uri: env.FACEBOOK_CALLBACK_URL,
+    redirect_uri: callbackUrl,
     state,
-    scope: env.FACEBOOK_SCOPE || 'public_profile',
+    scope: env.FACEBOOK_SCOPE || 'email,public_profile',
     response_type: 'code',
   });
 
@@ -399,26 +519,34 @@ const facebookAuth = (req, res) => {
 const facebookCallback = async (req, res, next) => {
   try {
     const { code, state, error, error_description } = req.query;
-    if (error) {
-      return res.redirect(`${env.CLIENT_URL}/oauth/callback?error=${encodeURIComponent(error_description || error)}`);
-    }
+    const storedState = req.cookies?.oauth_facebook_state;
 
-    const storedState = req.cookies.oauth_facebook_state;
     res.clearCookie('oauth_facebook_state', {
       httpOnly: true,
-      secure: env.NODE_ENV === 'production',
-      sameSite: env.NODE_ENV === 'production' ? 'none' : 'lax',
+      secure: env.NODE_ENV === 'production' || process.env.RENDER === 'true',
+      sameSite: (env.NODE_ENV === 'production' || process.env.RENDER === 'true') ? 'none' : 'lax',
       path: '/',
     });
 
-    if (!verifyOAuthState(state, storedState)) {
-      return res.redirect(`${env.CLIENT_URL}/oauth/callback?error=INVALID_OAUTH_STATE`);
+    const stateVerification = verifyOAuthState(state, storedState);
+    const targetClientUrl = resolveClientUrl(req, stateVerification.clientUrl);
+
+    if (error) {
+      logger.warn('Facebook OAuth provider returned error:', { error, error_description });
+      return res.redirect(`${targetClientUrl}/oauth/callback?error=${encodeURIComponent(error_description || error)}`);
     }
+
+    if (!stateVerification.isValid) {
+      logger.warn('Facebook OAuth state verification failed.');
+      return res.redirect(`${targetClientUrl}/oauth/callback?error=INVALID_OAUTH_STATE`);
+    }
+
+    const callbackUrl = stateVerification.callbackUrl || resolveCallbackUrl('facebook', req);
 
     const tokenUrl = `https://graph.facebook.com/v18.0/oauth/access_token?${new URLSearchParams({
       client_id: env.FACEBOOK_CLIENT_ID,
       client_secret: env.FACEBOOK_CLIENT_SECRET,
-      redirect_uri: env.FACEBOOK_CALLBACK_URL,
+      redirect_uri: callbackUrl,
       code,
     }).toString()}`;
 
@@ -426,7 +554,12 @@ const facebookCallback = async (req, res, next) => {
     const tokenData = await tokenRes.json();
 
     if (!tokenRes.ok || !tokenData.access_token) {
-      return res.redirect(`${env.CLIENT_URL}/oauth/callback?error=TOKEN_EXCHANGE_FAILED`);
+      logger.error('Facebook OAuth token exchange failed:', {
+        status: tokenRes.status,
+        error: tokenData.error?.message || tokenData.error,
+      });
+      const errMsg = tokenData.error?.message || 'TOKEN_EXCHANGE_FAILED';
+      return res.redirect(`${targetClientUrl}/oauth/callback?error=${encodeURIComponent(errMsg)}`);
     }
 
     // Fetch Facebook User Profile
@@ -437,6 +570,14 @@ const facebookCallback = async (req, res, next) => {
 
     const profileRes = await fetch(profileUrl);
     const profile = await profileRes.json();
+
+    if (!profileRes.ok || !profile || !profile.id) {
+      logger.error('Failed to retrieve user profile from Facebook:', {
+        status: profileRes.status,
+        error: profile?.error?.message,
+      });
+      return res.redirect(`${targetClientUrl}/oauth/callback?error=FACEBOOK_PROFILE_FAILED`);
+    }
 
     if (!profile.email) {
       profile.email = `facebook_${profile.id}@devlog-user.internal`;
@@ -457,7 +598,77 @@ const facebookCallback = async (req, res, next) => {
       accessToken: result.accessToken,
       refreshToken: result.refreshToken,
     }, req);
-    return res.redirect(`${env.CLIENT_URL}/oauth/callback?token=${result.accessToken}`);
+
+    return res.redirect(`${targetClientUrl}/oauth/callback?token=${result.accessToken}`);
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * OAuth Session Establishment Endpoint
+ * Enables frontend SPAs (especially when deployed across separate subdomains or proxies on Render)
+ * to establish HttpOnly cookies directly on the caller's origin after a successful OAuth redirect.
+ */
+const oauthSession = async (req, res, next) => {
+  try {
+    const token =
+      req.body.token ||
+      (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')
+        ? req.headers.authorization.split(' ')[1]
+        : null);
+
+    if (!token) {
+      return errorResponse(res, 400, 'OAuth access token required to establish session', null, 'TOKEN_REQUIRED');
+    }
+
+    const { verifyAccessToken } = require('../utils/jwt');
+    let decoded;
+    try {
+      decoded = verifyAccessToken(token);
+    } catch (err) {
+      return errorResponse(res, 401, 'Invalid or expired OAuth token', null, 'INVALID_TOKEN');
+    }
+
+    const User = require('../models/User');
+    const RefreshToken = require('../models/RefreshToken');
+    const { generateRefreshTokenString, hashToken } = require('../utils/jwt');
+
+    const user = await User.findById(decoded.sub);
+    if (!user || user.status === 'DEACTIVATED') {
+      return errorResponse(res, 401, 'User account invalid or deactivated', null, 'USER_INACTIVE');
+    }
+
+    // Look for active refresh token or create new rotation family
+    let refreshTokenRecord = await RefreshToken.findOne({
+      user: user._id,
+      isRevoked: false,
+      expiresAt: { $gt: new Date() },
+    }).sort({ createdAt: -1 });
+
+    let refreshTokenRaw = null;
+    if (!refreshTokenRecord) {
+      refreshTokenRaw = generateRefreshTokenString();
+      const tokenHash = hashToken(refreshTokenRaw);
+      await RefreshToken.create({
+        tokenHash,
+        user: user._id,
+        familyId: crypto.randomUUID(),
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      });
+    }
+
+    setAuthCookies(res, {
+      accessToken: token,
+      refreshToken: refreshTokenRaw,
+    }, req);
+
+    return successResponse(res, 200, 'OAuth session established successfully', {
+      user: user.toSafeObject(),
+      accessToken: token,
+    });
   } catch (err) {
     next(err);
   }
@@ -530,6 +741,7 @@ module.exports = {
   googleCallback,
   facebookAuth,
   facebookCallback,
+  oauthSession,
   forgotPassword,
   verifyOtp,
   resetPassword,

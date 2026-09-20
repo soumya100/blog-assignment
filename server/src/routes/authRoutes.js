@@ -40,4 +40,7 @@ router.get('/facebook/callback', authController.facebookCallback);
 // OAuth Dev Sandbox Login (Google / Facebook)
 router.post('/oauth/dev', validate(oauthDevSchema), authController.oauthDevLogin);
 
+// OAuth Production Session Establishment (First-Party Cookie Binding)
+router.post('/oauth/session', authLimiter, authController.oauthSession);
+
 module.exports = router;
