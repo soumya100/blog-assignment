@@ -101,4 +101,35 @@ describe('Comments Integration & IDOR Tests', () => {
     const dbComment = await Comment.findById(comment._id);
     expect(dbComment.isDeleted).toBe(true);
   });
+
+  test('GET comments returns nested replies recursively and supports top sorting', async () => {
+    const root = await Comment.create({ post: testPost._id, author: user1._id, content: 'Root comment', likes: [user2._id] });
+    const reply = await Comment.create({
+      post: testPost._id, author: user2._id, content: 'First-level reply',
+      parentComment: root._id, ancestors: [root._id], threadRoot: root._id,
+    });
+    await Comment.create({
+      post: testPost._id, author: user1._id, content: 'Nested reply',
+      parentComment: reply._id, ancestors: [root._id, reply._id], threadRoot: root._id,
+    });
+
+    const res = await request(app).get(`/api/v1/posts/${testPost._id}/comments?sort=top&limit=10`);
+    expect(res.statusCode).toBe(200);
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.data[0].replies[0].replies[0].content).toBe('Nested reply');
+    expect(res.body.pagination.sort).toBe('top');
+  });
+
+  test('GET comment replies exposes cursor metadata', async () => {
+    const root = await Comment.create({ post: testPost._id, author: user1._id, content: 'Root comment' });
+    await Comment.create({ post: testPost._id, author: user2._id, content: 'Reply one', parentComment: root._id });
+    await Comment.create({ post: testPost._id, author: user1._id, content: 'Reply two', parentComment: root._id });
+
+    const res = await request(app).get(`/api/v1/comments/${root._id}/replies?limit=1`);
+    expect(res.statusCode).toBe(200);
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.pagination.hasMore).toBe(true);
+    expect(res.body.pagination.nextCursor).toBeTruthy();
+  });
+
 });
