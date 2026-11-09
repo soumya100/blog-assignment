@@ -12,6 +12,10 @@ const env = {
   BACKEND_URL: process.env.BACKEND_URL || process.env.RENDER_EXTERNAL_URL || '',
   MONGODB_URI: process.env.MONGODB_URI || '',
 
+  // Optional Upstash Redis REST cache (fail-open when not configured/unavailable)
+  REDIS_REST_URL: process.env.REDIS_REST_URL || '',
+  REDIS_REST_TOKEN: process.env.REDIS_REST_TOKEN || '',
+
   // JWT configuration
   JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET || 'dev_secret_access_key_minimum_32_characters_1234567890',
   JWT_ACCESS_EXPIRES_IN: process.env.JWT_ACCESS_EXPIRES_IN || '15m',
