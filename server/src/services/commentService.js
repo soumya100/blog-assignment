@@ -9,9 +9,10 @@ const invalidatePostCache = async (postId) => {
   if (postId) await commentCache.bumpVersion(postId.toString());
 };
 
-const encodeCursor = (doc) => Buffer.from(JSON.stringify({
+const encodeCursor = (doc, sort = 'newest') => Buffer.from(JSON.stringify({
   createdAt: doc.createdAt.toISOString(),
   id: doc._id.toString(),
+  ...(sort === 'top' ? { score: doc.engagementScore || 0 } : {}),
 })).toString('base64url');
 
 const decodeCursor = (cursor) => {
@@ -20,7 +21,7 @@ const decodeCursor = (cursor) => {
     const parsed = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
     const createdAt = new Date(parsed.createdAt);
     if (!parsed.id || Number.isNaN(createdAt.getTime())) return null;
-    return { createdAt, id: parsed.id };
+    return { createdAt, id: parsed.id, score: Number.isFinite(parsed.score) ? parsed.score : null };
   } catch (_) { return null; }
 };
 
@@ -100,7 +101,7 @@ const getCommentsByPost = async (postId, { page = 1, limit = 50, sort = 'newest'
 
   let roots;
   let total;
-  if (sort === 'top' && !cursor) {
+  if (sort === 'top') {
     const pipeline = [
       { $match: { post: require('mongoose').Types.ObjectId.createFromHexString(postId), parentComment: null, isDeleted: false } },
       { $lookup: { from: 'comments', let: { rootId: '$_id' }, pipeline: [
@@ -111,6 +112,10 @@ const getCommentsByPost = async (postId, { page = 1, limit = 50, sort = 'newest'
         { $multiply: [{ $size: { $ifNull: ['$likes', []] } }, 2] },
         { $ifNull: [{ $arrayElemAt: ['$replyStats.count', 0] }, 0] },
       ] } } },
+      ...(cursor ? [{ $match: { $or: [
+        { engagementScore: { $lt: cursor.score ?? 0 } },
+        { engagementScore: cursor.score ?? 0, _id: { $lt: require('mongoose').Types.ObjectId.createFromHexString(cursor.id) } },
+      ] } }] : []),
       { $sort: { engagementScore: -1, createdAt: -1, _id: -1 } },
       { $limit: safeLimit },
     ];
@@ -156,7 +161,7 @@ const getCommentsByPost = async (postId, { page = 1, limit = 50, sort = 'newest'
     pagination: {
       total, page: safePage, limit: safeLimit,
       hasMore: roots.length === safeLimit,
-      nextCursor: last ? encodeCursor(last) : null,
+      nextCursor: last ? encodeCursor(last, sort) : null,
       sort,
     },
   };
