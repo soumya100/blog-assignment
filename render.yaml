@@ -54,7 +54,7 @@ services:
       # Replace <backend-subdomain> with your actual devlog-api subdomain
       - type: rewrite
         source: /api/*
-        destination: https://blog-assignment-ds1d.onrender.com/api/*
+        destination: https://<devlog-api-subdomain>.onrender.com/api/*
       - type: rewrite
         source: /*
         destination: /index.html

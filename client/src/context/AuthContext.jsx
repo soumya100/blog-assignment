@@ -104,18 +104,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const oauthDevLogin = async (provider, email, name) => {
-    const res = await apiClient.post('/auth/oauth/dev', {
-      provider,
-      email,
-      name,
-    });
-    const { user: oauthUser, accessToken } = res.data;
-    saveAuthSession(oauthUser, accessToken);
-    setLoading(false);
-    return oauthUser;
-  };
-
   const checkAuth = useCallback(async () => {
     try {
       const res = await apiClient.get('/auth/me');
@@ -150,7 +138,6 @@ export const AuthProvider = ({ children }) => {
         login,
         register,
         logout,
-        oauthDevLogin,
       }}
     >
       {children}

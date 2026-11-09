@@ -16,7 +16,6 @@ import {
   AlertCircle,
   ArrowRight,
   ShieldCheck,
-  Sparkles,
   ArrowLeft,
   CheckCircle2,
 } from 'lucide-react';
@@ -51,7 +50,6 @@ const ResetPassword = () => {
     register,
     handleSubmit,
     watch,
-    setValue,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(resetPasswordSchema),
@@ -83,12 +81,6 @@ const ResetPassword = () => {
   };
 
   const strength = getStrengthMeta();
-
-  const fillStrongSample = () => {
-    const sample = 'NistHardenedPass99!';
-    setValue('password', sample, { shouldValidate: true });
-    setValue('confirmPassword', sample, { shouldValidate: true });
-  };
 
   const onSubmit = async (values) => {
     if (!token) {
@@ -157,25 +149,6 @@ const ResetPassword = () => {
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* Evaluator Fast-Track Box */}
-          <div className="auth-reviewer-box">
-            <div className="auth-reviewer-header">
-              <Sparkles size={14} />
-              <span>Evaluator Fast-Track Password</span>
-            </div>
-            <p style={{ fontSize: '0.775rem', color: 'var(--text-secondary)', margin: '0.4rem 0 0.75rem 0' }}>
-              One-click fills a valid NIST-hardened password for quick evaluation.
-            </p>
-            <button
-              type="button"
-              onClick={fillStrongSample}
-              className="btn btn-secondary btn-sm"
-              style={{ width: '100%', justifyContent: 'center' }}
-            >
-              ✨ Fill Valid Strong Password
-            </button>
           </div>
         </div>
 
