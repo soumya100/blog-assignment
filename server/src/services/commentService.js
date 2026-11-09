@@ -114,7 +114,8 @@ const getCommentsByPost = async (postId, { page = 1, limit = 50, sort = 'newest'
       ] } } },
       ...(cursor ? [{ $match: { $or: [
         { engagementScore: { $lt: cursor.score ?? 0 } },
-        { engagementScore: cursor.score ?? 0, _id: { $lt: require('mongoose').Types.ObjectId.createFromHexString(cursor.id) } },
+        { engagementScore: cursor.score ?? 0, createdAt: { $lt: cursor.createdAt } },
+        { engagementScore: cursor.score ?? 0, createdAt: cursor.createdAt, _id: { $lt: require('mongoose').Types.ObjectId.createFromHexString(cursor.id) } },
       ] } }] : []),
       { $sort: { engagementScore: -1, createdAt: -1, _id: -1 } },
       { $limit: safeLimit },
