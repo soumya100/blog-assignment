@@ -63,11 +63,12 @@ export function useRestorePost(options = {}) {
 // Comments Hooks
 // ==========================================
 
-export function useComments(postId) {
+export function useComments(postId, sort = 'newest') {
   return useApiQuery(
-    queryKeys.comments.list(postId),
+    [...queryKeys.comments.list(postId), sort],
     `/posts/${postId}/comments`,
     {
+      params: { sort, limit: 20 },
       enabled: Boolean(postId),
       select: (res) => res.data || [],
     }
@@ -314,26 +315,18 @@ export function useDiscardOptimisticComment(postId) {
   return (tempId, parentCommentId = null) => {
     if (!postId) return;
     const queryKey = queryKeys.comments.list(postId);
-    queryClient.setQueryData(queryKey, (old) => {
+    queryClient.setQueriesData({ queryKey }, (old) => {
       if (!old) return old;
       const isArray = Array.isArray(old);
       const commentsList = isArray ? old : (old.data || []);
-
-      let updatedComments;
-      if (!parentCommentId) {
-        updatedComments = commentsList.filter((c) => c._id !== tempId);
-      } else {
-        updatedComments = commentsList.map((c) => {
-          if (c._id === parentCommentId && c.replies) {
-            return {
-              ...c,
-              replies: c.replies.filter((r) => r._id !== tempId),
-            };
-          }
-          return c;
-        });
-      }
-
+      const removeFromTree = (items) => (items || [])
+        .filter((item) => item._id !== tempId)
+        .map((item) => ({ ...item, replies: removeFromTree(item.replies) }));
+      const updatedComments = parentCommentId
+        ? updateCommentTree(commentsList, parentCommentId, (parent) => ({
+            ...parent, replies: removeFromTree(parent.replies),
+          }))
+        : removeFromTree(commentsList);
       return isArray ? updatedComments : { ...old, data: updatedComments };
     });
   };
