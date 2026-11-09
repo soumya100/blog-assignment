@@ -465,7 +465,7 @@ const toggleLikeComment = async (commentId, userId, req) => {
   }
 
   await invalidatePostCache(updated.post);
-  return { commentId: updated._id, likesCount, hasLiked };
+  return { commentId: updated._id, likesCount, hasLiked, liked: hasLiked };
 };
 
 /**
