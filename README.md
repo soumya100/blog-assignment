@@ -641,6 +641,32 @@ The project is pre-configured for automated deployment on **Render.com** via [re
 
 ---
 
+## 💬 Scalable Discussion Enhancements
+
+The discussion API now supports unlimited reply depth while retaining the existing
+`POST /posts/:postId/comments` and `GET /posts/:postId/comments` routes and response envelope.
+
+- Root discussions support `sort=newest` (default) and `sort=top`.
+- Newest ordering uses a stable `createdAt + _id` cursor. Top ordering ranks root comments
+  by an engagement score (2 × likes + direct reply count) and uses a stable score/date/ID cursor.
+- `GET /comments/:id/replies?limit=20&after=<cursor>` retrieves direct replies with cursor metadata.
+- Replies can reference any existing comment in the same post. The API assembles recursive reply trees,
+  and the client renders them recursively.
+- Comment reads are cached for 30 seconds in Redis when configured. Cache versions are incremented
+  after comment creation, edits, deletes, and likes. Redis is optional and fail-open: MongoDB remains
+  the source of truth if Redis is unavailable.
+
+Configure an Upstash Redis REST database on the backend with:
+
+```env
+REDIS_REST_URL=https://<your-database>.upstash.io
+REDIS_REST_TOKEN=<your-rest-token>
+```
+
+No Redis package is required; the backend uses the Node.js Fetch API. If these variables are omitted,
+the discussion endpoints continue to work without Redis caching. Existing comments without ancestry
+metadata remain supported; new replies persist their ancestor chain for indexed thread retrieval.
+
 ## 📄 License
 
 This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
