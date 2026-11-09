@@ -26,6 +26,9 @@ const paginatedResponse = (res, statusCode = 200, message = 'Success', items = [
       totalPages: Math.ceil((pagination.total || 0) / (pagination.limit || 10)),
       hasNextPage: (pagination.page * pagination.limit) < (pagination.total || 0),
       hasPrevPage: pagination.page > 1,
+      ...(pagination.hasMore !== undefined ? { hasMore: pagination.hasMore } : {}),
+      ...(pagination.nextCursor ? { nextCursor: pagination.nextCursor } : {}),
+      ...(pagination.sort ? { sort: pagination.sort } : {}),
     },
   });
 };
