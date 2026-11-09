@@ -155,26 +155,17 @@ export function useCreateComment(defaultPostId, options = {}) {
               updatedComments = [optimisticItem, ...commentsList];
             }
           } else {
-            updatedComments = commentsList.map((c) => {
-              if (c._id === parentCommentId) {
-                const replies = c.replies || [];
-                const existingReplyIndex = replies.findIndex((r) => r._id === tempId);
-                let updatedReplies;
-                if (existingReplyIndex !== -1) {
-                  updatedReplies = replies.map((r) =>
-                    r._id === tempId
-                      ? { ...r, status: 'sending', isFailed: false, errorMessage: null }
-                      : r
-                  );
-                } else {
-                  updatedReplies = [...replies, optimisticItem];
-                }
-                return {
-                  ...c,
-                  replies: updatedReplies,
-                };
-              }
-              return c;
+            updatedComments = updateCommentTree(commentsList, parentCommentId, (parent) => {
+              const replies = parent.replies || [];
+              const exists = replies.some((reply) => reply._id === tempId);
+              return {
+                ...parent,
+                replies: exists
+                  ? replies.map((reply) => reply._id === tempId
+                    ? { ...reply, status: 'sending', isFailed: false, errorMessage: null }
+                    : reply)
+                  : [...replies, optimisticItem],
+              };
             });
           }
 
@@ -203,17 +194,12 @@ export function useCreateComment(defaultPostId, options = {}) {
                 c._id === context.tempId ? markError(c) : c
               );
             } else {
-              updatedComments = commentsList.map((c) => {
-                if (c._id === context.parentCommentId && c.replies) {
-                  return {
-                    ...c,
-                    replies: c.replies.map((r) =>
-                      r._id === context.tempId ? markError(r) : r
-                    ),
-                  };
-                }
-                return c;
-              });
+              updatedComments = updateCommentTree(commentsList, context.parentCommentId, (parent) => ({
+                ...parent,
+                replies: (parent.replies || []).map((reply) =>
+                  reply._id === context.tempId ? markError(reply) : reply
+                ),
+              }));
             }
 
             return isArray ? updatedComments : { ...old, data: updatedComments };
