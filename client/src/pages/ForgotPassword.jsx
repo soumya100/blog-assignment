@@ -12,11 +12,8 @@ import {
   ArrowRight,
   ArrowLeft,
   ShieldCheck,
-  Sparkles,
   AlertCircle,
-  CheckCircle2,
   Lock,
-  ExternalLink,
   Eye,
   EyeOff,
   Clock,
@@ -56,7 +53,6 @@ const ForgotPassword = () => {
   const [step, setStep] = useState(1);
   const [email, setEmail] = useState('');
   const [resetToken, setResetToken] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState(null);
 
   // OTP inputs state: 6 separate digits
   const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
@@ -75,7 +71,6 @@ const ForgotPassword = () => {
   const {
     register: registerEmail,
     handleSubmit: handleSubmitEmail,
-    setValue: setEmailValue,
     formState: { errors: emailErrors, isSubmitting: isEmailSubmitting },
   } = useForm({
     resolver: zodResolver(emailSchema),
@@ -87,7 +82,6 @@ const ForgotPassword = () => {
     register: registerPassword,
     handleSubmit: handleSubmitPassword,
     watch: watchPassword,
-    setValue: setPasswordValue,
     formState: { errors: passwordErrors, isSubmitting: isPasswordSubmitting },
   } = useForm({
     resolver: zodResolver(passwordSchema),
@@ -144,29 +138,12 @@ const ForgotPassword = () => {
     }
   }, [step]);
 
-  // Quick fill helper for evaluator convenience
-  const fillQuickEmail = (targetEmail) => {
-    setEmailValue('email', targetEmail, { shouldValidate: true });
-  };
-
-  // Fill sample password in Step 3
-  const fillStrongSample = () => {
-    const sample = 'EnterprisePass2026!';
-    setPasswordValue('password', sample, { shouldValidate: true });
-    setPasswordValue('confirmPassword', sample, { shouldValidate: true });
-  };
-
   // STEP 1 SUBMIT: Request OTP
   const onEmailSubmit = async (values) => {
     const targetEmail = values.email.trim().toLowerCase();
     try {
-      const res = await forgotPasswordMutation.mutateAsync({ email: targetEmail });
+      await forgotPasswordMutation.mutateAsync({ email: targetEmail });
       setEmail(targetEmail);
-      if (res.data?.previewUrl) {
-        setPreviewUrl(res.data.previewUrl);
-      } else {
-        setPreviewUrl(null);
-      }
       setTimeLeft(600);
       setResendCooldown(60);
       setOtpDigits(['', '', '', '', '', '']);
@@ -268,12 +245,7 @@ const ForgotPassword = () => {
     if (resendCooldown > 0) return;
     try {
       const normalizedEmail = (email || '').trim().toLowerCase();
-      const res = await forgotPasswordMutation.mutateAsync({ email: normalizedEmail });
-      if (res.data?.previewUrl) {
-        setPreviewUrl(res.data.previewUrl);
-      } else {
-        setPreviewUrl(null);
-      }
+      await forgotPasswordMutation.mutateAsync({ email: normalizedEmail });
       setTimeLeft(600);
       setResendCooldown(60);
       setOtpDigits(['', '', '', '', '', '']);
@@ -366,36 +338,6 @@ const ForgotPassword = () => {
               </div>
             </div>
           </div>
-
-          {/* Quick Reviewer Credentials Sandbox */}
-          <div className="auth-reviewer-box">
-            <div className="auth-reviewer-header">
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <Sparkles size={14} /> Evaluator Quick Fill
-              </span>
-              <span style={{ fontSize: '0.7rem', opacity: 0.8, textTransform: 'none' }}>One-click email fill</span>
-            </div>
-            <div className="auth-reviewer-buttons">
-              <button
-                type="button"
-                onClick={() => fillQuickEmail('admin@blogplatform.dev')}
-                className="auth-reviewer-btn"
-                title="Fill admin@blogplatform.dev"
-              >
-                <ShieldCheck size={15} style={{ color: 'var(--accent-primary)' }} />
-                <span>Demo Admin</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => fillQuickEmail('alice@example.com')}
-                className="auth-reviewer-btn"
-                title="Fill alice@example.com"
-              >
-                <CheckCircle2 size={15} style={{ color: 'var(--success)' }} />
-                <span>Demo Author</span>
-              </button>
-            </div>
-          </div>
         </div>
 
         {/* Right Column: Interactive Multi-Step Form Card */}
@@ -453,7 +395,7 @@ const ForgotPassword = () => {
                     <input
                       type="email"
                       className={`auth-input ${emailErrors.email ? 'auth-input-error' : ''}`}
-                      placeholder="name@company.com"
+                      placeholder="name@example.com"
                       {...registerEmail('email')}
                     />
                     <Mail size={16} className="auth-input-icon" />
@@ -488,40 +430,6 @@ const ForgotPassword = () => {
                   We've dispatched a 6-digit one-time code to <strong style={{ color: 'var(--text-primary)' }}>{email}</strong>.
                 </p>
               </div>
-
-              {/* Development Sandbox Preview Notification */}
-              {previewUrl && (
-                <div
-                  style={{
-                    padding: '0.75rem 1rem',
-                    borderRadius: '10px',
-                    background: 'rgba(59, 130, 246, 0.1)',
-                    border: '1px solid rgba(59, 130, 246, 0.3)',
-                    marginBottom: '1rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '0.5rem',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <Mail size={16} style={{ color: 'var(--accent-primary)', flexShrink: 0 }} />
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-primary)' }}>
-                      Dev Sandbox Preview (Ethereal Mail):
-                    </span>
-                  </div>
-                  <a
-                    href={previewUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="btn btn-xs btn-primary"
-                    style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', padding: '0.25rem 0.6rem' }}
-                  >
-                    <ExternalLink size={12} />
-                    View Sandbox Email
-                  </a>
-                </div>
-              )}
 
               {/* 6-box OTP inputs */}
               <form onSubmit={handleVerifyOtp}>
@@ -636,33 +544,8 @@ const ForgotPassword = () => {
               <div className="auth-header">
                 <h2 className="auth-title">Create New Password</h2>
                 <p className="auth-subtitle">
-                  Identity verified. Enter a hardened password conforming to enterprise security standards.
+                  Identity verified. Enter a strong password to secure your account.
                 </p>
-              </div>
-
-              {/* Evaluator Shortcut */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '0.55rem 0.85rem',
-                  borderRadius: '8px',
-                  background: 'rgba(99, 102, 241, 0.08)',
-                  border: '1px solid rgba(99, 102, 241, 0.2)',
-                  marginBottom: '1rem',
-                }}
-              >
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Evaluator Shortcut:</span>
-                <button
-                  type="button"
-                  onClick={fillStrongSample}
-                  className="btn btn-xs btn-secondary"
-                  style={{ gap: '0.25rem', fontSize: '0.725rem' }}
-                >
-                  <Sparkles size={11} />
-                  Fill Valid Strong Password
-                </button>
               </div>
 
               <form onSubmit={handleSubmitPassword(onPasswordSubmit)} noValidate>

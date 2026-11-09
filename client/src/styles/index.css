@@ -948,60 +948,6 @@ input:-webkit-autofill:active {
   line-height: 1.45;
 }
 
-/* Reviewer Fast-Fill Showcase Box */
-.auth-reviewer-box {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(99, 102, 241, 0.08) 100%);
-  border: 1px solid rgba(99, 102, 241, 0.25);
-  border-radius: 14px;
-  padding: 1rem 1.25rem;
-}
-
-.auth-reviewer-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 0.75rem;
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--accent-primary);
-}
-
-.auth-reviewer-buttons {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.625rem;
-}
-
-.auth-reviewer-btn {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  padding: 0.6rem 0.75rem;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
-  transition: all 0.15s ease;
-}
-
-.auth-reviewer-btn:hover {
-  border-color: var(--accent-primary);
-  background: var(--bg-elevated);
-  transform: translateY(-1px);
-}
-
-.auth-reviewer-btn.active {
-  background: rgba(59, 130, 246, 0.18);
-  border-color: var(--accent-primary);
-  color: var(--accent-primary);
-}
-
 /* Right Column: Form Card with Glossy Glassmorphism */
 .auth-card {
   position: relative;

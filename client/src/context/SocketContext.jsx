@@ -34,7 +34,7 @@ export const SocketProvider = ({ children }) => {
     const socketServerUrl =
       import.meta.env.VITE_SOCKET_URL ||
       (typeof window !== 'undefined' && window.location.hostname.includes('onrender.com')
-        ? 'https://blog-assignment-ds1d.onrender.com'
+        ? 'https://devlog-api.onrender.com'
         : (typeof window !== 'undefined' && window.location.port === '5173'
             ? window.location.origin
             : 'http://localhost:5000'));

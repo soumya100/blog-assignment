@@ -21,7 +21,6 @@ import {
   ArrowRight,
   Shield,
   Radio,
-  Sparkles,
   BookOpen,
   LogIn
 } from 'lucide-react';
@@ -58,7 +57,6 @@ const Register = () => {
     register,
     handleSubmit,
     watch,
-    setValue,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(registerSchema),
@@ -95,15 +93,6 @@ const Register = () => {
 
   const strength = getStrengthMeta();
 
-  // Evaluator Quick Fill helper
-  const fillEvaluatorSample = () => {
-    const randomSuffix = Math.floor(100 + Math.random() * 900);
-    setValue('username', `architect_${randomSuffix}`, { shouldValidate: true });
-    setValue('email', `architect${randomSuffix}@devlog.io`, { shouldValidate: true });
-    setValue('password', 'SuperSecurePass2026!', { shouldValidate: true });
-    setValue('confirmPassword', 'SuperSecurePass2026!', { shouldValidate: true });
-  };
-
   const onSubmit = async (values) => {
     try {
       await authRegister(values.username, values.email, values.password);
@@ -136,7 +125,7 @@ const Register = () => {
               Built for Modern Technical Teams.
             </h1>
             <p className="auth-showcase-subtitle">
-              Publish architecture insights, engage in technical post reviews, and explore enterprise security patterns in real time.
+              Publish architecture insights, engage in technical post reviews, and explore security patterns and engineering insights in real time.
             </p>
 
             <div className="auth-features-list">
@@ -176,25 +165,6 @@ const Register = () => {
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* Evaluator Quick Fill Box */}
-          <div className="auth-demo-credentials-box">
-            <div className="auth-demo-header">
-              <Sparkles size={16} />
-              <span>Evaluator Fast-Track Registration</span>
-            </div>
-            <p className="auth-demo-subtitle">
-              Skip typing! Click below to instantly generate a strong, unique test candidate satisfying all 5 security rules.
-            </p>
-            <button
-              type="button"
-              onClick={fillEvaluatorSample}
-              className="btn btn-primary btn-sm"
-              style={{ width: '100%', justifyContent: 'center' }}
-            >
-              ✨ Fill Valid Test Candidate Details
-            </button>
           </div>
         </div>
 

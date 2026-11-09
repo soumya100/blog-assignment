@@ -4,12 +4,22 @@ const ThemeContext = createContext();
 
 export const ThemeProvider = ({ children }) => {
   const [theme, setTheme] = useState(() => {
-    return localStorage.getItem('devlog_theme') || 'dark';
+    try {
+      return (typeof window !== 'undefined' && window.localStorage?.getItem('devlog_theme')) || 'dark';
+    } catch {
+      return 'dark';
+    }
   });
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('devlog_theme', theme);
+    try {
+      if (typeof window !== 'undefined') {
+        window.localStorage?.setItem('devlog_theme', theme);
+      }
+    } catch {
+      // Ignore storage access restrictions
+    }
   }, [theme]);
 
   const toggleTheme = () => {

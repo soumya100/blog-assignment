@@ -67,7 +67,7 @@ const Home = () => {
             }}
           >
             <Sparkles size={15} />
-            Enterprise Engineering & AppSec Insights
+            Software Engineering & Web Security Insights
           </div>
 
           <h1

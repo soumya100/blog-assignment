@@ -181,8 +181,7 @@ async function request(endpoint, options = {}) {
       endpoint.includes('/auth/login') ||
       endpoint.includes('/auth/register') ||
       endpoint.includes('/auth/refresh') ||
-      endpoint.includes('/auth/oauth/session') ||
-      endpoint.includes('/auth/oauth/dev');
+      endpoint.includes('/auth/oauth/session');
 
     if (!isAuthRoute) {
       if (isRefreshing) {

@@ -1,84 +1,39 @@
-# DevLog | Enterprise-Grade MERN Blog Platform
+# DevLog | Full-Stack MERN Blog Platform
 
-[![VAPT Hardened](https://img.shields.io/badge/Security-OWASP%20Top%2010%20Compliant-emerald?style=for-the-badge&logo=shield)](docs/security/VAPT-REPORT.md)
+[![Security](https://img.shields.io/badge/Security-OWASP%20Top%2010%20Hardened-emerald?style=for-the-badge&logo=shield)](docs/security/VAPT-REPORT.md)
 [![Tests](https://img.shields.io/badge/Tests-Jest%20%7C%20Vitest%20Passed-blue?style=for-the-badge&logo=jest)](server/tests)
 [![Architecture](https://img.shields.io/badge/Architecture-Clean%20%2F%20Layered%20Services-indigo?style=for-the-badge)](server/src/services)
 [![License: MIT](https://img.shields.io/badge/License-MIT-gray?style=for-the-badge)](LICENSE)
 
-> A production-grade, security-hardened full-stack MERN blogging and technical discussion platform. Built with strict adherence to clean architectural principles, featuring robust JWT multi-tier authentication with cryptographic token rotation, fine-grained Role-Based Access Control (RBAC), URL slugification, soft-delete restoration, threaded discussions with optimistic UI updates, room-scoped Socket.io real-time synchronization, a dedicated React administrative governance portal, comprehensive automated test suites (Jest & Vitest), and a formal OWASP Top 10 VAPT security audit report.
+> A production-grade, security-hardened full-stack MERN blogging platform built as a personal project. Features robust JWT multi-tier authentication with cryptographic token rotation, fine-grained Role-Based Access Control (RBAC), URL slugification, soft-delete restoration, threaded discussions with optimistic UI updates, room-scoped Socket.io real-time synchronization, a dedicated React administrative portal, comprehensive automated test suites (Jest & Vitest), and an OWASP Top 10 VAPT security audit report.
 
 ---
 
 ## 📋 Table of Contents
 
-1. [Assignment Requirements Compliance Matrix](#-assignment-requirements-compliance-matrix)
-2. [Project Deliverables & Key Capabilities](#-project-deliverables--key-capabilities)
-3. [Technology Stack](#-technology-stack)
-4. [System Architecture & Layered Design](#-system-architecture--layered-design)
-5. [Monorepo Directory Structure](#-monorepo-directory-structure)
-6. [Quick Start & Installation Instructions](#-quick-start--installation-instructions)
-7. [Environment Configuration (.env)](#-environment-configuration-env)
-8. [Database Execution Model (Atlas & In-Memory Fallback)](#-database-execution-model-atlas--in-memory-fallback)
-9. [Pre-Configured Test Accounts](#-pre-configured-test-accounts)
-10. [Core Features & Engineering Highlights](#-core-features--engineering-highlights)
-11. [RESTful API Documentation](#-restful-api-documentation)
-12. [Automated Testing Suite (Jest & Vitest)](#-automated-testing-suite-jest--vitest)
-13. [Security Hardening & OWASP VAPT Audit](#-security-hardening--owasp-vapt-audit)
-14. [Production Deployment Guide (Render.com)](#-production-deployment-guide-rendercom)
-15. [License](#-license)
+1. [Project Overview & Key Capabilities](#-project-overview--key-capabilities)
+2. [Technology Stack](#-technology-stack)
+3. [System Architecture & Layered Design](#-system-architecture--layered-design)
+4. [Monorepo Directory Structure](#-monorepo-directory-structure)
+5. [Quick Start & Installation Instructions](#-quick-start--installation-instructions)
+6. [Environment Configuration (.env)](#-environment-configuration-env)
+7. [Database Execution Model (Atlas & In-Memory Fallback)](#-database-execution-model-atlas--in-memory-fallback)
+8. [Pre-Configured Test Accounts](#-pre-configured-test-accounts)
+9. [Core Features & Engineering Highlights](#-core-features--engineering-highlights)
+10. [RESTful API Documentation](#-restful-api-documentation)
+11. [Automated Testing Suite (Jest & Vitest)](#-automated-testing-suite-jest--vitest)
+12. [Security Hardening & OWASP VAPT Audit](#-security-hardening--owasp-vapt-audit)
+13. [Production Deployment Guide (Render.com)](#-production-deployment-guide-rendercom)
+14. [License](#-license)
 
 ---
 
-## 📑 Assignment Requirements Compliance Matrix
+## 📦 Project Overview & Key Capabilities
 
-Every core, architectural, and bonus specification outlined in the technical assignment evaluation criteria has been thoroughly implemented, validated, and tested:
-
-| Requirement Category | Specified Specification | Implementation Details & Source Location | Status |
-| :--- | :--- | :--- | :---: |
-| **1. User Authentication** | Registration, login, and logout | JWT access tokens (15m) & rotating refresh tokens (7d) in HttpOnly cookies + Bearer fallback | ✅ Complete |
-| | Password hashing | `bcryptjs` with 12 salt rounds before MongoDB persistence (`User.js`) | ✅ Complete |
-| | Rate limiting for auth endpoints | `authLimiter` via `express-rate-limit` (10 requests / 15-minute sliding window) | ✅ Complete |
-| | Environment variables | Centralized typed parsing in `env.js` with defensive fallbacks | ✅ Complete |
-| | Social media login (OAuth 2.0) | Live Google & Facebook OAuth 2.0 flows with CSRF state validation + Dev Sandbox | ✅ Complete |
-| **2. Roles & Permissions** | Two user types: Admin & Regular User | Strict role constants (`ROLES.ADMIN`, `ROLES.USER`) enforced in database schemas | ✅ Complete |
-| | Admin capabilities | Full administration over all users, posts, and comments via dedicated admin dashboard | ✅ Complete |
-| | Regular user boundaries | Authors create, edit, and delete **only their own** content (BOLA / IDOR protected) | ✅ Complete |
-| | RBAC enforcement | Decoupled server-side API middleware (`requireAuth`, `requireRole`, `requireOwnership`) | ✅ Complete |
-| **3. Post Management** | CRUD operations for posts | Create, Read, Update, Delete with Title, Content, Author, and Timestamps | ✅ Complete |
-| | Request payload validation | Formal `Zod` schemas validating all input lengths, formatting, and tags | ✅ Complete |
-| | URL-friendly slugs | `slugify` with automatic duplicate-collision resolution (`title-1`, `title-2`) | ✅ Complete |
-| | Database interactions | MongoDB via Mongoose ODM, strict schema typings, and automated timestamps | ✅ Complete |
-| | Soft deletes | Schema-level `isDeleted: true` and `deletedAt` timestamps with Admin restoration | ✅ Complete |
-| **4. Comments** | User commenting on posts | Full CRUD operations for comments linked relationally to parent articles | ✅ Complete |
-| | Comment permissions | Users can edit/delete only their own comments; Admins can moderate all comments | ✅ Complete |
-| | Mongoose relationships | Relational `ObjectId` references (`ref: 'Post'`, `ref: 'User'`) with query optimization | ✅ Complete |
-| **5. Admin Panel** | Dedicated React Admin UI | Restricted admin portal (`/admin`) guarded by `AdminRoute` and `requireRole` | ✅ Complete |
-| | Admin dashboard statistics | Real-time metric cards: Total users, total articles, and total comments | ✅ Complete |
-| | Content & user governance | User directory (search, role toggle, status toggle), post & comment moderation | ✅ Complete |
-| **6. Advanced Routing** | Logical route grouping | Express Router modularization (`routes/authRoutes`, `postRoutes`, etc.) | ✅ Complete |
-| | Route protection | Layered middleware pipeline on all authenticated and privileged endpoints | ✅ Complete |
-| | RESTful standards & versioning | Versioned API `/api/v1/` with standard HTTP status codes and uniform JSON envelope | ✅ Complete |
-| | Centralized error handling | Standardized `centralizedErrorHandler` interceptor with consistent JSON format | ✅ Complete |
-| **7. Middleware** | Activity logging | Custom non-blocking `activityLogger` recording logins, post creation, and deletions | ✅ Complete |
-| | JWT validation & roles | Reusable `requireAuth`, `requireRole('ADMIN')`, and `requireOwnership` | ✅ Complete |
-| **8. Services & Architecture**| Service Layer | Pure business logic decoupled from HTTP transport controllers (`services/*.js`) | ✅ Complete |
-| | Clean folder structure | Explicit separation: `controllers/`, `services/`, `models/`, `routes/`, `middleware/` | ✅ Complete |
-| **9. Performance** | MongoDB query indexing | Compound indexes `{ isDeleted: 1, createdAt: -1 }`, text search indexes | ✅ Complete |
-| | Pagination & sparse population | Cursor/page pagination + `.populate('author', 'username avatar')` avoiding over-fetching | ✅ Complete |
-| **10. Testing** | Unit & Integration tests | 41+ automated tests in **Jest** (backend) + **Vitest** (frontend) | ✅ Complete |
-| **Frontend (React)** | Functional components & Hooks | 100% React Hooks (`useState`, `useEffect`, `useRef`, `useCallback`, `useMemo`) | ✅ Complete |
-| | Global authentication state | React Context API (`AuthContext`) managing session lifecycle and persistence | ✅ Complete |
-| | Protected routes | `ProtectedRoute` and `AdminRoute` guarding unauthenticated and unauthorized access | ✅ Complete |
-| **Bonus Features** | Real-time notifications | Real-time WebSocket broadcasting with **Socket.io** (`new_post`, `new_comment`) | ✅ Complete |
-
----
-
-## 📦 Project Deliverables & Key Capabilities
-
-1. **Enterprise Full-Stack Monorepo**: Complete MERN-based source code adhering to clean architecture with decoupled server and client layers.
+1. **Full-Stack Monorepo**: Complete MERN-based source code adhering to clean architecture with decoupled server and client layers.
 2. **Dual-Mode Database Engine**: Connects seamlessly to remote MongoDB Atlas clusters with an automatic zero-config fallback to an embedded in-memory MongoDB instance for immediate local testing.
 3. **Multi-Tier Identity & Access Management**: JWT access/refresh token rotation, cryptographic replay detection, bcrypt hashing (12 salt rounds), sliding rate-limiting, and Google/Facebook OAuth 2.0 integration.
-4. **Resilient Threaded Discussions**: Two-level Facebook-style comments with optimistic UI rendering, temporary ID tracking, and resilient inline Retry/Discard actions on network failure.
+4. **Resilient Threaded Discussions**: Two-level comment threads with optimistic UI rendering, temporary ID tracking, and resilient inline Retry/Discard actions on network failure.
 5. **Real-Time Collaboration**: Room-scoped WebSockets (`Socket.io`) broadcasting instant article feed updates and live comment notifications.
 6. **Full Administrative Governance**: Dedicated React admin portal featuring live statistical metrics, user privilege management, article soft-delete restoration, and an immutable audit log.
 7. **Production Security Hardening & VAPT Audit**: Remediated against OWASP Top 10 vulnerabilities (IDOR/BOLA, NoSQL injection, XSS, brute-force) documented in a formal VAPT audit report with 37+ test scenarios.
@@ -173,7 +128,7 @@ The backend enforces a strict **Clean Layered Architecture**, completely decoupl
 ## 📁 Monorepo Directory Structure
 
 ```
-companyvlog-assignment/
+devlog/
 ├── client/                               # Frontend SPA (React 18 + Vite)
 │   ├── public/
 │   │   └── _redirects                    # SPA redirect rules for Render / Netlify deployments
@@ -209,7 +164,7 @@ companyvlog-assignment/
 │   │   │   │   └── UserManagement.jsx    # User directory, role promotion, status toggle
 │   │   │   ├── CreateEditPost.jsx        # Article authoring & editing with live preview
 │   │   │   ├── Home.jsx                  # Public article feed, search, and tag filtering
-│   │   │   ├── Login.jsx                 # Login view, OAuth 2.0 flows, and dev sandbox
+│   │   │   ├── Login.jsx                 # Login view & OAuth 2.0 flows
 │   │   │   ├── NotFound.jsx              # 404 error page
 │   │   │   ├── OAuthCallback.jsx         # OAuth redirect handler
 │   │   │   ├── PostDetails.jsx           # Article view, Markdown rendering, discussion thread
@@ -263,7 +218,7 @@ companyvlog-assignment/
 │   │   │   ├── index.js                  # Main API router mounting all /api/v1/ endpoints
 │   │   │   └── postRoutes.js             # /api/v1/posts routes
 │   │   ├── scripts/
-│   │   │   ├── seed.js                   # Production seed script with demo articles and users
+│   │   │   ├── seed.js                   # Seed script with initial articles and users
 │   │   │   └── testEmail.js              # SMTP connection diagnostic utility
 │   │   ├── services/                     # Decoupled Business Logic Layer
 │   │   │   ├── adminService.js           # Metrics aggregation, user status, post restoration
@@ -297,7 +252,7 @@ companyvlog-assignment/
 │   └── security-test-cases.xlsx          # 37+ OWASP verification scenarios mapped to code
 ├── render.yaml                           # Infrastructure-as-Code blueprint for Render deployments
 ├── package.json                          # Monorepo root workspace orchestrator
-└── README.md                             # Comprehensive technical documentation
+└── README.md                             # Technical documentation
 ```
 
 ---
@@ -310,8 +265,8 @@ companyvlog-assignment/
 
 ### Step 1: Clone the Repository
 ```bash
-git clone https://github.com/soumya100/blog-assignment.git
-cd blog-assignment
+git clone https://github.com/soumya100/devlog.git
+cd devlog
 ```
 
 ### Step 2: Install All Dependencies
@@ -393,7 +348,7 @@ SMTP_PORT=587
 SMTP_SECURE=false
 SMTP_USER=your_email@gmail.com
 SMTP_PASSWORD=your_16_character_app_password
-SMTP_FROM="DevLog Security" <your_email@gmail.com>
+SMTP_FROM="DevLog" <your_email@gmail.com>
 ```
 
 ---
@@ -404,7 +359,7 @@ The platform incorporates **Dual-Mode Database Resilience** ([server/src/config/
 
 1. **Remote / Local Database Mode**: When a valid `MONGODB_URI` (such as MongoDB Atlas or a local `mongod` service) is provided, Mongoose establishes a pooled connection with auto-reconnect and DNS SRV resolution.
 2. **Zero-Config In-Memory Fallback**: If no `MONGODB_URI` is supplied or an external connection times out during development/testing, the application automatically boots an isolated embedded **`MongoMemoryServer`**.
-   * **Zero-Setup Evaluation**: Evaluators can clone and run the entire platform immediately **without having MongoDB installed or configured on their local machine**.
+   * **Zero-Setup Evaluation**: Clone and run the entire platform immediately **without having MongoDB installed or configured locally**.
 
 ---
 
@@ -419,8 +374,6 @@ Executing `npm run seed` creates pre-configured user profiles designed to test r
 | **Verified Author 2** | `bob@example.com` | `UserPass123!` | `USER` | Author of security articles. Used to verify IDOR protection when attempting to edit Alice's articles |
 | **Deactivated Account** | `carol@example.com` | `UserPass123!` | `USER` | Deactivated user account. Used to verify that deactivated accounts are prevented from logging in (HTTP 403) |
 
-> **Convenience Feature**: The Login page includes one-click **"Demo Admin"** and **"Demo User"** buttons that auto-fill credentials for instant evaluation.
-
 ---
 
 ## 💡 Core Features & Engineering Highlights
@@ -432,7 +385,7 @@ Executing `npm run seed` creates pre-configured user profiles designed to test r
   * **Refresh Token**: 7-day expiration, stored in the database as SHA-256 hashes within token family sessions.
 * **Token Rotation & Replay Detection**: Every refresh operation invalidates the consumed refresh token and issues a new pair. If a revoked token is reused (indicating token theft), the entire session family for that user is immediately revoked.
 * **Brute-Force Rate Limiting**: `express-rate-limit` guards `/auth/login` and `/auth/register` to block credential stuffing.
-* **OAuth 2.0 (Google & Facebook)**: Supports live production OAuth 2.0 flows with cryptographic state parameters against CSRF, accompanied by an interactive **OAuth Dev Sandbox** modal on the login page for offline testing.
+* **OAuth 2.0 (Google & Facebook)**: Supports live production OAuth 2.0 flows with cryptographic state parameters against CSRF.
 
 ### 2. User Roles & RBAC (Role-Based Access Control)
 * Roles are enforced strictly at the **API layer** through middleware, not merely on the client interface:
@@ -457,7 +410,7 @@ Executing `npm run seed` creates pre-configured user profiles designed to test r
 * **Batch Query Optimization**: Resolves top-level comments and child replies in two batched queries with in-memory tree grouping, eliminating the N+1 query problem.
 * **Optimistic UI Updates**: State machine (`sending` -> `settled` / `error`). Network failures retain the comment in the local query cache with inline **Retry** and **Discard** buttons so user drafts are never lost.
 * **Reactions**: Atomic like toggling with optimistic rollback on error.
-* **Permissions**: Users can edit and delete only their own comments. Administrators can moderate and remove any inappropriate comment.
+* **Permissions**: Users can edit and delete only their own comments. Administrators can moderate and remove any comment.
 
 ### 5. Dedicated React Admin Governance Portal
 * Accessible at `/admin` (guarded by `AdminRoute` on the frontend and `requireRole('ADMIN')` on the backend).
@@ -517,7 +470,6 @@ All API endpoints return a uniform JSON structure:
 | `GET` | `/auth/google/callback` | Public | Handle Google OAuth redirect |
 | `GET` | `/auth/facebook` | Public | Initiate Facebook OAuth 2.0 flow |
 | `GET` | `/auth/facebook/callback` | Public | Handle Facebook OAuth redirect |
-| `POST` | `/auth/oauth/dev` | Public | Developer sandbox authentication |
 
 #### 2. Post Endpoints (`/api/v1/posts`)
 | Method | Endpoint | Access | Description |
@@ -609,7 +561,7 @@ A formal Vulnerability Assessment and Penetration Testing (VAPT) audit was perfo
 The project is pre-configured for automated deployment on **Render.com** via [render.yaml](render.yaml):
 
 ### Dual-Service Architecture on Render:
-1. **Backend Web Service (`blog-assignment`)**:
+1. **Backend Web Service (`devlog-api`)**:
    * **Root Directory**: `server`
    * **Build Command**: `npm install`
    * **Start Command**: `npm start`

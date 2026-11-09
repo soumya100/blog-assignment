@@ -14,14 +14,11 @@ import {
   Key,
   Eye,
   EyeOff,
-  ShieldCheck,
-  Sparkles,
   AlertCircle,
   ArrowRight,
   Shield,
   Radio,
   FileCheck,
-  CheckCircle2,
   LogIn,
   UserPlus
 } from 'lucide-react';
@@ -32,26 +29,17 @@ const loginSchema = z.object({
 });
 
 const Login = () => {
-  const { login, oauthDevLogin } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  const [activeQuickRole, setActiveQuickRole] = useState(null);
-
-  // Dev OAuth Modal State
-  const [oauthModalOpen, setOauthModalOpen] = useState(false);
-  const [oauthProvider, setOauthProvider] = useState('google');
-  const [oauthEmail, setOauthEmail] = useState('');
-  const [oauthName, setOauthName] = useState('');
-  const [oauthLoading, setOauthLoading] = useState(false);
 
   // React Hook Form
   const {
     register,
     handleSubmit,
-    setValue,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(loginSchema),
@@ -74,34 +62,6 @@ const Login = () => {
     }
   };
 
-  const fillQuickCredentials = (role) => {
-    setActiveQuickRole(role);
-    setError('');
-    if (role === 'admin') {
-      setValue('email', 'admin@blogplatform.dev', { shouldValidate: true });
-      setValue('password', 'AdminSecurePass123!', { shouldValidate: true });
-    } else {
-      setValue('email', 'alice@example.com', { shouldValidate: true });
-      setValue('password', 'UserPass123!', { shouldValidate: true });
-    }
-  };
-
-  const handleDevOAuthSubmit = async (e) => {
-    e.preventDefault();
-    if (!oauthEmail || !oauthName) return;
-    setOauthLoading(true);
-    try {
-      await oauthDevLogin(oauthProvider, oauthEmail, oauthName);
-      toast.success(`Logged in with ${oauthProvider.toUpperCase()} Sandbox!`, { autoClose: 3500 });
-      setOauthModalOpen(false);
-      navigate('/');
-    } catch (err) {
-      toast.error(extractErrorMessage(err, 'OAuth simulated login failed'), { autoClose: 4000 });
-    } finally {
-      setOauthLoading(false);
-    }
-  };
-
   return (
     <div className="auth-page">
       <SEO
@@ -116,7 +76,7 @@ const Login = () => {
           <div>
             <div className="auth-badge-pulse">
               <span className="auth-badge-dot"></span>
-              Enterprise Architecture v1.0
+              Full-Stack MERN Platform v1.0
             </div>
 
             <h1 className="auth-showcase-title">
@@ -164,36 +124,6 @@ const Login = () => {
               </div>
             </div>
           </div>
-
-          {/* Quick Reviewer Credentials Sandbox */}
-          <div className="auth-reviewer-box">
-            <div className="auth-reviewer-header">
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <Sparkles size={14} /> Evaluator Quick Login
-              </span>
-              <span style={{ fontSize: '0.7rem', opacity: 0.8, textTransform: 'none' }}>One-click fill</span>
-            </div>
-            <div className="auth-reviewer-buttons">
-              <button
-                type="button"
-                onClick={() => fillQuickCredentials('admin')}
-                className={`auth-reviewer-btn ${activeQuickRole === 'admin' ? 'active' : ''}`}
-                title="admin@blogplatform.dev / AdminSecurePass123!"
-              >
-                <ShieldCheck size={15} style={{ color: 'var(--accent-primary)' }} />
-                <span>Demo Admin</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => fillQuickCredentials('user')}
-                className={`auth-reviewer-btn ${activeQuickRole === 'user' ? 'active' : ''}`}
-                title="alice@example.com / UserPass123!"
-              >
-                <CheckCircle2 size={15} style={{ color: 'var(--success)' }} />
-                <span>Demo Author</span>
-              </button>
-            </div>
-          </div>
         </div>
 
         {/* Right Column: Form Card */}
@@ -238,34 +168,6 @@ const Login = () => {
             </div>
           )}
 
-          {/* OAuth Setup Required Notice */}
-          {searchParams.get('notice') === 'OAUTH_SETUP_REQUIRED' && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '0.625rem',
-                padding: '0.85rem 1rem',
-                borderRadius: '10px',
-                background: 'rgba(59, 130, 246, 0.1)',
-                color: 'var(--text-primary)',
-                fontSize: '0.825rem',
-                marginBottom: '1.25rem',
-                border: '1px solid rgba(59, 130, 246, 0.25)',
-              }}
-            >
-              <Sparkles size={18} style={{ color: 'var(--accent-primary)', flexShrink: 0, marginTop: '2px' }} />
-              <div>
-                <strong style={{ display: 'block', marginBottom: '0.2rem', color: 'var(--accent-primary)' }}>
-                  Live {searchParams.get('provider') === 'facebook' ? 'Facebook' : 'Google'} OAuth Setup Notice
-                </strong>
-                <span>
-                  Real {searchParams.get('provider') === 'facebook' ? 'Facebook App' : 'Google Cloud'} client credentials are not configured in your <code>.env</code> file. You can test complete social auth instantly with the <strong>OAuth Dev Sandbox</strong> below!
-                </span>
-              </div>
-            </div>
-          )}
-
           {/* OAuth Code Expired / Reused Notice */}
           {searchParams.get('notice') === 'OAUTH_CODE_EXPIRED' && (
             <div
@@ -304,7 +206,7 @@ const Login = () => {
                 <input
                   type="email"
                   className={`auth-input ${errors.email ? 'auth-input-error' : ''}`}
-                  placeholder="name@company.com"
+                  placeholder="name@example.com"
                   {...register('email')}
                 />
                 <Mail size={16} className="auth-input-icon" />
@@ -411,20 +313,6 @@ const Login = () => {
               </svg>
               <span>Sign in with Facebook OAuth 2.0</span>
             </a>
-
-            <button
-              type="button"
-              onClick={() => {
-                setOauthProvider('facebook');
-                setOauthEmail('dev@facebook.com');
-                setOauthName('Facebook Dev User');
-                setOauthModalOpen(true);
-              }}
-              className="btn btn-secondary btn-sm"
-              style={{ width: '100%', justifyContent: 'center', fontSize: '0.775rem', opacity: 0.9, marginTop: '0.15rem' }}
-            >
-              ✨ Test with OAuth Dev Sandbox
-            </button>
           </div>
 
           <p style={{ textAlign: 'center', marginTop: '1.5rem', fontSize: '0.825rem', color: 'var(--text-secondary)' }}>
@@ -436,98 +324,6 @@ const Login = () => {
         </div>
       </div>
 
-      {/* OAuth Dev Sandbox Modal */}
-      {oauthModalOpen && (
-        <div className="modal-overlay" onClick={() => setOauthModalOpen(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px', borderRadius: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
-              <div
-                style={{
-                  width: '2.75rem',
-                  height: '2.75rem',
-                  borderRadius: '10px',
-                  background: 'rgba(59, 130, 246, 0.15)',
-                  color: 'var(--accent-primary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <ShieldCheck size={22} />
-              </div>
-              <div>
-                <h3 style={{ fontSize: '1.2rem' }}>OAuth 2.0 Dev Sandbox</h3>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
-                  Simulate verified {oauthProvider.toUpperCase()} identity callback
-                </p>
-              </div>
-            </div>
-
-            {/* Provider Switcher inside Modal */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '1.25rem' }}>
-              <button
-                type="button"
-                onClick={() => {
-                  setOauthProvider('google');
-                  setOauthEmail('engineer@gmail.com');
-                  setOauthName('Google Dev User');
-                }}
-                className={`btn btn-sm ${oauthProvider === 'google' ? 'btn-primary' : 'btn-secondary'}`}
-              >
-                Google Identity
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setOauthProvider('facebook');
-                  setOauthEmail('dev@facebook.com');
-                  setOauthName('Facebook Dev User');
-                }}
-                className={`btn btn-sm ${oauthProvider === 'facebook' ? 'btn-primary' : 'btn-secondary'}`}
-              >
-                Facebook Identity
-              </button>
-            </div>
-
-            <form onSubmit={handleDevOAuthSubmit}>
-              <div className="form-group" style={{ marginBottom: '1rem' }}>
-                <label className="form-label">Simulated User Name</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={oauthName}
-                  onChange={(e) => setOauthName(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-                <label className="form-label">Simulated Email Address</label>
-                <input
-                  type="email"
-                  className="form-input"
-                  value={oauthEmail}
-                  onChange={(e) => setOauthEmail(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
-                <button
-                  type="button"
-                  onClick={() => setOauthModalOpen(false)}
-                  className="btn btn-secondary"
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary" disabled={oauthLoading}>
-                  Complete {oauthProvider} Login
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

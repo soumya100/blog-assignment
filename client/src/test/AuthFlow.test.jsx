@@ -24,7 +24,7 @@ describe('Frontend Authentication Views', () => {
       </QueryClientProvider>
     );
 
-    expect(screen.getByPlaceholderText(/name@company.com/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/name@example.com/i)).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/••••••••••••/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^sign in$/i })).toBeInTheDocument();
     expect(screen.getByText(/sign in with google oauth 2.0/i)).toBeInTheDocument();
@@ -62,7 +62,7 @@ describe('Frontend Authentication Views', () => {
       </QueryClientProvider>
     );
 
-    expect(screen.getByPlaceholderText(/name@company.com/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/name@example.com/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /send recovery code/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /account recovery/i })).toBeInTheDocument();
   });
@@ -78,7 +78,7 @@ describe('Pure HttpOnly Cookie Authentication & Session Restoration', () => {
   });
 
   test('restores user session from /auth/me on reload without storing tokens in localStorage', async () => {
-    const mockUser = { id: 'usr-101', username: 'alex_dev', email: 'alex@company.com', role: 'AUTHOR' };
+    const mockUser = { id: 'usr-101', username: 'alex_dev', email: 'alex@example.com', role: 'AUTHOR' };
 
     // Mock apiClient.get for /auth/me
     const getSpy = vi.spyOn(apiClient, 'get').mockImplementation(async (url) => {
@@ -113,7 +113,7 @@ describe('Pure HttpOnly Cookie Authentication & Session Restoration', () => {
 
     // Should resolve session
     expect(await screen.findByText('AUTHENTICATED')).toBeInTheDocument();
-    expect(screen.getByTestId('user-email')).toHaveTextContent('alex@company.com');
+    expect(screen.getByTestId('user-email')).toHaveTextContent('alex@example.com');
 
     // Verify localStorage & sessionStorage contain ZERO authentication tokens or credentials
     expect(localStorage.getItem('devlog_token')).toBeNull();
@@ -128,7 +128,7 @@ describe('Pure HttpOnly Cookie Authentication & Session Restoration', () => {
   });
 
   test('login sets in-memory state and DOES NOT write tokens to localStorage or sessionStorage', async () => {
-    const mockUser = { id: 'usr-202', username: 'bob_engineer', email: 'bob@company.com', role: 'USER' };
+    const mockUser = { id: 'usr-202', username: 'bob_engineer', email: 'bob@example.com', role: 'USER' };
 
     vi.spyOn(apiClient, 'get').mockRejectedValue(new Error('Unauthorized'));
     const postSpy = vi.spyOn(apiClient, 'post').mockImplementation(async (url) => {
@@ -148,7 +148,7 @@ describe('Pure HttpOnly Cookie Authentication & Session Restoration', () => {
       const { user, login, isAuthenticated } = useAuth();
       return (
         <div>
-          <button onClick={() => login('bob@company.com', 'SecurePass123!')}>Sign In Action</button>
+          <button onClick={() => login('bob@example.com', 'SecurePass123!')}>Sign In Action</button>
           <div data-testid="status">{isAuthenticated ? 'LOGGED_IN' : 'LOGGED_OUT'}</div>
           <div data-testid="user-name">{user?.username}</div>
         </div>
@@ -181,7 +181,7 @@ describe('Pure HttpOnly Cookie Authentication & Session Restoration', () => {
   });
 
   test('logout clears in-memory state and keeps localStorage clean', async () => {
-    const mockUser = { id: 'usr-303', username: 'claire_lead', email: 'claire@company.com', role: 'ADMIN' };
+    const mockUser = { id: 'usr-303', username: 'claire_lead', email: 'claire@example.com', role: 'ADMIN' };
 
     vi.spyOn(apiClient, 'get').mockResolvedValue({
       success: true,

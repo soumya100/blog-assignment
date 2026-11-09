@@ -26,7 +26,7 @@ const Footer = () => {
           <div>
             <h3 style={{ fontSize: '1.125rem', marginBottom: '0.25rem' }}>DevLog Architecture</h3>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-              Enterprise Secure MERN Platform with Role-Based Access Control & VAPT Hardening.
+              Full-Stack MERN Platform with Role-Based Access Control & Security Hardening.
             </p>
           </div>
 
@@ -58,7 +58,7 @@ const Footer = () => {
             gap: '1rem',
           }}
         >
-          <p>© {new Date().getFullYear()} DevLog Secure Systems Inc. Built for Engineering Hiring Assignment.</p>
+          <p>© {new Date().getFullYear()} DevLog. A personal full-stack project by Soumya.</p>
           <div style={{ display: 'flex', gap: '1.25rem' }}>
             <span>REST API v1</span>
             <span>Socket.io Real-Time</span>

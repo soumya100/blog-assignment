@@ -17,7 +17,7 @@ export default function SEO({
 
   useEffect(() => {
     // Update Page Title
-    const fullTitle = title ? `${title} | DevLog` : 'DevLog | Enterprise Secure Blog Platform';
+    const fullTitle = title ? `${title} | DevLog` : 'DevLog | Full-Stack Blog Platform';
     document.title = fullTitle;
 
     // Helper to safely set or update <meta> tags in <head>
