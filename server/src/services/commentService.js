@@ -128,12 +128,17 @@ const getCommentsByPost = async (postId, { page = 1, limit = 50, sort = 'newest'
   }
 
   const rootIds = roots.map((root) => root._id);
-  let descendants = [];
-  if (rootIds.length) {
-    descendants = await Comment.find({
-      post: postId, isDeleted: false,
-      $or: [{ threadRoot: { $in: rootIds } }, { ancestors: { $in: rootIds } }, { parentComment: { $in: rootIds } }],
+  // Walk parent-child edges in batches. This also supports legacy nested comments that predate
+  // the ancestry fields and avoids one database request per individual reply.
+  const descendants = [];
+  let frontier = rootIds;
+  while (frontier.length) {
+    const batch = await Comment.find({
+      post: postId, parentComment: { $in: frontier }, isDeleted: false,
     }).sort({ createdAt: 1, _id: 1 }).populate('author', 'username email avatar role').lean({ virtuals: true });
+    if (!batch.length) break;
+    descendants.push(...batch);
+    frontier = batch.map((item) => item._id);
   }
 
   const byId = new Map();
@@ -240,10 +245,20 @@ const deleteComment = async (commentId, user, req) => {
     const error = new Error('You do not have permission to delete this comment'); error.statusCode = 403; error.code = 'FORBIDDEN'; throw error;
   }
   const deletedAt = new Date();
-  // Descendant closure: every child stores its ancestor chain. Also catches legacy direct replies.
-  await Comment.updateMany({
-    $or: [{ _id: comment._id }, { ancestors: comment._id }, { parentComment: comment._id }],
-  }, { $set: { isDeleted: true, deletedAt } });
+  // Delete the complete subtree in batched levels, including legacy comments without ancestry.
+  let frontier = [comment._id];
+  const subtreeIds = [comment._id];
+  while (frontier.length) {
+    const children = await Comment.find({
+      post: comment.post, parentComment: { $in: frontier },
+    }).select('_id');
+    frontier = children.map((child) => child._id);
+    subtreeIds.push(...frontier);
+  }
+  await Comment.updateMany(
+    { _id: { $in: subtreeIds }, isDeleted: false },
+    { $set: { isDeleted: true, deletedAt } }
+  );
   if (req) recordActivity({ action: ACTIVITY_TYPES.COMMENT_DELETE, resourceType: 'COMMENT', resourceId: comment._id.toString(), details: {}, req });
   await invalidatePostCache(comment.post);
   return { message: 'Comment deleted successfully' };
