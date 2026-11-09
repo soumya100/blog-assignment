@@ -96,7 +96,7 @@ export function useCreateComment(defaultPostId, options = {}) {
         const queryKey = queryKeys.comments.list(targetPostId);
         await queryClient.cancelQueries({ queryKey });
 
-        const previousData = queryClient.getQueryData(queryKey);
+        const previousData = queryClient.getQueriesData({ queryKey });
 
         const content = typeof payload === 'string' ? payload : payload?.content;
         const parentCommentId = payload?.parentCommentId;
@@ -131,7 +131,7 @@ export function useCreateComment(defaultPostId, options = {}) {
           },
         };
 
-        queryClient.setQueryData(queryKey, (old) => {
+        queryClient.setQueriesData({ queryKey }, (old) => {
           if (!old) {
             return {
               success: true,
@@ -177,7 +177,7 @@ export function useCreateComment(defaultPostId, options = {}) {
       },
       onError: (err, payload, context) => {
         if (context?.queryKey && context?.tempId) {
-          queryClient.setQueryData(context.queryKey, (old) => {
+          queryClient.setQueriesData({ queryKey: context.queryKey }, (old) => {
             if (!old) return old;
             const isArray = Array.isArray(old);
             const commentsList = isArray ? old : (old.data || []);
