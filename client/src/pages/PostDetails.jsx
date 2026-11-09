@@ -54,7 +54,8 @@ const PostDetails = () => {
 
   // Server state with TanStack Query
   const { data: post, isLoading: postLoading } = usePost(id);
-  const { data: comments = [], isLoading: commentsLoading } = useComments(post?._id);
+  const [commentSort, setCommentSort] = useState('newest');
+  const { data: comments = [], isLoading: commentsLoading } = useComments(post?._id, commentSort);
 
   // TanStack Query Mutations
   const createCommentMutation = useCreateComment(post?._id);
@@ -449,6 +450,10 @@ const PostDetails = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '2rem' }}>
           <MessageSquare size={22} style={{ color: 'var(--accent-primary)' }} />
           <h2 style={{ fontSize: '1.35rem' }}>Discussion ({comments.length})</h2>
+          <select aria-label="Sort discussion" value={commentSort} onChange={(event) => setCommentSort(event.target.value)} className="form-input" style={{ marginLeft: 'auto', width: 'auto', minWidth: '130px' }}>
+            <option value="newest">Newest</option>
+            <option value="top">Top comments</option>
+          </select>
         </div>
 
         {/* Facebook-style Top Composer */}
