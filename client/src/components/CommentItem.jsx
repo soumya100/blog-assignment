@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   ThumbsUp,
   MessageCircle,
@@ -6,13 +6,14 @@ import {
   Trash2,
   Send,
   X,
-  Check,
-  Shield,
   RotateCcw,
   AlertCircle,
   Loader2,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
+import apiClient from '../api/client';
 
 export default function CommentItem({
   comment,
@@ -31,14 +32,17 @@ export default function CommentItem({
   const [isSubmittingReply, setIsSubmittingReply] = useState(false);
 
   const [isEditing, setIsEditing] = useState(false);
-  const [editText, setEditText] = useState(comment.content);
+  const [editText, setEditText] = useState(comment.content || '');
   const [isUpdating, setIsUpdating] = useState(false);
 
-  const [editingReplyId, setEditingReplyId] = useState(null);
-  const [editReplyText, setEditReplyText] = useState('');
-  const [isUpdatingReply, setIsUpdatingReply] = useState(false);
+  // Lazy-loaded replies state
+  const [extraReplies, setExtraReplies] = useState([]);
+  const [repliesCursor, setRepliesCursor] = useState(null);
+  const [hasMoreReplies, setHasMoreReplies] = useState(false);
+  const [isLoadingReplies, setIsLoadingReplies] = useState(false);
+  const [isRepliesExpanded, setIsRepliesExpanded] = useState(true);
 
-  // Optimistic statuses for root comment
+  // Optimistic statuses for this comment node
   const isOptimisticSending =
     comment.status === 'sending' || (comment.isOptimistic && !comment.isFailed);
   const isOptimisticError = comment.status === 'error' || comment.isFailed;
@@ -57,6 +61,15 @@ export default function CommentItem({
       currentUser._id?.toString() === comment.author?.toString()
     );
   const canManage = isAuthor || isAdmin;
+
+  // Combine initial nested replies with on-demand loaded replies, preventing duplicates
+  const allReplies = useMemo(() => {
+    const initial = comment.replies || [];
+    if (!extraReplies.length) return initial;
+    const seen = new Set(initial.map((r) => (r._id || r.tempId).toString()));
+    const appended = extraReplies.filter((r) => !seen.has((r._id || r.tempId).toString()));
+    return [...initial, ...appended];
+  }, [comment.replies, extraReplies]);
 
   const handleLikeClick = () => {
     if (isOptimisticSending || isOptimisticError) return;
@@ -81,17 +94,17 @@ export default function CommentItem({
     const text = replyText.trim();
     if (!text) return;
 
-    // Reset and collapse reply composer immediately for seamless optimistic UX
     setReplyText('');
     setShowReplyBox(false);
+    setIsRepliesExpanded(true);
 
     try {
       await onReplySubmit({
         parentCommentId: comment._id,
         content: text,
       });
-    } catch (err) {
-      // Handled in query cache with status: 'error' (inline retry/discard buttons)
+    } catch (_) {
+      // Handled via optimistic status
     }
   };
 
@@ -101,34 +114,35 @@ export default function CommentItem({
     try {
       await onUpdate(comment._id, editText.trim());
       setIsEditing(false);
-    } catch (err) {
-      // Handled by caller
+    } catch (_) {
+      // Handled by caller toast
     } finally {
       setIsUpdating(false);
     }
   };
 
-  const handleStartEditReply = (reply) => {
-    setEditingReplyId(reply._id);
-    setEditReplyText(reply.content);
-  };
-
-  const handleCancelEditReply = () => {
-    setEditingReplyId(null);
-    setEditReplyText('');
-  };
-
-  const handleSaveEditReply = async (replyId) => {
-    if (!editReplyText.trim()) return;
-    setIsUpdatingReply(true);
+  const handleLoadMoreReplies = async () => {
+    if (isLoadingReplies) return;
+    setIsLoadingReplies(true);
     try {
-      await onUpdate(replyId, editReplyText.trim());
-      setEditingReplyId(null);
-      setEditReplyText('');
+      const params = { limit: 20 };
+      if (repliesCursor) params.after = repliesCursor;
+      const res = await apiClient.get(`/comments/${comment._id}/replies`, { params });
+      const newItems = res.data || [];
+      const pagination = res.pagination || {};
+
+      setExtraReplies((prev) => {
+        const seen = new Set(prev.map((r) => r._id.toString()));
+        const unique = newItems.filter((r) => !seen.has(r._id.toString()));
+        return [...prev, ...unique];
+      });
+
+      setHasMoreReplies(Boolean(pagination.hasMore));
+      setRepliesCursor(pagination.nextCursor || null);
     } catch (err) {
-      // Handled by caller
+      toast.error('Failed to load replies');
     } finally {
-      setIsUpdatingReply(false);
+      setIsLoadingReplies(false);
     }
   };
 
@@ -159,6 +173,8 @@ export default function CommentItem({
     currentUser?.name?.charAt(0)?.toUpperCase() ||
     'Y';
 
+  const totalReplyCount = Math.max(allReplies.length, comment.directReplyCount || 0);
+
   return (
     <div className="fb-comment-item">
       {/* Root Comment Row */}
@@ -176,7 +192,7 @@ export default function CommentItem({
         </div>
 
         <div className="fb-bubble-wrap">
-          {/* Facebook Rounded Bubble */}
+          {/* Rounded Bubble */}
           <div
             className={`fb-bubble ${isOptimisticSending ? 'is-optimistic-sending' : ''} ${
               isOptimisticError ? 'is-optimistic-error' : ''
@@ -204,6 +220,7 @@ export default function CommentItem({
                         padding: '2px',
                       }}
                       title="Edit"
+                      aria-label="Edit comment"
                     >
                       <Edit3 size={12} />
                     </button>
@@ -219,6 +236,7 @@ export default function CommentItem({
                       padding: '2px',
                     }}
                     title={isAdmin && !isAuthor ? 'Moderate / Delete (Admin)' : 'Delete'}
+                    aria-label="Delete comment"
                   >
                     <Trash2 size={12} />
                   </button>
@@ -298,7 +316,7 @@ export default function CommentItem({
               </button>
               <button
                 type="button"
-                onClick={() => onDiscard?.(comment._id, null)}
+                onClick={() => onDiscard?.(comment._id, comment.parentComment || null)}
                 className="fb-discard-btn"
                 title="Discard this failed comment"
               >
@@ -329,12 +347,25 @@ export default function CommentItem({
                 type="button"
                 onClick={handleReplyClick}
                 className="fb-action-btn"
+                aria-label="Reply to comment"
               >
                 <MessageCircle size={12} />
                 <span>Reply</span>
               </button>
 
               <span>{formatDate(comment.createdAt)}</span>
+
+              {totalReplyCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setIsRepliesExpanded(!isRepliesExpanded)}
+                  className="fb-action-btn"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.2rem', marginLeft: '0.5rem' }}
+                >
+                  {isRepliesExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                  <span>{isRepliesExpanded ? 'Hide replies' : `View ${totalReplyCount} ${totalReplyCount === 1 ? 'reply' : 'replies'}`}</span>
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -368,6 +399,7 @@ export default function CommentItem({
             disabled={!replyText.trim() || isSubmittingReply}
             className="btn btn-primary btn-sm"
             style={{ padding: '0.4rem 0.75rem', borderRadius: '16px', fontSize: '0.75rem' }}
+            aria-label="Send reply"
           >
             <Send size={12} />
           </button>
@@ -379,18 +411,19 @@ export default function CommentItem({
             }}
             className="btn btn-secondary btn-sm"
             style={{ padding: '0.4rem 0.6rem', borderRadius: '16px', fontSize: '0.75rem' }}
+            aria-label="Cancel reply"
           >
             <X size={12} />
           </button>
         </form>
       )}
 
-      {/* Recursive replies: each reply uses the same interaction and permission model. */}
-      {comment.replies && comment.replies.length > 0 && (
+      {/* Recursive Nested Replies List */}
+      {isRepliesExpanded && allReplies.length > 0 && (
         <div className="fb-replies-list">
-          {comment.replies.map((reply) => (
+          {allReplies.map((reply) => (
             <CommentItem
-              key={reply._id}
+              key={reply._id || reply.tempId}
               comment={reply}
               postId={postId}
               currentUser={currentUser}
@@ -403,6 +436,30 @@ export default function CommentItem({
               onDiscard={onDiscard}
             />
           ))}
+
+          {hasMoreReplies && (
+            <button
+              type="button"
+              onClick={handleLoadMoreReplies}
+              disabled={isLoadingReplies}
+              className="btn btn-secondary btn-sm"
+              style={{
+                marginTop: '0.5rem',
+                fontSize: '0.75rem',
+                padding: '0.25rem 0.75rem',
+                borderRadius: '12px',
+              }}
+            >
+              {isLoadingReplies ? (
+                <>
+                  <Loader2 size={12} className="spin" />
+                  Loading replies...
+                </>
+              ) : (
+                'Load more replies'
+              )}
+            </button>
+          )}
         </div>
       )}
     </div>

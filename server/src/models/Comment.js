@@ -39,6 +39,15 @@ const commentSchema = new mongoose.Schema(
     // Full ancestry enables indexed retrieval of arbitrarily deep discussion threads.
     ancestors: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Comment' }],
     threadRoot: { type: mongoose.Schema.Types.ObjectId, ref: 'Comment', default: null, index: true },
+    directReplyCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    engagementScore: {
+      type: Number,
+      default: 0,
+    },
     likes: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -64,6 +73,8 @@ commentSchema.index({ post: 1, isDeleted: 1, createdAt: -1 });
 commentSchema.index({ author: 1, isDeleted: 1 });
 commentSchema.index({ post: 1, threadRoot: 1, isDeleted: 1, createdAt: 1, _id: 1 });
 commentSchema.index({ post: 1, parentComment: 1, isDeleted: 1, createdAt: -1, _id: -1 });
+commentSchema.index({ post: 1, parentComment: 1, isDeleted: 1, engagementScore: -1, createdAt: -1, _id: -1 });
+commentSchema.index({ ancestors: 1, isDeleted: 1 });
 
 const Comment = mongoose.model('Comment', commentSchema);
 
