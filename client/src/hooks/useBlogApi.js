@@ -63,6 +63,12 @@ export function useRestorePost(options = {}) {
 // Comments Hooks
 // ==========================================
 
+const updateCommentTree = (items, targetId, updater) => (items || []).map((item) => {
+  if (item._id === targetId) return updater(item);
+  if (item.replies?.length) return { ...item, replies: updateCommentTree(item.replies, targetId, updater) };
+  return item;
+});
+
 export function useComments(postId, sort = 'newest') {
   return useApiQuery(
     [...queryKeys.comments.list(postId), sort],
