@@ -385,230 +385,24 @@ export default function CommentItem({
         </form>
       )}
 
-      {/* Nested Replies List */}
+      {/* Recursive replies: each reply uses the same interaction and permission model. */}
       {comment.replies && comment.replies.length > 0 && (
         <div className="fb-replies-list">
-          {comment.replies.map((reply) => {
-            const isReplySending =
-              reply.status === 'sending' || (reply.isOptimistic && !reply.isFailed);
-            const isReplyError = reply.status === 'error' || reply.isFailed;
-
-            const isReplyAuthor =
-              currentUser &&
-              reply.author &&
-              (
-                (reply.author._id && currentUser._id?.toString() === reply.author._id?.toString()) ||
-                currentUser._id?.toString() === reply.author?.toString()
-              );
-            const canManageReply = isReplyAuthor || isAdmin;
-            const isEditingThisReply = editingReplyId === reply._id;
-
-            const isReplyLiked =
-              currentUser &&
-              Array.isArray(reply.likes) &&
-              reply.likes.some((id) => (id._id || id).toString() === currentUser._id.toString());
-
-            const replyAuthorInitial =
-              reply.author?.username?.charAt(0)?.toUpperCase() ||
-              reply.author?.name?.charAt(0)?.toUpperCase() ||
-              'U';
-
-            return (
-              <div key={reply._id} className="fb-comment-root">
-                <div className="fb-avatar fb-avatar-sm" title={reply.author?.username} style={{ overflow: 'hidden' }}>
-                  {reply.author?.avatar ? (
-                    <img
-                      src={reply.author.avatar}
-                      alt=""
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    />
-                  ) : (
-                    replyAuthorInitial
-                  )}
-                </div>
-
-                <div className="fb-bubble-wrap">
-                  <div
-                    className={`fb-bubble ${isReplySending ? 'is-optimistic-sending' : ''} ${
-                      isReplyError ? 'is-optimistic-error' : ''
-                    }`}
-                    style={{ padding: '0.5rem 0.85rem' }}
-                  >
-                    <div className="fb-bubble-header">
-                      <span className="fb-author-name" style={{ fontSize: '0.8rem' }}>
-                        {reply.author?.username || 'Anonymous'}
-                        {reply.author?.role === 'ADMIN' && (
-                          <span className="fb-author-role">Staff</span>
-                        )}
-                      </span>
-
-                      {canManageReply && !isEditingThisReply && !reply.isOptimistic && (
-                        <div style={{ display: 'flex', gap: '0.25rem' }}>
-                          {isReplyAuthor && (
-                            <button
-                              type="button"
-                              onClick={() => handleStartEditReply(reply)}
-                              style={{
-                                background: 'none',
-                                border: 'none',
-                                color: 'var(--text-muted)',
-                                cursor: 'pointer',
-                                padding: '2px',
-                              }}
-                              title="Edit Reply"
-                            >
-                              <Edit3 size={11} />
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => onDelete(reply._id, isReplyAuthor)}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              color: 'var(--text-muted)',
-                              cursor: 'pointer',
-                              padding: '2px',
-                            }}
-                            title={isAdmin && !isReplyAuthor ? 'Moderate / Delete (Admin)' : 'Delete Reply'}
-                          >
-                            <Trash2 size={11} />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    {isEditingThisReply ? (
-                      <div style={{ marginTop: '0.35rem' }}>
-                        <textarea
-                          className="fb-composer-input"
-                          rows={2}
-                          value={editReplyText}
-                          onChange={(e) => setEditReplyText(e.target.value)}
-                          style={{ minHeight: '50px', padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
-                          autoFocus
-                        />
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.4rem', marginTop: '0.35rem' }}>
-                          <button
-                            type="button"
-                            onClick={handleCancelEditReply}
-                            className="btn btn-secondary btn-sm"
-                            style={{ padding: '0.15rem 0.45rem', fontSize: '0.7rem' }}
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleSaveEditReply(reply._id)}
-                            disabled={isUpdatingReply}
-                            className="btn btn-primary btn-sm"
-                            style={{ padding: '0.15rem 0.55rem', fontSize: '0.7rem' }}
-                          >
-                            {isUpdatingReply ? 'Saving...' : 'Save'}
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="fb-comment-text" style={{ fontSize: '0.825rem' }}>
-                        {reply.content}
-                      </div>
-                    )}
-
-                    {/* Floating Like Count Badge for Reply */}
-                    {(reply.likesCount > 0 || (reply.likes && reply.likes.length > 0)) && (
-                      <div
-                        className="fb-like-badge"
-                        onClick={() => {
-                          if (isReplySending || isReplyError) return;
-                          if (!currentUser) {
-                            toast.info('Please sign in to like replies', { autoClose: 3000 });
-                            return;
-                          }
-                          onLikeToggle(reply._id);
-                        }}
-                        style={{ bottom: '-7px', right: '-6px', padding: '1px 5px', fontSize: '0.65rem' }}
-                      >
-                        <span>👍</span>
-                        <span>{reply.likesCount || reply.likes?.length}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Reply Action Bar / Retry Bar */}
-                  {isReplyError ? (
-                    <div className="fb-optimistic-error-bar">
-                      <span className="fb-error-label">
-                        <AlertCircle size={12} />
-                        Failed to post
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onRetry?.(
-                            reply.retryPayload || {
-                              postId,
-                              parentCommentId: comment._id,
-                              content: reply.content,
-                              tempId: reply._id,
-                            }
-                          )
-                        }
-                        className="fb-retry-btn"
-                        title="Retry posting this reply"
-                      >
-                        <RotateCcw size={11} />
-                        Retry
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onDiscard?.(reply._id, comment._id)}
-                        className="fb-discard-btn"
-                        title="Discard this failed reply"
-                      >
-                        <X size={11} />
-                        Discard
-                      </button>
-                    </div>
-                  ) : isReplySending ? (
-                    <div className="fb-meta-bar">
-                      <span className="fb-optimistic-status fb-status-sending">
-                        <Loader2 size={10} className="spin" />
-                        Posting...
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="fb-meta-bar">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!currentUser) {
-                            toast.info('Please sign in to like replies', { autoClose: 3000 });
-                            return;
-                          }
-                          onLikeToggle(reply._id);
-                        }}
-                        className={`fb-action-btn fb-like-btn ${isReplyLiked ? 'active' : ''}`}
-                        title={isReplyLiked ? 'Unlike reply' : 'Like reply'}
-                      >
-                        <ThumbsUp size={11} />
-                        <span>{isReplyLiked ? 'Liked' : 'Like'}</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={handleReplyClick}
-                        className="fb-action-btn"
-                      >
-                        <span>Reply</span>
-                      </button>
-
-                      <span>{formatDate(reply.createdAt)}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+          {comment.replies.map((reply) => (
+            <CommentItem
+              key={reply._id}
+              comment={reply}
+              postId={postId}
+              currentUser={currentUser}
+              isAdmin={isAdmin}
+              onDelete={onDelete}
+              onUpdate={onUpdate}
+              onReplySubmit={onReplySubmit}
+              onLikeToggle={onLikeToggle}
+              onRetry={onRetry}
+              onDiscard={onDiscard}
+            />
+          ))}
         </div>
       )}
     </div>
