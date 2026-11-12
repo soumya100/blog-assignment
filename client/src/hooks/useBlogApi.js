@@ -1,4 +1,4 @@
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../api/client';
 import { queryKeys, useApiQuery, useApiMutation } from './useApi';
@@ -63,13 +63,83 @@ export function useRestorePost(options = {}) {
 // Comments Hooks
 // ==========================================
 
-export function useComments(postId) {
+const updateCommentTree = (items, targetId, updater) => (items || []).map((item) => {
+  if (item._id?.toString() === targetId?.toString()) return updater(item);
+  if (item.replies?.length) {
+    return { ...item, replies: updateCommentTree(item.replies, targetId, updater) };
+  }
+  return item;
+});
+
+const toggleLikeInTree = (items, targetId, currentUserId) => (items || []).map((item) => {
+  if (item._id?.toString() === targetId?.toString()) {
+    const likes = Array.isArray(item.likes) ? [...item.likes] : [];
+    const userIndex = likes.findIndex((id) => (id._id || id).toString() === currentUserId);
+    const hasLiked = userIndex !== -1;
+
+    let newLikes;
+    let newLikesCount;
+    if (hasLiked) {
+      newLikes = likes.filter((id) => (id._id || id).toString() !== currentUserId);
+      newLikesCount = Math.max(
+        0,
+        (item.likesCount !== undefined ? item.likesCount : likes.length) - 1
+      );
+    } else {
+      newLikes = [...likes, currentUserId];
+      newLikesCount = (item.likesCount !== undefined ? item.likesCount : likes.length) + 1;
+    }
+
+    return {
+      ...item,
+      likes: newLikes,
+      likesCount: newLikesCount,
+    };
+  }
+  if (item.replies?.length) {
+    return { ...item, replies: toggleLikeInTree(item.replies, targetId, currentUserId) };
+  }
+  return item;
+});
+
+export function useComments(postId, sort = 'newest') {
   return useApiQuery(
-    queryKeys.comments.list(postId),
+    [...queryKeys.comments.list(postId), sort],
     `/posts/${postId}/comments`,
     {
+      params: { sort, limit: 20 },
       enabled: Boolean(postId),
       select: (res) => res.data || [],
+    }
+  );
+}
+
+export function useInfiniteComments(postId, sort = 'newest') {
+  return useInfiniteQuery({
+    queryKey: [...queryKeys.comments.list(postId), sort, 'infinite'],
+    queryFn: async ({ pageParam = null }) => {
+      const params = { sort, limit: 20 };
+      if (pageParam) params.after = pageParam;
+      return apiClient.get(`/posts/${postId}/comments`, { params });
+    },
+    getNextPageParam: (lastPage) => {
+      const pagination = lastPage?.pagination;
+      return pagination?.hasMore && pagination?.nextCursor ? pagination.nextCursor : undefined;
+    },
+    enabled: Boolean(postId),
+    initialPageParam: null,
+  });
+}
+
+export function useCommentReplies(commentId, options = {}) {
+  return useApiQuery(
+    queryKeys.comments.replies(commentId),
+    `/comments/${commentId}/replies`,
+    {
+      params: { limit: 20 },
+      enabled: Boolean(commentId),
+      select: (res) => res.data || [],
+      ...options,
     }
   );
 }
@@ -95,7 +165,7 @@ export function useCreateComment(defaultPostId, options = {}) {
         const queryKey = queryKeys.comments.list(targetPostId);
         await queryClient.cancelQueries({ queryKey });
 
-        const previousData = queryClient.getQueryData(queryKey);
+        const previousData = queryClient.getQueriesData({ queryKey });
 
         const content = typeof payload === 'string' ? payload : payload?.content;
         const parentCommentId = payload?.parentCommentId;
@@ -130,7 +200,7 @@ export function useCreateComment(defaultPostId, options = {}) {
           },
         };
 
-        queryClient.setQueryData(queryKey, (old) => {
+        queryClient.setQueriesData({ queryKey }, (old) => {
           if (!old) {
             return {
               success: true,
@@ -155,26 +225,19 @@ export function useCreateComment(defaultPostId, options = {}) {
               updatedComments = [optimisticItem, ...commentsList];
             }
           } else {
-            updatedComments = commentsList.map((c) => {
-              if (c._id === parentCommentId) {
-                const replies = c.replies || [];
-                const existingReplyIndex = replies.findIndex((r) => r._id === tempId);
-                let updatedReplies;
-                if (existingReplyIndex !== -1) {
-                  updatedReplies = replies.map((r) =>
-                    r._id === tempId
-                      ? { ...r, status: 'sending', isFailed: false, errorMessage: null }
-                      : r
-                  );
-                } else {
-                  updatedReplies = [...replies, optimisticItem];
-                }
-                return {
-                  ...c,
-                  replies: updatedReplies,
-                };
-              }
-              return c;
+            updatedComments = updateCommentTree(commentsList, parentCommentId, (parent) => {
+              const replies = parent.replies || [];
+              const exists = replies.some((reply) => reply._id === tempId);
+              return {
+                ...parent,
+                replies: exists
+                  ? replies.map((reply) =>
+                      reply._id === tempId
+                        ? { ...reply, status: 'sending', isFailed: false, errorMessage: null }
+                        : reply
+                    )
+                  : [...replies, optimisticItem],
+              };
             });
           }
 
@@ -185,7 +248,7 @@ export function useCreateComment(defaultPostId, options = {}) {
       },
       onError: (err, payload, context) => {
         if (context?.queryKey && context?.tempId) {
-          queryClient.setQueryData(context.queryKey, (old) => {
+          queryClient.setQueriesData({ queryKey: context.queryKey }, (old) => {
             if (!old) return old;
             const isArray = Array.isArray(old);
             const commentsList = isArray ? old : (old.data || []);
@@ -203,17 +266,12 @@ export function useCreateComment(defaultPostId, options = {}) {
                 c._id === context.tempId ? markError(c) : c
               );
             } else {
-              updatedComments = commentsList.map((c) => {
-                if (c._id === context.parentCommentId && c.replies) {
-                  return {
-                    ...c,
-                    replies: c.replies.map((r) =>
-                      r._id === context.tempId ? markError(r) : r
-                    ),
-                  };
-                }
-                return c;
-              });
+              updatedComments = updateCommentTree(commentsList, context.parentCommentId, (parent) => ({
+                ...parent,
+                replies: (parent.replies || []).map((reply) =>
+                  reply._id === context.tempId ? markError(reply) : reply
+                ),
+              }));
             }
 
             return isArray ? updatedComments : { ...old, data: updatedComments };
@@ -251,66 +309,24 @@ export function useLikeComment(defaultPostId, options = {}) {
         const queryKey = queryKeys.comments.list(targetPostId);
         await queryClient.cancelQueries({ queryKey });
 
-        const previousData = queryClient.getQueryData(queryKey);
+        const previousData = queryClient.getQueriesData({ queryKey });
+        const currentUserId = user._id?.toString();
 
-        const toggleItemLike = (item) => {
-          const currentUserId = user._id?.toString();
-          const likes = Array.isArray(item.likes) ? [...item.likes] : [];
-          const userIndex = likes.findIndex((id) => (id._id || id).toString() === currentUserId);
-          const hasLiked = userIndex !== -1;
-
-          let newLikes;
-          let newLikesCount;
-
-          if (hasLiked) {
-            newLikes = likes.filter((id) => (id._id || id).toString() !== currentUserId);
-            newLikesCount = Math.max(
-              0,
-              (item.likesCount !== undefined ? item.likesCount : likes.length) - 1
-            );
-          } else {
-            newLikes = [...likes, currentUserId];
-            newLikesCount = (item.likesCount !== undefined ? item.likesCount : likes.length) + 1;
-          }
-
-          return {
-            ...item,
-            likes: newLikes,
-            likesCount: newLikesCount,
-          };
-        };
-
-        queryClient.setQueryData(queryKey, (old) => {
+        queryClient.setQueriesData({ queryKey }, (old) => {
           if (!old) return old;
           const isArray = Array.isArray(old);
           const commentsList = isArray ? old : (old.data || []);
-
-          const updatedComments = commentsList.map((c) => {
-            if (c._id === variables.commentId) {
-              return toggleItemLike(c);
-            }
-            if (c.replies && Array.isArray(c.replies)) {
-              const replyIndex = c.replies.findIndex((r) => r._id === variables.commentId);
-              if (replyIndex !== -1) {
-                const updatedReplies = [...c.replies];
-                updatedReplies[replyIndex] = toggleItemLike(c.replies[replyIndex]);
-                return {
-                  ...c,
-                  replies: updatedReplies,
-                };
-              }
-            }
-            return c;
-          });
-
+          const updatedComments = toggleLikeInTree(commentsList, variables.commentId, currentUserId);
           return isArray ? updatedComments : { ...old, data: updatedComments };
         });
 
         return { previousData, queryKey };
       },
       onError: (err, variables, context) => {
-        if (context?.queryKey && context?.previousData) {
-          queryClient.setQueryData(context.queryKey, context.previousData);
+        if (context?.previousData) {
+          context.previousData.forEach(([k, data]) => {
+            queryClient.setQueryData(k, data);
+          });
         }
       },
       onSettled: (data, error, variables, context) => {
@@ -323,31 +339,41 @@ export function useLikeComment(defaultPostId, options = {}) {
   );
 }
 
+export function useUpdateComment(defaultPostId, options = {}) {
+  const queryClient = useQueryClient();
+  return useApiMutation(
+    ({ commentId, content }) => apiClient.patch(`/comments/${commentId}`, { content }),
+    {
+      onSuccess: () => {
+        if (defaultPostId) {
+          queryClient.invalidateQueries({ queryKey: queryKeys.comments.list(defaultPostId) });
+        } else {
+          queryClient.invalidateQueries({ queryKey: queryKeys.comments.all });
+        }
+      },
+      successToast: 'Comment updated successfully',
+      ...options,
+    }
+  );
+}
+
 export function useDiscardOptimisticComment(postId) {
   const queryClient = useQueryClient();
   return (tempId, parentCommentId = null) => {
     if (!postId) return;
     const queryKey = queryKeys.comments.list(postId);
-    queryClient.setQueryData(queryKey, (old) => {
+    queryClient.setQueriesData({ queryKey }, (old) => {
       if (!old) return old;
       const isArray = Array.isArray(old);
       const commentsList = isArray ? old : (old.data || []);
-
-      let updatedComments;
-      if (!parentCommentId) {
-        updatedComments = commentsList.filter((c) => c._id !== tempId);
-      } else {
-        updatedComments = commentsList.map((c) => {
-          if (c._id === parentCommentId && c.replies) {
-            return {
-              ...c,
-              replies: c.replies.filter((r) => r._id !== tempId),
-            };
-          }
-          return c;
-        });
-      }
-
+      const removeFromTree = (items) => (items || [])
+        .filter((item) => item._id !== tempId)
+        .map((item) => ({ ...item, replies: removeFromTree(item.replies) }));
+      const updatedComments = parentCommentId
+        ? updateCommentTree(commentsList, parentCommentId, (parent) => ({
+            ...parent, replies: removeFromTree(parent.replies),
+          }))
+        : removeFromTree(commentsList);
       return isArray ? updatedComments : { ...old, data: updatedComments };
     });
   };

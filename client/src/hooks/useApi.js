@@ -18,6 +18,7 @@ export const queryKeys = {
     all: ['comments'],
     lists: () => [...queryKeys.comments.all, 'list'],
     list: (postId) => [...queryKeys.comments.lists(), postId],
+    replies: (commentId) => [...queryKeys.comments.all, 'replies', commentId],
   },
   admin: {
     all: ['admin'],

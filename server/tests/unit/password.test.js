@@ -1,7 +1,23 @@
 const bcrypt = require('bcryptjs');
+const mongoose = require('mongoose');
 const User = require('../../src/models/User');
 
 describe('Password Hashing Unit Tests', () => {
+  const triggerPreSave = async (userDoc) => {
+    if (mongoose.connection.readyState === 1) {
+      await userDoc.save();
+    } else {
+      const pres = User.schema.s.hooks._pres.get('save') || [];
+      for (const hook of pres) {
+        if (hook.fn.toString().includes('bcrypt')) {
+          await new Promise((resolve, reject) => {
+            hook.fn.call(userDoc, (err) => (err ? reject(err) : resolve()));
+          });
+        }
+      }
+    }
+  };
+
   test('hashes password using bcrypt with salt rounds >= 10', async () => {
     const rawPassword = 'SecurePassword123!';
     const user = new User({
@@ -10,7 +26,7 @@ describe('Password Hashing Unit Tests', () => {
       password: rawPassword,
     });
 
-    await user.save();
+    await triggerPreSave(user);
 
     // Password must be hashed, not plaintext
     expect(user.password).not.toBe(rawPassword);
@@ -32,7 +48,7 @@ describe('Password Hashing Unit Tests', () => {
       password: 'SecurePassword123!',
     });
 
-    await user.save();
+    await triggerPreSave(user);
     const safe = user.toSafeObject();
 
     expect(safe.password).toBeUndefined();

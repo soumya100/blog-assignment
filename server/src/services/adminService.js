@@ -6,6 +6,7 @@ const RefreshToken = require('../models/RefreshToken');
 const { ROLES, USER_STATUS } = require('../constants/roles');
 const { ACTIVITY_TYPES } = require('../constants/activityTypes');
 const { recordActivity } = require('../middleware/activityLogger');
+const commentCache = require('./commentCache');
 
 /**
  * Aggregate comprehensive dashboard statistics
@@ -203,9 +204,17 @@ const deleteUser = async (targetUserId, adminUser, req) => {
   // Revoke all tokens
   await RefreshToken.deleteMany({ user: targetUser._id });
 
+  // Find affected posts to invalidate comment cache
+  const userComments = await Comment.find({ author: targetUser._id, isDeleted: false }).select('post');
+  const postIdsToInvalidate = new Set(userComments.map((c) => c.post?.toString()).filter(Boolean));
+
   // Soft delete posts and comments by this user
   await Post.updateMany({ author: targetUser._id }, { $set: { isDeleted: true, deletedAt: new Date() } });
   await Comment.updateMany({ author: targetUser._id }, { $set: { isDeleted: true, deletedAt: new Date() } });
+
+  for (const pid of postIdsToInvalidate) {
+    await commentCache.bumpVersion(pid);
+  }
 
   // Delete user record
   await User.findByIdAndDelete(targetUserId);

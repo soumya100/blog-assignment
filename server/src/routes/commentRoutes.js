@@ -6,6 +6,7 @@ const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
+router.get('/:id/replies', commentController.getRepliesByComment);
 router.patch('/:id', requireAuth, validate(updateCommentSchema), commentController.updateComment);
 router.delete('/:id', requireAuth, commentController.deleteComment);
 router.post('/:id/like', requireAuth, commentController.toggleLikeComment);

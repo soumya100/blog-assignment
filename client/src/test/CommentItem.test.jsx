@@ -166,4 +166,78 @@ describe('CommentItem Optimistic Updates and Retry UI', () => {
     fireEvent.click(discardButtons[0]);
     expect(onDiscard).toHaveBeenCalledWith('temp-reply-failed-2', 'comment-1');
   });
+
+  test('renders multi-level nested replies and correctly targets nested parent on reply', () => {
+    const onReplySubmit = vi.fn();
+
+    const deeplyNestedComment = {
+      _id: 'root-1',
+      content: 'Root level discussion',
+      author: { _id: 'user-1', username: 'alice', role: 'USER' },
+      likes: [],
+      likesCount: 0,
+      replies: [
+        {
+          _id: 'level-2',
+          content: 'Level 2 nested reply',
+          parentComment: 'root-1',
+          author: { _id: 'user-2', username: 'bob', role: 'USER' },
+          likes: [],
+          likesCount: 0,
+          replies: [
+            {
+              _id: 'level-3',
+              content: 'Level 3 deeply nested reply',
+              parentComment: 'level-2',
+              author: { _id: 'user-3', username: 'charlie', role: 'USER' },
+              likes: [],
+              likesCount: 0,
+              replies: [],
+              createdAt: new Date().toISOString(),
+            },
+          ],
+          createdAt: new Date().toISOString(),
+        },
+      ],
+      createdAt: new Date().toISOString(),
+    };
+
+    render(
+      <CommentItem
+        comment={deeplyNestedComment}
+        postId="post-1"
+        currentUser={mockCurrentUser}
+        onReplySubmit={onReplySubmit}
+      />
+    );
+
+    // Verify all 3 levels are rendered
+    expect(screen.getByText('Root level discussion')).toBeInTheDocument();
+    expect(screen.getByText('Level 2 nested reply')).toBeInTheDocument();
+    expect(screen.getByText('Level 3 deeply nested reply')).toBeInTheDocument();
+
+    // Click reply on level 3
+    const replyButtons = screen.getAllByRole('button', { name: /reply/i });
+    expect(replyButtons.length).toBe(3); // root, level-2, level-3
+
+    // Click the reply button for level-3 (the last one)
+    fireEvent.click(replyButtons[2]);
+
+    // Find input for the open composer
+    const input = screen.getByPlaceholderText(/reply to charlie\.\.\./i);
+    expect(input).toBeInTheDocument();
+
+    fireEvent.change(input, { target: { value: 'Level 4 response' } });
+
+    // Submit reply
+    const submitBtn = screen.getByRole('button', { name: /send reply/i });
+    fireEvent.click(submitBtn);
+
+    expect(onReplySubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        parentCommentId: 'level-3',
+        content: 'Level 4 response',
+      })
+    );
+  });
 });

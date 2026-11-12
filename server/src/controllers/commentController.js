@@ -23,17 +23,29 @@ const createComment = async (req, res, next) => {
 const getCommentsByPost = async (req, res, next) => {
   try {
     const { postId } = req.params;
-    const { page, limit } = req.query;
+    const { page, limit, sort, after } = req.query;
 
     const result = await commentService.getCommentsByPost(postId, {
       page: parseInt(page || '1', 10),
       limit: parseInt(limit || '50', 10),
+      sort: sort === 'top' ? 'top' : 'newest',
+      after,
     });
 
     return paginatedResponse(res, 200, 'Comments retrieved successfully', result.items, result.pagination);
   } catch (err) {
     next(err);
   }
+};
+
+const getRepliesByComment = async (req, res, next) => {
+  try {
+    const result = await commentService.getRepliesByComment(req.params.id, {
+      after: req.query.after,
+      limit: parseInt(req.query.limit || '20', 10),
+    });
+    return paginatedResponse(res, 200, 'Replies retrieved successfully', result.items, result.pagination);
+  } catch (err) { next(err); }
 };
 
 const toggleLikeComment = async (req, res, next) => {
@@ -79,6 +91,7 @@ const deleteComment = async (req, res, next) => {
 module.exports = {
   createComment,
   getCommentsByPost,
+  getRepliesByComment,
   toggleLikeComment,
   updateComment,
   deleteComment,

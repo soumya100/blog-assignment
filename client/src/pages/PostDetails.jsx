@@ -19,6 +19,7 @@ import {
   useDiscardOptimisticComment,
   useDeleteComment,
   useDeletePost,
+  useUpdateComment,
 } from '../hooks/useBlogApi';
 import CommentItem from '../components/CommentItem';
 import SEO from '../components/SEO';
@@ -36,6 +37,7 @@ import {
   Send,
   Lock,
   MessageSquare,
+  AlertCircle,
 } from 'lucide-react';
 
 const commentSchema = z.object({
@@ -54,13 +56,15 @@ const PostDetails = () => {
 
   // Server state with TanStack Query
   const { data: post, isLoading: postLoading } = usePost(id);
-  const { data: comments = [], isLoading: commentsLoading } = useComments(post?._id);
+  const [commentSort, setCommentSort] = useState('newest');
+  const { data: comments = [], isLoading: commentsLoading } = useComments(post?._id, commentSort);
 
   // TanStack Query Mutations
   const createCommentMutation = useCreateComment(post?._id);
   const likeCommentMutation = useLikeComment(post?._id);
   const discardOptimisticComment = useDiscardOptimisticComment(post?._id);
   const deleteCommentMutation = useDeleteComment(post?._id);
+  const updateCommentMutation = useUpdateComment(post?._id);
   const deletePostMutation = useDeletePost();
 
   // Edit Comment state
@@ -92,15 +96,20 @@ const PostDetails = () => {
 
     const handleRefresh = () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.comments.list(post._id) });
+      queryClient.invalidateQueries({ queryKey: ['comments', 'replies'] });
     };
 
     socket.on('new_comment', handleRefresh);
     socket.on('comment_like', handleRefresh);
+    socket.on('comment_updated', handleRefresh);
+    socket.on('comment_deleted', handleRefresh);
 
     return () => {
       socket.emit('leave_post', post._id);
       socket.off('new_comment', handleRefresh);
       socket.off('comment_like', handleRefresh);
+      socket.off('comment_updated', handleRefresh);
+      socket.off('comment_deleted', handleRefresh);
     };
   }, [socket, post?._id, queryClient]);
 
@@ -154,15 +163,13 @@ const PostDetails = () => {
     if (!textToSave?.trim()) return;
     setIsUpdatingComment(true);
     try {
-      await apiClient.patch(`/comments/${commentId}`, {
+      await updateCommentMutation.mutateAsync({
+        commentId,
         content: textToSave.trim(),
       });
-      queryClient.invalidateQueries({ queryKey: queryKeys.comments.list(post._id) });
-      toast.success('Comment updated successfully', { autoClose: 3500 });
       setEditingCommentId(null);
       setEditCommentText('');
     } catch (err) {
-      toast.error(extractErrorMessage(err, 'Failed to update comment'), { autoClose: 4000 });
       throw err;
     } finally {
       setIsUpdatingComment(false);
@@ -449,6 +456,10 @@ const PostDetails = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '2rem' }}>
           <MessageSquare size={22} style={{ color: 'var(--accent-primary)' }} />
           <h2 style={{ fontSize: '1.35rem' }}>Discussion ({comments.length})</h2>
+          <select aria-label="Sort discussion" value={commentSort} onChange={(event) => setCommentSort(event.target.value)} className="form-input" style={{ marginLeft: 'auto', width: 'auto', minWidth: '130px' }}>
+            <option value="newest">Newest</option>
+            <option value="top">Top comments</option>
+          </select>
         </div>
 
         {/* Facebook-style Top Composer */}
