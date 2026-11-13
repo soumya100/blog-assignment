@@ -11,6 +11,7 @@ export default function Community() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    if (tab === 'following' && !isAuthenticated) { setPosts([]); setLoading(false); return undefined; }
     let active = true;
     setLoading(true);
     const endpoint = tab === 'following' ? '/community/feed/following' : '/community/trending';
