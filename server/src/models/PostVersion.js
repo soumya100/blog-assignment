@@ -8,6 +8,10 @@ const postVersionSchema = new mongoose.Schema({
   excerpt: { type: String, maxlength: 300, default: '' },
   tags: [{ type: String }],
   coverImage: { type: String, default: '' },
+  seoTitle: { type: String, default: '' },
+  seoDescription: { type: String, default: '' },
+  canonicalUrl: { type: String, default: '' },
+  noIndex: { type: Boolean, default: false },
   versionNumber: { type: Number, required: true },
 }, { timestamps: true });
 
