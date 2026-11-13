@@ -9,6 +9,7 @@ const readingHistoryRoutes = require('./readingHistoryRoutes');
 const communityRoutes = require('./communityRoutes');
 const rssRoutes = require('./rssRoutes');
 const uploadRoutes = require('./uploadRoutes');
+const analyticsRoutes = require('./analyticsRoutes');
 const { successResponse } = require('../utils/apiResponse');
 
 const router = express.Router();
@@ -33,5 +34,6 @@ router.use('/reading-history', readingHistoryRoutes);
 router.use('/community', communityRoutes);
 router.use('/rss.xml', rssRoutes);
 router.use('/uploads', uploadRoutes);
+router.use('/analytics', analyticsRoutes);
 
 module.exports = router;
