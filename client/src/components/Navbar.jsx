@@ -15,6 +15,7 @@ import {
   Compass,
   Bookmark,
   FileText,
+  LayoutDashboard,
 } from 'lucide-react';
 
 const Navbar = () => {
@@ -110,6 +111,12 @@ const Navbar = () => {
             >
               Explore
             </Link>
+
+            {isAuthenticated && (
+              <Link to="/reader" style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', color: 'var(--text-secondary)', fontWeight: 500, fontSize: '0.925rem' }}>
+                <LayoutDashboard size={16} /> Reader dashboard
+              </Link>
+            )}
 
             {isAuthenticated && (
               <Link to="/drafts" style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', color: 'var(--text-secondary)', fontWeight: 500, fontSize: '0.925rem' }}>
@@ -230,6 +237,12 @@ const Navbar = () => {
           >
             Explore Articles
           </Link>
+
+          {isAuthenticated && (
+            <Link to="/reader" onClick={() => setMobileMenuOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.95rem', padding: '0.35rem 0' }}>
+              <LayoutDashboard size={18} /> Reader dashboard
+            </Link>
+          )}
 
           {isAuthenticated && (
             <Link to="/drafts" onClick={() => setMobileMenuOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.95rem', padding: '0.35rem 0' }}>
