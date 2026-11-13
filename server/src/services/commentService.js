@@ -130,7 +130,7 @@ const createComment = async ({ postId, authorId, content, parentCommentId, req }
   const mentionedNames = [...new Set((content.match(/@([a-zA-Z0-9_]{3,30})/g) || []).map((mention) => mention.slice(1).toLowerCase()))];
   if (mentionedNames.length) {
     const mentionedUsers = await User.find({
-      username: { $in: mentionedNames.map((name) => new RegExp('^' + name.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\  await comment.populate('author', 'username email avatar role');') + '\\u0024', 'i')) },
+      username: { $in: mentionedNames },
       status: 'active',
       _id: { $ne: authorId },
     }).select('_id').lean();
