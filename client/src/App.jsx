@@ -24,6 +24,7 @@ const OAuthCallback = lazy(() => import('./pages/OAuthCallback'));
 // Lazy-loaded Authenticated User Pages
 const CreateEditPost = lazy(() => import('./pages/CreateEditPost'));
 const Profile = lazy(() => import('./pages/Profile'));
+const SavedPosts = lazy(() => import('./pages/SavedPosts'));
 
 // Lazy-loaded Admin Pages
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'));
@@ -93,6 +94,14 @@ function App() {
                         element={
                           <ProtectedRoute>
                             <CreateEditPost />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/saved"
+                        element={
+                          <ProtectedRoute>
+                            <SavedPosts />
                           </ProtectedRoute>
                         }
                       />
