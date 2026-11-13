@@ -45,6 +45,22 @@ const CreateEditPost = () => {
   const wordCount = useMemo(() => content.trim() ? content.trim().split(/\s+/).length : 0, [content]);
 
   useEffect(() => {
+    if (!isEditing) {
+      try {
+        const saved = window.localStorage.getItem('blog-editor-draft:new');
+        if (saved) {
+          const draft = JSON.parse(saved);
+          reset({ title: draft.title || '', content: draft.content || '', excerpt: draft.excerpt || '', coverImage: draft.coverImage || '', tagsInput: draft.tagsInput || '' });
+          setContent(draft.content || '');
+          setDraftMessage('Recovered local draft');
+        }
+      } catch {
+        setDraftMessage('Could not recover previous local draft');
+      }
+    }
+  }, [isEditing, reset]);
+
+  useEffect(() => {
     if (isEditing && existingPost) {
       setContent(existingPost.content || '');
       reset({
