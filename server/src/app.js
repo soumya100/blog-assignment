@@ -15,7 +15,6 @@ const app = express();
 
 // User uploads are served from a configurable persistent directory. Keep this
 // route separate from the client build so it works in split and unified deploys.
-app.use('/uploads', express.static(env.UPLOAD_DIR, { fallthrough: false, index: false, maxAge: '7d', immutable: true }));
 
 // Trust reverse proxies (Render, Heroku, Cloudflare) - 1 hop
 app.set('trust proxy', 1);
@@ -27,6 +26,9 @@ app.use(
     crossOriginEmbedderPolicy: false,
   })
 );
+
+// Serve user uploads with the same security headers as API responses.
+app.use('/uploads', express.static(env.UPLOAD_DIR, { fallthrough: false, index: false, maxAge: '7d', immutable: true }));
 
 // CORS setup
 const configuredOrigins = (env.CLIENT_URL || '')
