@@ -106,6 +106,23 @@ const PostDetails = () => {
   });
 
   useEffect(() => {
+    if (!isAuthenticated || !post?._id) return;
+    apiClient.post('/reading-history/' + post._id, { progress: 0, secondsRead: 0 }).catch(() => {});
+    let lastBucket = 0;
+    const trackProgress = () => {
+      const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+      const progress = scrollable > 0 ? Math.min(100, Math.max(0, (window.scrollY / scrollable) * 100)) : 100;
+      const bucket = Math.floor(progress / 10) * 10;
+      if (bucket >= 10 && bucket > lastBucket) {
+        lastBucket = bucket;
+        apiClient.post('/reading-history/' + post._id, { progress: bucket, secondsRead: 0 }).catch(() => {});
+      }
+    };
+    window.addEventListener('scroll', trackProgress, { passive: true });
+    return () => window.removeEventListener('scroll', trackProgress);
+  }, [isAuthenticated, post?._id]);
+
+  useEffect(() => {
     const updateProgress = () => {
       const scrollable = document.documentElement.scrollHeight - window.innerHeight;
       setReadingProgress(scrollable > 0 ? Math.min(100, Math.max(0, (window.scrollY / scrollable) * 100)) : 0);
