@@ -18,6 +18,7 @@ const AdminLayout = () => {
     { to: '/admin/posts', end: false, label: 'Post Moderation', icon: FileText },
     { to: '/admin/comments', end: false, label: 'Comment Moderation', icon: MessageSquare },
     { to: '/admin/activity', end: false, label: 'System Audit Logs', icon: Activity },
+    { to: '/admin/newsletter', end: false, label: 'Newsletter Campaigns', icon: Activity },
     { to: '/admin/reports', end: false, label: 'Moderation Queue', icon: Flag },
   ];
 
