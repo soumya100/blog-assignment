@@ -15,6 +15,7 @@ import { PageLoader } from './components/SkeletonLoader';
 // Lazy-loaded Public Pages
 const Home = lazy(() => import('./pages/Home'));
 const Community = lazy(() => import('./pages/Community'));
+const Newsletter = lazy(() => import('./pages/Newsletter'));
 const AuthorAnalytics = lazy(() => import('./pages/AuthorAnalytics'));
 const PostDetails = lazy(() => import('./pages/PostDetails'));
 const Login = lazy(() => import('./pages/Login'));
@@ -79,6 +80,9 @@ function App() {
                       {/* Public Routes */}
                       <Route path="/" element={<Home />} />
                       <Route path="/community" element={<Community />} />
+                      <Route path="/newsletter" element={<Newsletter />} />
+                      <Route path="/newsletter/confirm" element={<Newsletter />} />
+                      <Route path="/newsletter/unsubscribe" element={<Newsletter />} />
                       <Route path="/posts/:id" element={<PostDetails />} />
                       <Route path="/login" element={<Login />} />
                       <Route path="/register" element={<Register />} />
