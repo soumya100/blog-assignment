@@ -22,6 +22,7 @@ router.delete('/users/:id', adminController.deleteUser);
 // Content and comment moderation
 router.get('/comments', adminController.getAdminComments);
 router.get('/reports', adminController.getContentReports);
+router.post('/newsletter/send', adminController.sendNewsletterCampaign);
 router.patch('/reports/:id', adminController.updateContentReport);
 
 // Audit & Activity logs
