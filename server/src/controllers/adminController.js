@@ -1,5 +1,6 @@
 const adminService = require('../services/adminService');
 const { successResponse, paginatedResponse } = require('../utils/apiResponse');
+const ContentReport = require('../models/ContentReport');
 
 const getStats = async (req, res, next) => {
   try {
@@ -91,6 +92,34 @@ const getActivityLogs = async (req, res, next) => {
   }
 };
 
+
+const getContentReports = async (req, res, next) => {
+  try {
+    const page = Math.max(1, Number.parseInt(req.query.page || '1', 10));
+    const limit = Math.min(50, Math.max(1, Number.parseInt(req.query.limit || '20', 10)));
+    const filter = req.query.status ? { status: req.query.status } : {};
+    const [items, total] = await Promise.all([
+      ContentReport.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit)
+        .populate('reporter', 'username email')
+        .lean(),
+      ContentReport.countDocuments(filter),
+    ]);
+    return paginatedResponse(res, 200, 'Content reports retrieved', items, { page, limit, total, totalPages: Math.ceil(total / limit) });
+  } catch (error) { next(error); }
+};
+
+const updateContentReport = async (req, res, next) => {
+  try {
+    const { status } = req.body || {};
+    if (!['open', 'reviewing', 'resolved', 'dismissed'].includes(status)) {
+      return res.status(400).json({ success: false, message: 'Invalid moderation status' });
+    }
+    const report = await ContentReport.findByIdAndUpdate(req.params.id, { status }, { new: true, runValidators: true });
+    if (!report) return res.status(404).json({ success: false, message: 'Report not found' });
+    return successResponse(res, 200, 'Report status updated', report);
+  } catch (error) { next(error); }
+};
+
 module.exports = {
   getStats,
   getUsers,
@@ -99,4 +128,6 @@ module.exports = {
   deleteUser,
   getAdminComments,
   getActivityLogs,
+  getContentReports,
+  updateContentReport,
 };
