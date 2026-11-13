@@ -8,6 +8,12 @@ const draftRoutes = require('./draftRoutes');
 const readingHistoryRoutes = require('./readingHistoryRoutes');
 const communityRoutes = require('./communityRoutes');
 const rssRoutes = require('./rssRoutes');
+const uploadRoutes = require('./uploadRoutes');
+const analyticsRoutes = require('./analyticsRoutes');
+const newsletterRoutes = require('./newsletterRoutes');
+const contentCollectionRoutes = require('./contentCollectionRoutes');
+const mentionRoutes = require('./mentionRoutes');
+const aiRoutes = require('./aiRoutes');
 const { successResponse } = require('../utils/apiResponse');
 
 const router = express.Router();
@@ -31,5 +37,11 @@ router.use('/drafts', draftRoutes);
 router.use('/reading-history', readingHistoryRoutes);
 router.use('/community', communityRoutes);
 router.use('/rss.xml', rssRoutes);
+router.use('/uploads', uploadRoutes);
+router.use('/analytics', analyticsRoutes);
+router.use('/newsletter', newsletterRoutes);
+router.use('/library', contentCollectionRoutes);
+router.use('/mentions', mentionRoutes);
+router.use('/ai', aiRoutes);
 
 module.exports = router;

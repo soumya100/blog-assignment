@@ -3,10 +3,16 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Save, Send, FileText } from 'lucide-react';
 import { useCreateDraft, useDraft, usePublishDraft, useUpdateDraft } from '../hooks/useBlogApi';
 import MarkdownEditor from '../components/MarkdownEditor';
+import { useSocket } from '../context/SocketContext';
+import apiClient from '../api/client';
+import { toast } from 'react-toastify';
+import { useAuth } from '../context/AuthContext';
 
 const DraftEditor = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { socket, isConnected } = useSocket();
+  const { user } = useAuth();
   const isEditing = Boolean(id);
   const { data: draft, isLoading, isError } = useDraft(id, isEditing);
   const createDraft = useCreateDraft();
@@ -18,9 +24,14 @@ const DraftEditor = () => {
   const [coverImage, setCoverImage] = useState('');
   const [tagsInput, setTagsInput] = useState('');
   const [loaded, setLoaded] = useState(false);
+  const [revision, setRevision] = useState(0);
   const busy = createDraft.isPending || updateDraft.isPending || publishDraft.isPending;
+  const isDraftOwner = !isEditing || Boolean(draft?.author && user?._id === String(draft.author._id || draft.author));
   const autosaveTimer = useRef(null);
   const lastSaved = useRef('');
+  const applyingRemoteChange = useRef(false);
+  const [collaboratorUsername, setCollaboratorUsername] = useState('');
+  const [collaborationStatus, setCollaborationStatus] = useState('');
   const [autosaveStatus, setAutosaveStatus] = useState('Private draft');
 
   useEffect(() => {
@@ -30,10 +41,48 @@ const DraftEditor = () => {
       setExcerpt(draft.excerpt || '');
       setCoverImage(draft.coverImage || '');
       setTagsInput((draft.tags || []).join(', '));
+      setRevision(draft.revision || 0);
       lastSaved.current = JSON.stringify({ title: draft.title || '', content: draft.content || '', excerpt: draft.excerpt || '', coverImage: draft.coverImage || '', tags: draft.tags || [] });
       setLoaded(true);
     }
   }, [draft, loaded]);
+
+
+  useEffect(() => {
+    if (!id || !socket || !isConnected) return undefined;
+    socket.emit('join_draft', id, (result) => {
+      setCollaborationStatus(result?.ok ? 'Live collaboration connected' : (result?.message || 'Collaboration unavailable'));
+    });
+    const handleRemoteChange = (update) => {
+      if (update?.draftId !== id || typeof update.content !== 'string') return;
+      applyingRemoteChange.current = true;
+      setContent(update.content);
+      setCollaborationStatus('A collaborator is editing this draft');
+    };
+    socket.on('draft_remote_change', handleRemoteChange);
+    return () => {
+      socket.emit('leave_draft', id);
+      socket.off('draft_remote_change', handleRemoteChange);
+    };
+  }, [id, socket, isConnected]);
+
+  useEffect(() => {
+    if (!id || !socket || !loaded || !isConnected) return;
+    if (applyingRemoteChange.current) {
+      applyingRemoteChange.current = false;
+      return;
+    }
+    socket.emit('draft_change', { draftId: id, content });
+  }, [id, socket, loaded, isConnected, content]);
+
+  const inviteCollaborator = async () => {
+    if (!id || !collaboratorUsername.trim()) return;
+    try {
+      await apiClient.post('/drafts/' + id + '/collaborators', { username: collaboratorUsername.trim() });
+      setCollaboratorUsername('');
+      toast.success('Collaborator added');
+    } catch (error) { toast.error(error.message || 'Could not add collaborator'); }
+  };
 
   const payload = () => ({
     title,
@@ -45,7 +94,8 @@ const DraftEditor = () => {
 
   const save = async () => {
     if (isEditing) {
-      const result = await updateDraft.mutateAsync({ id, ...payload() });
+      const result = await updateDraft.mutateAsync({ id, ...payload(), revision });
+      setRevision(result.data?.revision ?? revision + 1);
       return result.data;
     }
     const result = await createDraft.mutateAsync(payload());
@@ -64,7 +114,8 @@ const DraftEditor = () => {
     try {
       setAutosaveStatus('Saving to your account…');
       if (isEditing) {
-        await updateDraft.mutateAsync({ id, ...current });
+        const result = await updateDraft.mutateAsync({ id, ...current, revision });
+        setRevision(result.data?.revision ?? revision + 1);
       } else {
         const result = await createDraft.mutateAsync(current);
         const newId = result.data?._id;
@@ -75,7 +126,7 @@ const DraftEditor = () => {
     } catch {
       setAutosaveStatus('Autosave failed — use Save draft to retry');
     }
-  }, [title, content, excerpt, coverImage, tagsInput, isEditing, id, busy, updateDraft, createDraft, navigate]);
+  }, [title, content, excerpt, coverImage, tagsInput, isEditing, id, busy, updateDraft, createDraft, navigate, revision]);
 
   useEffect(() => {
     if (!loaded) return undefined;
@@ -101,7 +152,7 @@ const DraftEditor = () => {
       <section className="card publishing-card">
         <header className="publishing-heading">
           <div className="publishing-icon"><FileText size={20} /></div>
-          <div><h1>{isEditing ? 'Continue your draft' : 'Start a draft'}</h1><p>Only you can see this article until you publish it.</p></div>
+          <div><h1>{isEditing ? 'Continue your draft' : 'Start a draft'}</h1><p>{isEditing ? 'Collaborators can edit this draft in real time.' : 'Only you can see this article until you publish it.'}</p>{isEditing && <small role="status">{collaborationStatus || (isConnected ? 'Connecting collaboration…' : 'Live collaboration offline')}</small>}</div>
           <span className="autosave-indicator" role="status" aria-live="polite">{autosaveStatus}</span>
         </header>
         <div className="form-group">
@@ -120,13 +171,21 @@ const DraftEditor = () => {
           <label className="form-label" htmlFor="draft-tags">Tags (comma separated)</label>
           <input id="draft-tags" className="form-input" value={tagsInput} onChange={(event) => setTagsInput(event.target.value)} placeholder="react, engineering, tutorials" />
         </div>
+        {isEditing && draft?.author && user?._id === String(draft.author._id || draft.author) && <section className="form-group card" style={{ padding: '1rem' }}>
+          <label className="form-label" htmlFor="draft-collaborator">Invite a collaborator by username</label>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <input id="draft-collaborator" className="form-input" value={collaboratorUsername} onChange={(event) => setCollaboratorUsername(event.target.value)} placeholder="username" maxLength={30} />
+            <button type="button" className="btn btn-secondary" onClick={inviteCollaborator} disabled={!collaboratorUsername.trim()}>Invite</button>
+          </div>
+          <small>Only the draft owner can invite collaborators. Changes sync live while both editors are connected.</small>
+        </section>}
         <div className="form-group">
           <label className="form-label">Article content</label>
           <MarkdownEditor value={content} onChange={setContent} />
         </div>
         <footer style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap', marginTop: '1.5rem' }}>
           <button type="button" className="btn btn-secondary" onClick={handleSave} disabled={busy}><Save size={16} /> {busy ? 'Saving...' : 'Save draft'}</button>
-          <button type="button" className="btn btn-primary" onClick={handlePublish} disabled={busy || title.trim().length < 3 || content.trim().length < 10}><Send size={16} /> {publishDraft.isPending ? 'Publishing...' : 'Publish article'}</button>
+          {isDraftOwner && <button type="button" className="btn btn-primary" onClick={handlePublish} disabled={busy || title.trim().length < 3 || content.trim().length < 10}><Send size={16} /> {publishDraft.isPending ? 'Publishing...' : 'Publish article'}</button>}
         </footer>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '0.75rem' }}>Publishing requires a title of at least 3 characters and content of at least 10 characters. Saving a draft has no minimum content requirement.</p>
       </section>

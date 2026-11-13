@@ -9,8 +9,16 @@ const { ROLES } = require('../constants/roles');
 /**
  * Create a new blog post
  */
-const createPost = async ({ title, content, excerpt, tags = [], coverImage = '', seoTitle = '', seoDescription = '', canonicalUrl = '', noIndex = false, authorId, req }) => {
+const createPost = async ({ title, content, excerpt, tags = [], coverImage = '', seoTitle = '', seoDescription = '', canonicalUrl = '', noIndex = false, scheduledAt = null, authorId, req }) => {
   const slug = await createUniqueSlug(Post, title);
+
+  const scheduleDate = scheduledAt ? new Date(scheduledAt) : null;
+  if (scheduleDate && (!Number.isFinite(scheduleDate.getTime()) || scheduleDate <= new Date())) {
+    const error = new Error('Scheduled publishing time must be in the future');
+    error.statusCode = 400;
+    error.code = 'INVALID_SCHEDULE_TIME';
+    throw error;
+  }
 
   const post = await Post.create({
     title,
@@ -23,6 +31,9 @@ const createPost = async ({ title, content, excerpt, tags = [], coverImage = '',
     seoDescription,
     canonicalUrl,
     noIndex,
+    status: scheduleDate ? 'scheduled' : 'published',
+    scheduledAt: scheduleDate,
+    publishedAt: scheduleDate ? null : new Date(),
     author: authorId,
   });
 
@@ -39,7 +50,7 @@ const createPost = async ({ title, content, excerpt, tags = [], coverImage = '',
 
     // Real-time notification if socket instance exists
     const io = req.app.get('io');
-    if (io) {
+    if (io && post.status === 'published') {
       io.emit('new_post', {
         id: post._id,
         title: post.title,
@@ -61,6 +72,7 @@ const getPosts = async ({ page = 1, limit = 10, search, tag, author, includeDele
 
   if (!includeDeleted) {
     filter.isDeleted = false;
+    filter.status = 'published';
   }
 
   if (tag) {
@@ -107,12 +119,15 @@ const getPosts = async ({ page = 1, limit = 10, search, tag, author, includeDele
 /**
  * Get post by slug or ID
  */
-const getPostBySlugOrId = async (identifier, includeDeleted = false) => {
+const getPostBySlugOrId = async (identifier, includeDeleted = false, user = null) => {
   const isObjectId = /^[0-9a-fA-F]{24}$/.test(identifier);
   const query = isObjectId ? { _id: identifier } : { slug: identifier };
 
   if (!includeDeleted) {
     query.isDeleted = false;
+    query.$or = user
+      ? [{ status: 'published' }, { status: 'scheduled', author: user._id }]
+      : [{ status: 'published' }];
   }
 
   const post = await Post.findOne(query)
@@ -190,6 +205,19 @@ const updatePost = async (postId, updateData, user, req) => {
 
   if (updateData.coverImage !== undefined) {
     post.coverImage = updateData.coverImage;
+  }
+
+  if (updateData.scheduledAt !== undefined) {
+    const scheduleDate = updateData.scheduledAt ? new Date(updateData.scheduledAt) : null;
+    if (scheduleDate && (!Number.isFinite(scheduleDate.getTime()) || scheduleDate <= new Date())) {
+      const error = new Error('Scheduled publishing time must be in the future');
+      error.statusCode = 400;
+      error.code = 'INVALID_SCHEDULE_TIME';
+      throw error;
+    }
+    post.scheduledAt = scheduleDate;
+    post.status = scheduleDate ? 'scheduled' : 'published';
+    post.publishedAt = scheduleDate ? null : new Date();
   }
 
   for (const field of ['seoTitle', 'seoDescription', 'canonicalUrl', 'noIndex']) {

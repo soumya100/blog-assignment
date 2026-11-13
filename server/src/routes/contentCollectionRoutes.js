@@ -1,0 +1,10 @@
+const express = require('express');
+const controller = require('../controllers/contentCollectionController');
+const { requireAuth } = require('../middleware/auth');
+const router = express.Router();
+router.get('/public/:id', controller.publicDetail);
+router.get('/', requireAuth, controller.list);
+router.post('/', requireAuth, controller.create);
+router.patch('/:id', requireAuth, controller.update);
+router.delete('/:id', requireAuth, controller.remove);
+module.exports = router;

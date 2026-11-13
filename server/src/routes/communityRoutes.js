@@ -4,6 +4,8 @@ const { requireAuth, optionalAuth } = require('../middleware/auth');
 const { contentCreationLimiter } = require('../middleware/rateLimiter');
 const router = express.Router();
 router.get('/trending', optionalAuth, controller.getTrending);
+router.get('/posts/:postId/reactions', optionalAuth, controller.getPostReactions);
+router.get('/authors/:authorId/follow-status', optionalAuth, controller.getFollowStatus);
 router.get('/feed/following', requireAuth, controller.getFollowingFeed);
 router.post('/authors/:authorId/follow', requireAuth, controller.followAuthor);
 router.post('/posts/:postId/reactions', requireAuth, controller.toggleReaction);

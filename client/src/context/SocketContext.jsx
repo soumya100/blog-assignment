@@ -4,6 +4,7 @@ import { toast } from 'react-toastify';
 import queryClient from '../api/queryClient';
 import { queryKeys } from '../hooks/useApi';
 import { useAuth } from './AuthContext';
+import { getInMemoryToken } from '../api/client';
 
 const SocketContext = createContext();
 
@@ -42,6 +43,7 @@ export const SocketProvider = ({ children }) => {
     // Use default reliable transport order (polling -> websocket upgrade)
     const newSocket = io(socketServerUrl, {
       withCredentials: true,
+      auth: { token: getInMemoryToken() },
       autoConnect: true,
       reconnection: true,
       reconnectionAttempts: 10,

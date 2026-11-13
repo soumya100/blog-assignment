@@ -15,7 +15,7 @@ const toggleReaction = async (req, res, next) => {
     const { postId } = req.params;
     const type = req.body?.type === 'clap' ? 'clap' : 'like';
     if (!mongoose.isValidObjectId(postId)) throw fail(400, 'Invalid article identifier', 'INVALID_POST_ID');
-    const post = await Post.findOne({ _id: postId, isDeleted: false }).select('_id');
+    const post = await Post.findOne({ _id: postId, isDeleted: false, status: 'published' }).select('_id');
     if (!post) throw fail(404, 'Article not found', 'POST_NOT_FOUND');
     const existing = await PostReaction.findOne({ post: postId, user: req.user._id });
     let reacted = true;
@@ -57,7 +57,7 @@ const getFollowingFeed = async (req, res, next) => {
     const follows = await AuthorFollow.find({ follower: req.user._id }).select('author').lean();
     const authorIds = follows.map((item) => item.author);
     const limit = Math.min(30, Math.max(1, Number(req.query.limit) || 20));
-    const posts = authorIds.length ? await Post.find({ author: { $in: authorIds }, isDeleted: false })
+    const posts = authorIds.length ? await Post.find({ author: { $in: authorIds }, isDeleted: false, status: 'published' })
       .sort({ createdAt: -1 }).limit(limit)
       .populate('author', 'username avatar bio').lean() : [];
     return successResponse(res, 200, 'Following feed retrieved', posts);
@@ -70,7 +70,9 @@ const reportContent = async (req, res, next) => {
     if (!['post', 'comment'].includes(targetType) || !mongoose.isValidObjectId(targetId)) throw fail(400, 'Invalid report target', 'INVALID_REPORT');
     if (!['spam', 'harassment', 'hate', 'misinformation', 'copyright', 'other'].includes(reason)) throw fail(400, 'Select a valid report reason', 'INVALID_REPORT_REASON');
     const Model = targetType === 'post' ? Post : Comment;
-    const target = await Model.findOne({ _id: targetId, isDeleted: false }).select('_id');
+    const targetFilter = { _id: targetId, isDeleted: false };
+    if (targetType === 'post') targetFilter.status = 'published';
+    const target = await Model.findOne(targetFilter).select('_id');
     if (!target) throw fail(404, 'Content not found', 'CONTENT_NOT_FOUND');
     const report = await ContentReport.findOneAndUpdate(
       { reporter: req.user._id, targetType, target: targetId },
@@ -87,7 +89,7 @@ const reportContent = async (req, res, next) => {
 const getTrending = async (req, res, next) => {
   try {
     const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const posts = await Post.find({ isDeleted: false, createdAt: { $gte: since } })
+    const posts = await Post.find({ isDeleted: false, status: 'published', createdAt: { $gte: since } })
       .sort({ createdAt: -1 }).limit(Math.min(20, Math.max(1, Number(req.query.limit) || 10)))
       .populate('author', 'username avatar').lean();
     const ids = posts.map((post) => post._id);
@@ -100,4 +102,34 @@ const getTrending = async (req, res, next) => {
   } catch (error) { next(error); }
 };
 
-module.exports = { toggleReaction, followAuthor, getFollowingFeed, reportContent, getTrending };
+
+const getPostReactions = async (req, res, next) => {
+  try {
+    const { postId } = req.params;
+    if (!mongoose.isValidObjectId(postId)) throw fail(400, 'Invalid article identifier', 'INVALID_POST_ID');
+    const post = await Post.findOne({ _id: postId, isDeleted: false, status: 'published' }).select('_id');
+    if (!post) throw fail(404, 'Article not found', 'POST_NOT_FOUND');
+    const [likes, claps, mine] = await Promise.all([
+      PostReaction.countDocuments({ post: postId, type: 'like' }),
+      PostReaction.countDocuments({ post: postId, type: 'clap' }),
+      req.user ? PostReaction.findOne({ post: postId, user: req.user._id }).select('type').lean() : null,
+    ]);
+    return successResponse(res, 200, 'Article reactions retrieved', { likes, claps, myReaction: mine?.type || null });
+  } catch (error) { next(error); }
+};
+
+const getFollowStatus = async (req, res, next) => {
+  try {
+    const { authorId } = req.params;
+    if (!mongoose.isValidObjectId(authorId)) throw fail(400, 'Invalid author identifier', 'INVALID_AUTHOR_ID');
+    const [followers, following] = await Promise.all([
+      AuthorFollow.countDocuments({ author: authorId }),
+      req.user && req.user._id.toString() !== authorId
+        ? AuthorFollow.exists({ follower: req.user._id, author: authorId })
+        : false,
+    ]);
+    return successResponse(res, 200, 'Author follow status retrieved', { followers, following: Boolean(following) });
+  } catch (error) { next(error); }
+};
+
+module.exports = { toggleReaction, followAuthor, getFollowingFeed, reportContent, getTrending, getPostReactions, getFollowStatus };
