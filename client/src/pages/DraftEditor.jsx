@@ -6,11 +6,13 @@ import MarkdownEditor from '../components/MarkdownEditor';
 import { useSocket } from '../context/SocketContext';
 import apiClient from '../api/client';
 import { toast } from 'react-toastify';
+import { useAuth } from '../context/AuthContext';
 
 const DraftEditor = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { socket, isConnected } = useSocket();
+  const { user } = useAuth();
   const isEditing = Boolean(id);
   const { data: draft, isLoading, isError } = useDraft(id, isEditing);
   const createDraft = useCreateDraft();
@@ -164,7 +166,7 @@ const DraftEditor = () => {
           <label className="form-label" htmlFor="draft-tags">Tags (comma separated)</label>
           <input id="draft-tags" className="form-input" value={tagsInput} onChange={(event) => setTagsInput(event.target.value)} placeholder="react, engineering, tutorials" />
         </div>
-        {isEditing && draft?.author && String(draft.author._id || draft.author) === String(draft.author._id || draft.author) && <section className="form-group card" style={{ padding: '1rem' }}>
+        {isEditing && draft?.author && user?._id === String(draft.author._id || draft.author) && <section className="form-group card" style={{ padding: '1rem' }}>
           <label className="form-label" htmlFor="draft-collaborator">Invite a collaborator by username</label>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <input id="draft-collaborator" className="form-input" value={collaboratorUsername} onChange={(event) => setCollaboratorUsername(event.target.value)} placeholder="username" maxLength={30} />
