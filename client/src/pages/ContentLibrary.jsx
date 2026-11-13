@@ -54,7 +54,7 @@ export default function ContentLibrary() {
     </form>
     <h2 style={{ fontSize: '1.2rem', marginBottom: '1rem' }}>Your groups</h2>
     {loading ? <p role="status">Loading…</p> : groups.length === 0 ? <p>No series or collections created yet.</p> : <div style={{ display: 'grid', gap: '1rem' }}>{groups.map((group) => <article className="card" key={group._id} style={{ padding: '1.25rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}><div><small>{group.kind.toUpperCase()}</small><h3>{group.title}</h3><p>{group.description}</p></div><button type="button" className="btn btn-danger btn-sm" onClick={() => removeGroup(group._id)}>Delete</button></div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}><div><small>{group.kind.toUpperCase()}</small><h3>{group.title}</h3><p>{group.description}</p><Link to={"/collections/" + group._id}>Open public page</Link></div><button type="button" className="btn btn-danger btn-sm" onClick={() => removeGroup(group._id)}>Delete</button></div>
       <ol>{(group.posts || []).map((post) => <li key={post._id}><Link to={'/posts/' + post.slug}>{post.title}</Link></li>)}</ol>
     </article>)}</div>}
   </main>;
