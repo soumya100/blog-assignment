@@ -95,7 +95,55 @@ const PostDetails = () => {
   const [engagement, setEngagement] = useState({ likes: 0, claps: 0, myReaction: null });
   const [followState, setFollowState] = useState({ following: false, followers: 0 });
   const [fontScale, setFontScale] = useState(100);
+  const [relatedPosts, setRelatedPosts] = useState([]);
+  const [engagement, setEngagement] = useState({ likes: 0, claps: 0, myReaction: null });
+  const [followState, setFollowState] = useState({ following: false, followers: 0 });
+  const [fontScale, setFontScale] = useState(100);
   const headings = (post?.content || '').split('\n').filter((line) => /^#{1,3}\s+/.test(line)).map((line) => ({ level: line.match(/^#+/)[0].length, title: line.replace(/^#{1,3}\s+/, '').trim() }));
+  useEffect(() => {
+    if (!post?._id) return;
+    apiClient.get('/community/posts/' + post._id + '/reactions')
+      .then((response) => setEngagement(response.data || { likes: 0, claps: 0, myReaction: null }))
+      .catch(() => {});
+    if (post.author?._id) {
+      apiClient.get('/community/authors/' + post.author._id + '/follow-status')
+        .then((response) => setFollowState(response.data || { following: false, followers: 0 }))
+        .catch(() => {});
+    }
+    apiClient.get('/posts', { params: { tag: post.tags?.[0], limit: 5 } })
+      .then((response) => setRelatedPosts((response.data || []).filter((item) => item._id !== post._id).slice(0, 4)))
+      .catch(() => setRelatedPosts([]));
+  }, [post?._id, post?.author?._id]);
+
+  const handleReaction = async (type) => {
+    if (!isAuthenticated) { toast.info('Sign in to react to articles'); return; }
+    try {
+      const response = await apiClient.post('/community/posts/' + post._id + '/reactions', { type });
+      setEngagement(response.data || engagement);
+    } catch (error) { toast.error(error.message || 'Could not update reaction'); }
+  };
+  const handleFollowAuthor = async () => {
+    if (!isAuthenticated) { toast.info('Sign in to follow authors'); return; }
+    try {
+      const response = await apiClient.post('/community/authors/' + post.author._id + '/follow', {});
+      setFollowState(response.data || followState);
+    } catch (error) { toast.error(error.message || 'Could not update follow'); }
+  };
+  const handleReportPost = async () => {
+    if (!isAuthenticated) { toast.info('Sign in to report content'); return; }
+    const reason = window.prompt('Report reason: spam, harassment, hate, misinformation, copyright, or other');
+    if (!reason) return;
+    const normalized = reason.trim().toLowerCase();
+    if (!['spam', 'harassment', 'hate', 'misinformation', 'copyright', 'other'].includes(normalized)) {
+      toast.error('Please enter one of the listed report reasons.');
+      return;
+    }
+    try {
+      await apiClient.post('/community/reports', { targetType: 'post', targetId: post._id, reason: normalized });
+      toast.success('Report submitted for moderation.');
+    } catch (error) { toast.error(error.message || 'Could not submit report'); }
+  };
+
   useEffect(() => {
     if (!post?._id) return;
     apiClient.get('/community/posts/' + post._id + '/reactions')
@@ -490,6 +538,18 @@ const PostDetails = () => {
           </div>
         </div>
       </header>
+      <section aria-label="Reader and community controls" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', padding: '1rem', marginBottom: '1.5rem', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleReaction('like')} aria-pressed={engagement.myReaction === 'like'}>👍 Like ({engagement.likes})</button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleReaction('clap')} aria-pressed={engagement.myReaction === 'clap'}>👏 Clap ({engagement.claps})</button>
+          {post.author?._id && user?._id !== post.author._id && <button type="button" className="btn btn-secondary btn-sm" onClick={handleFollowAuthor}>{followState.following ? 'Following' : 'Follow author'} · {followState.followers}</button>}
+          <button type="button" className="btn btn-secondary btn-sm" onClick={handleReportPost}>Report</button>
+        </div>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
+          Text size <input aria-label="Article text size" type="range" min="85" max="125" step="5" value={fontScale} onChange={(event) => setFontScale(Number(event.target.value))} /> <span>{fontScale}%</span>
+        </label>
+      </section>
+
 
       <section aria-label="Reader and community controls" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', padding: '1rem', marginBottom: '1.5rem', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)' }}>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -531,6 +591,15 @@ const PostDetails = () => {
       >
         <MarkdownContent content={post.content} />
       </section>
+      {relatedPosts.length > 0 && <section aria-label="Related articles" style={{ marginBottom: '3rem' }}>
+        <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>Related articles</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+          {relatedPosts.map((item) => <Link key={item._id} to={'/posts/' + (item.slug || item._id)} className="card" style={{ padding: '1rem', textDecoration: 'none' }}>
+            <strong>{item.title}</strong><p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '0.5rem' }}>{item.excerpt || 'Read this related article'}</p>
+          </Link>)}
+        </div>
+      </section>}
+
 
       {/* Author Bio Card */}
       {post.author && post.author.bio && (
