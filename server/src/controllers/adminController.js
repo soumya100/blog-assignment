@@ -1,6 +1,7 @@
 const adminService = require('../services/adminService');
 const { successResponse, paginatedResponse } = require('../utils/apiResponse');
 const ContentReport = require('../models/ContentReport');
+const newsletterController = require('./newsletterController');
 
 const getStats = async (req, res, next) => {
   try {
@@ -121,6 +122,7 @@ const updateContentReport = async (req, res, next) => {
 };
 
 module.exports = {
+  sendNewsletterCampaign: newsletterController.sendCampaign,
   getStats,
   getUsers,
   updateUserRole,
