@@ -7,6 +7,10 @@ const { ROLES, USER_STATUS } = require('../constants/roles');
 const { ACTIVITY_TYPES } = require('../constants/activityTypes');
 const { recordActivity } = require('../middleware/activityLogger');
 const commentCache = require('./commentCache');
+const PostView = require('../models/PostView');
+const PostReaction = require('../models/PostReaction');
+const ContentReport = require('../models/ContentReport');
+const NewsletterSubscriber = require('../models/NewsletterSubscriber');
 
 /**
  * Aggregate comprehensive dashboard statistics
@@ -20,6 +24,11 @@ const getDashboardStats = async () => {
     deletedPosts,
     totalComments,
     activeComments,
+    scheduledPosts,
+    totalViews,
+    totalReactions,
+    openReports,
+    newsletterSubscribers,
     recentActivities,
   ] = await Promise.all([
     User.countDocuments(),
@@ -29,6 +38,11 @@ const getDashboardStats = async () => {
     Post.countDocuments({ isDeleted: true }),
     Comment.countDocuments(),
     Comment.countDocuments({ isDeleted: false }),
+    Post.countDocuments({ isDeleted: false, status: 'scheduled' }),
+    PostView.countDocuments(),
+    PostReaction.countDocuments(),
+    ContentReport.countDocuments({ status: { $in: ['open', 'reviewing'] } }),
+    NewsletterSubscriber.countDocuments({ status: 'subscribed' }),
     ActivityLog.find()
       .sort({ createdAt: -1 })
       .limit(10)
@@ -46,7 +60,11 @@ const getDashboardStats = async () => {
       total: totalPosts,
       published: activePosts,
       deleted: deletedPosts,
+      scheduled: scheduledPosts,
     },
+    engagement: { views: totalViews, reactions: totalReactions },
+    moderation: { openReports },
+    newsletter: { confirmedSubscribers: newsletterSubscribers },
     comments: {
       total: totalComments,
       active: activeComments,
