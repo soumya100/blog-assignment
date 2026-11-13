@@ -96,9 +96,6 @@ const PostDetails = () => {
   const [followState, setFollowState] = useState({ following: false, followers: 0 });
   const [fontScale, setFontScale] = useState(100);
   const [relatedPosts, setRelatedPosts] = useState([]);
-  const [engagement, setEngagement] = useState({ likes: 0, claps: 0, myReaction: null });
-  const [followState, setFollowState] = useState({ following: false, followers: 0 });
-  const [fontScale, setFontScale] = useState(100);
   const headings = (post?.content || '').split('\n').filter((line) => /^#{1,3}\s+/.test(line)).map((line) => ({ level: line.match(/^#+/)[0].length, title: line.replace(/^#{1,3}\s+/, '').trim() }));
   useEffect(() => {
     if (!post?._id) return;
