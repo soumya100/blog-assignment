@@ -24,7 +24,7 @@ const trackView = async (req, res, next) => {
 
 const getAuthorAnalytics = async (req, res, next) => {
   try {
-    const postIds = await Post.find({ author: req.user._id, isDeleted: false }).distinct('_id');
+    const postIds = await Post.find({ author: req.user._id, isDeleted: false, status: 'published' }).distinct('_id');
     const [totalViews, topPosts, daily] = await Promise.all([
       PostView.countDocuments({ author: req.user._id }),
       PostView.aggregate([
