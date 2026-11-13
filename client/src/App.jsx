@@ -96,6 +96,7 @@ function App() {
                       <Route path="/drafts" element={<ProtectedRoute><Drafts /></ProtectedRoute>} />
                       <Route path="/drafts/new" element={<ProtectedRoute><DraftEditor /></ProtectedRoute>} />
                       <Route path="/drafts/:id/edit" element={<ProtectedRoute><DraftEditor /></ProtectedRoute>} />
+                      <Route path="/reader" element={<ProtectedRoute><ReaderDashboard /></ProtectedRoute>} />
                       <Route
                         path="/saved"
                         element={
