@@ -32,6 +32,9 @@ jobs:
       - name: Regenerate backend lockfile
         working-directory: server
         run: npm install --package-lock-only
+      - name: Apply non-breaking backend security updates
+        working-directory: server
+        run: npm audit fix --package-lock-only
       - name: Install frontend from regenerated lockfile
         working-directory: client
         run: npm ci
