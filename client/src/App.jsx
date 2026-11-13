@@ -43,6 +43,7 @@ const PostManagement = lazy(() => import('./pages/admin/PostManagement'));
 const CommentManagement = lazy(() => import('./pages/admin/CommentManagement'));
 const ActivityLogs = lazy(() => import('./pages/admin/ActivityLogs'));
 const ModerationQueue = lazy(() => import('./pages/admin/ModerationQueue'));
+const NewsletterCampaign = lazy(() => import('./pages/admin/NewsletterCampaign'));
 
 // Route Guards
 import ProtectedRoute from './routes/ProtectedRoute';
@@ -144,6 +145,7 @@ function App() {
                         <Route path="comments" element={<CommentManagement />} />
                         <Route path="activity" element={<ActivityLogs />} />
                         <Route path="reports" element={<ModerationQueue />} />
+                        <Route path="newsletter" element={<NewsletterCampaign />} />
                       </Route>
 
                       {/* 404 Fallback */}
