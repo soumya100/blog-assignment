@@ -17,6 +17,7 @@ const Home = lazy(() => import('./pages/Home'));
 const Community = lazy(() => import('./pages/Community'));
 const Newsletter = lazy(() => import('./pages/Newsletter'));
 const ImportExport = lazy(() => import('./pages/ImportExport'));
+const ContentLibrary = lazy(() => import('./pages/ContentLibrary'));
 const AuthorAnalytics = lazy(() => import('./pages/AuthorAnalytics'));
 const PostDetails = lazy(() => import('./pages/PostDetails'));
 const Login = lazy(() => import('./pages/Login'));
@@ -108,6 +109,7 @@ function App() {
                       <Route path="/reader" element={<ProtectedRoute><ReaderDashboard /></ProtectedRoute>} />
                       <Route path="/analytics" element={<ProtectedRoute><AuthorAnalytics /></ProtectedRoute>} />
                       <Route path="/import-export" element={<ProtectedRoute><ImportExport /></ProtectedRoute>} />
+                      <Route path="/library" element={<ProtectedRoute><ContentLibrary /></ProtectedRoute>} />
                       <Route
                         path="/saved"
                         element={
