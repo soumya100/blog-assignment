@@ -12,6 +12,7 @@ const uploadRoutes = require('./uploadRoutes');
 const analyticsRoutes = require('./analyticsRoutes');
 const newsletterRoutes = require('./newsletterRoutes');
 const contentCollectionRoutes = require('./contentCollectionRoutes');
+const mentionRoutes = require('./mentionRoutes');
 const { successResponse } = require('../utils/apiResponse');
 
 const router = express.Router();
@@ -39,5 +40,6 @@ router.use('/uploads', uploadRoutes);
 router.use('/analytics', analyticsRoutes);
 router.use('/newsletter', newsletterRoutes);
 router.use('/library', contentCollectionRoutes);
+router.use('/mentions', mentionRoutes);
 
 module.exports = router;
