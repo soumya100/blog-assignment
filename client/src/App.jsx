@@ -83,14 +83,7 @@ function App() {
                       <Route path="/oauth/callback" element={<OAuthCallback />} />
 
                       {/* Authenticated User Routes */}
-                      <Route
-                        path="/posts/new"
-                        element={
-                          <ProtectedRoute>
-                            <CreateEditPost />
-                          </ProtectedRoute>
-                        }
-                      />
+                      <Route path="/posts/new" element={<ProtectedRoute><DraftEditor /></ProtectedRoute>} />
                       <Route
                         path="/posts/:id/edit"
                         element={
