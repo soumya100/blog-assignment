@@ -34,7 +34,7 @@ const getDashboardStats = async () => {
     User.countDocuments(),
     User.countDocuments({ status: USER_STATUS.ACTIVE }),
     Post.countDocuments(),
-    Post.countDocuments({ isDeleted: false }),
+    Post.countDocuments({ isDeleted: false, status: 'published' }),
     Post.countDocuments({ isDeleted: true }),
     Comment.countDocuments(),
     Comment.countDocuments({ isDeleted: false }),
