@@ -12,7 +12,7 @@ const cdata = (value = '') => String(value).replace(/]]>/g, ']]]]><![CDATA[>');
 
 const getFeed = async (req, res, next) => {
   try {
-    const posts = await Post.find({ isDeleted: false, noIndex: { $ne: true } })
+    const posts = await Post.find({ isDeleted: false, status: 'published', noIndex: { $ne: true } })
       .sort({ createdAt: -1 })
       .limit(50)
       .populate('author', 'username')
