@@ -551,19 +551,7 @@ const PostDetails = () => {
       </section>
 
 
-      <section aria-label="Reader and community controls" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', padding: '1rem', marginBottom: '1.5rem', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)' }}>
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleReaction('like')} aria-pressed={engagement.myReaction === 'like'}>👍 Like ({engagement.likes})</button>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleReaction('clap')} aria-pressed={engagement.myReaction === 'clap'}>👏 Clap ({engagement.claps})</button>
-          {post.author?._id && user?._id !== post.author._id && <button type="button" className="btn btn-secondary btn-sm" onClick={handleFollowAuthor}>{followState.following ? 'Following' : 'Follow author'} · {followState.followers}</button>}
-          <button type="button" className="btn btn-secondary btn-sm" onClick={handleReportPost}>Report</button>
-        </div>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
-          Text size
-          <input aria-label="Article text size" type="range" min="85" max="125" step="5" value={fontScale} onChange={(event) => setFontScale(Number(event.target.value))} />
-          <span>{fontScale}%</span>
-        </label>
-      </section>
+      
 
       {post.coverImage && <img className="article-cover" src={post.coverImage} alt={post.title} loading="eager" />}
       {post.excerpt && <p className="article-excerpt">{post.excerpt}</p>}
