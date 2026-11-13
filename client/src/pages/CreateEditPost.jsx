@@ -18,6 +18,7 @@ const postSchema = z.object({
   seoDescription: z.string().max(160, 'SEO description cannot exceed 160 characters').optional(),
   canonicalUrl: z.string().url('Enter a valid canonical URL').or(z.literal('')).optional(),
   noIndex: z.boolean().optional(),
+  scheduledAt: z.string().optional(),
   tagsInput: z.string().optional(),
 });
 
@@ -43,7 +44,7 @@ const CreateEditPost = () => {
     formState: { errors },
   } = useForm({
     resolver: zodResolver(postSchema),
-    defaultValues: { title: '', content: '', excerpt: '', coverImage: '', seoTitle: '', seoDescription: '', canonicalUrl: '', noIndex: false, tagsInput: '' },
+    defaultValues: { title: '', content: '', excerpt: '', coverImage: '', seoTitle: '', seoDescription: '', canonicalUrl: '', noIndex: false, scheduledAt: '', tagsInput: '' },
   });
 
   const title = watch('title', '');
@@ -56,7 +57,7 @@ const CreateEditPost = () => {
         const saved = window.localStorage.getItem('blog-editor-draft:new');
         if (saved) {
           const draft = JSON.parse(saved);
-          reset({ title: draft.title || '', content: draft.content || '', excerpt: draft.excerpt || '', coverImage: draft.coverImage || '', seoTitle: draft.seoTitle || '', seoDescription: draft.seoDescription || '', canonicalUrl: draft.canonicalUrl || '', noIndex: Boolean(draft.noIndex), tagsInput: draft.tagsInput || '' });
+          reset({ title: draft.title || '', content: draft.content || '', excerpt: draft.excerpt || '', coverImage: draft.coverImage || '', seoTitle: draft.seoTitle || '', seoDescription: draft.seoDescription || '', canonicalUrl: draft.canonicalUrl || '', noIndex: Boolean(draft.noIndex), scheduledAt: draft.scheduledAt || '', tagsInput: draft.tagsInput || '' });
           setContent(draft.content || '');
           setDraftMessage('Recovered local draft');
         }
@@ -78,6 +79,7 @@ const CreateEditPost = () => {
         seoDescription: existingPost.seoDescription || '',
         canonicalUrl: existingPost.canonicalUrl || '',
         noIndex: Boolean(existingPost.noIndex),
+        scheduledAt: existingPost.scheduledAt ? new Date(new Date(existingPost.scheduledAt).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '',
         tagsInput: (existingPost.tags || []).join(', '),
       });
     }
@@ -101,6 +103,7 @@ const CreateEditPost = () => {
           seoDescription: watch('seoDescription') || '',
           canonicalUrl: watch('canonicalUrl') || '',
           noIndex: Boolean(watch('noIndex')),
+          scheduledAt: watch('scheduledAt') || '',
           tagsInput: watch('tagsInput') || '',
           savedAt: new Date().toISOString(),
         }));
@@ -159,6 +162,7 @@ const CreateEditPost = () => {
       seoDescription: values.seoDescription?.trim() || '',
       canonicalUrl: values.canonicalUrl?.trim() || '',
       noIndex: Boolean(values.noIndex),
+      scheduledAt: values.scheduledAt ? new Date(values.scheduledAt).toISOString() : null,
       tags,
     };
 
@@ -224,6 +228,12 @@ const CreateEditPost = () => {
           <div className="form-group">
             <label className="form-label" htmlFor="article-tags">Topics / tags</label>
             <input id="article-tags" type="text" className="form-input" placeholder="react, nodejs, security, architecture" {...register('tagsInput')} />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label" htmlFor="article-scheduled-at">Publish date and time (optional)</label>
+            <input id="article-scheduled-at" type="datetime-local" className="form-input" min={new Date(Date.now() + 60000).toISOString().slice(0, 16)} {...register('scheduledAt')} />
+            <span className="field-hint">Leave empty to publish immediately. Scheduled articles remain private until their publication time.</span>
           </div>
 
           <details className="form-group" style={{ border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '1rem' }}>
