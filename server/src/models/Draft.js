@@ -8,10 +8,13 @@ const draftSchema = new mongoose.Schema(
     coverImage: { type: String, trim: true, default: '' },
     tags: [{ type: String, trim: true, lowercase: true }],
     author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    collaborators: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    revision: { type: Number, default: 0 },
   },
   { timestamps: true }
 );
 
 draftSchema.index({ author: 1, updatedAt: -1 });
+draftSchema.index({ collaborators: 1, updatedAt: -1 });
 
 module.exports = mongoose.model('Draft', draftSchema);
