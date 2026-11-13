@@ -70,7 +70,9 @@ const reportContent = async (req, res, next) => {
     if (!['post', 'comment'].includes(targetType) || !mongoose.isValidObjectId(targetId)) throw fail(400, 'Invalid report target', 'INVALID_REPORT');
     if (!['spam', 'harassment', 'hate', 'misinformation', 'copyright', 'other'].includes(reason)) throw fail(400, 'Select a valid report reason', 'INVALID_REPORT_REASON');
     const Model = targetType === 'post' ? Post : Comment;
-    const target = await Model.findOne({ _id: targetId, isDeleted: false }).select('_id');
+    const targetFilter = { _id: targetId, isDeleted: false };
+    if (targetType === 'post') targetFilter.status = 'published';
+    const target = await Model.findOne(targetFilter).select('_id');
     if (!target) throw fail(404, 'Content not found', 'CONTENT_NOT_FOUND');
     const report = await ContentReport.findOneAndUpdate(
       { reporter: req.user._id, targetType, target: targetId },
@@ -105,7 +107,7 @@ const getPostReactions = async (req, res, next) => {
   try {
     const { postId } = req.params;
     if (!mongoose.isValidObjectId(postId)) throw fail(400, 'Invalid article identifier', 'INVALID_POST_ID');
-    const post = await Post.findOne({ _id: postId, isDeleted: false }).select('_id');
+    const post = await Post.findOne({ _id: postId, isDeleted: false, status: 'published' }).select('_id');
     if (!post) throw fail(404, 'Article not found', 'POST_NOT_FOUND');
     const [likes, claps, mine] = await Promise.all([
       PostReaction.countDocuments({ post: postId, type: 'like' }),
