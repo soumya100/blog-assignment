@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { User, Shield, Mail, Calendar, Edit3, Trash2, BookOpen, Camera, Plus } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
 import EditProfileModal from '../components/EditProfileModal';
-import { usePosts, useDeletePost, useUpdateProfile } from '../hooks/useBlogApi';
+import { usePosts, useDeletePost, useUpdateProfile, useDrafts } from '../hooks/useBlogApi';
 
 const Profile = () => {
   const { user, updateUser } = useAuth();
@@ -18,6 +18,7 @@ const Profile = () => {
     limit: 20,
   });
   const myPosts = data?.posts || [];
+  const { data: myDrafts = [] } = useDrafts();
 
   // TanStack Query Mutations with auto-dismissing toast
   const deletePostMutation = useDeletePost();
@@ -219,9 +220,10 @@ const Profile = () => {
             <BookOpen size={20} style={{ color: 'var(--accent-primary)' }} />
             <h2 style={{ fontSize: '1.35rem' }}>My Authored Articles ({myPosts.length})</h2>
           </div>
-          <Link to="/posts/new" className="btn btn-primary btn-sm">
-            + Write New Article
-          </Link>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <Link to="/drafts" className="btn btn-secondary btn-sm">My Drafts ({myDrafts.length})</Link>
+            <Link to="/drafts/new" className="btn btn-primary btn-sm">+ New Draft</Link>
+          </div>
         </div>
 
         {loading ? (
