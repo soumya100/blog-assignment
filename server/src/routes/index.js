@@ -4,6 +4,7 @@ const postRoutes = require('./postRoutes');
 const commentRoutes = require('./commentRoutes');
 const adminRoutes = require('./adminRoutes');
 const savedPostRoutes = require('./savedPostRoutes');
+const draftRoutes = require('./draftRoutes');
 const { successResponse } = require('../utils/apiResponse');
 
 const router = express.Router();
@@ -23,5 +24,6 @@ router.use('/posts', postRoutes);
 router.use('/comments', commentRoutes);
 router.use('/admin', adminRoutes);
 router.use('/saved-posts', savedPostRoutes);
+router.use('/drafts', draftRoutes);
 
 module.exports = router;
