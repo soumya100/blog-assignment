@@ -25,6 +25,7 @@ const OAuthCallback = lazy(() => import('./pages/OAuthCallback'));
 const CreateEditPost = lazy(() => import('./pages/CreateEditPost'));
 const Profile = lazy(() => import('./pages/Profile'));
 const SavedPosts = lazy(() => import('./pages/SavedPosts'));
+const ReaderDashboard = lazy(() => import('./pages/ReaderDashboard'));
 const Drafts = lazy(() => import('./pages/Drafts'));
 const DraftEditor = lazy(() => import('./pages/DraftEditor'));
 
