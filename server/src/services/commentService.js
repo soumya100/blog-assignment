@@ -3,7 +3,7 @@ const Comment = require('../models/Comment');
 const Post = require('../models/Post');
 const { ACTIVITY_TYPES } = require('../constants/activityTypes');
 const { recordActivity } = require('../middleware/activityLogger');
-const { ROLES } = require('../constants/roles');
+const { ROLES, USER_STATUS } = require('../constants/roles');
 const commentCache = require('./commentCache');
 const User = require('../models/User');
 const Mention = require('../models/Mention');
@@ -131,7 +131,7 @@ const createComment = async ({ postId, authorId, content, parentCommentId, req }
   if (mentionedNames.length) {
     const mentionedUsers = await User.find({
       username: { $in: mentionedNames },
-      status: 'active',
+      status: USER_STATUS.ACTIVE,
       _id: { $ne: authorId },
     }).select('_id').lean();
     if (mentionedUsers.length) {
