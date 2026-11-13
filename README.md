@@ -622,3 +622,28 @@ metadata remain supported; new replies persist their ancestor chain for indexed 
 ## 📄 License
 
 This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+
+
+## Publishing and platform feature configuration
+
+The publishing platform supports scheduled articles, server-backed image uploads, RSS, reader/community engagement, author analytics, newsletter subscriptions, series/collections, import/export, and optional AI editorial assistance.
+
+### Deployment requirements
+
+- **Scheduled publishing:** the API worker runs inside the server process and checks due articles every 30 seconds. Run at least one healthy API instance continuously. Due-post updates are conditional/atomic so multiple instances do not publish the same record twice.
+- **Image storage:** set `UPLOAD_DIR` to a persistent disk or mounted volume in production. Uploaded files are served from `/uploads/`. The default local directory is suitable for development only; ephemeral container filesystems will lose uploads on redeploy.
+- **Newsletter:** configure the existing SMTP variables (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, and `EMAIL_FROM`) for real confirmation and campaign delivery. Subscribers must confirm consent before receiving campaigns.
+- **AI and translation:** configure `AI_API_KEY`, `AI_BASE_URL`, and `AI_MODEL` on the server. These secrets must never be placed in client environment variables. The API uses an OpenAI-compatible chat-completions endpoint.
+- **Collaboration:** authenticated Socket.IO connectivity is required for live draft change broadcasts. Draft saves are persisted through the authenticated draft API with revision checks.
+
+### Feature endpoints
+
+- RSS: `/api/v1/rss.xml`
+- Image upload: `POST /api/v1/uploads/image` (authenticated; JPEG, PNG, WebP, GIF; 5 MB maximum)
+- Analytics: `/api/v1/analytics/author`
+- Community: `/api/v1/community`
+- Mentions: `/api/v1/mentions`
+- Newsletter: `/api/v1/newsletter`
+- Series and collections: `/api/v1/library`
+- Import/export: `/api/v1/posts/import` and `GET /api/v1/posts/export`
+- AI assistant: `POST /api/v1/ai/assist`
