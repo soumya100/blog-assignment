@@ -34,6 +34,10 @@ const CreateEditPost = () => {
   const [showPreview, setShowPreview] = useState(false);
   const [draftMessage, setDraftMessage] = useState('');
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [aiAction, setAiAction] = useState('improve');
+  const [targetLanguage, setTargetLanguage] = useState('Spanish');
+  const [aiOutput, setAiOutput] = useState('');
+  const [aiBusy, setAiBusy] = useState(false);
 
   const {
     register,
@@ -151,6 +155,19 @@ const CreateEditPost = () => {
     }
   };
 
+
+  const runAiAssistant = async () => {
+    if (content.trim().length < 10) { setDraftMessage('Write at least 10 characters before using AI assistance.'); return; }
+    setAiBusy(true);
+    setAiOutput('');
+    try {
+      const response = await apiClient.post('/ai/assist', { action: aiAction, content, targetLanguage });
+      setAiOutput(response.data?.output || '');
+    } catch (error) {
+      setDraftMessage(error.message || 'AI assistance is unavailable. Check server provider configuration.');
+    } finally { setAiBusy(false); }
+  };
+
   const onSubmit = async (values) => {
     const tags = (values.tagsInput || '').split(',').map((tag) => tag.trim()).filter(Boolean);
     const payload = {
@@ -252,6 +269,23 @@ const CreateEditPost = () => {
               <input type="checkbox" {...register('noIndex')} /> Prevent search engines from indexing this article
             </label>
           </details>
+
+          <section className="card" style={{ padding: '1rem', marginBottom: '1rem' }} aria-label="AI writing assistant">
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'end', flexWrap: 'wrap' }}>
+              <label className="form-label">AI writing assistant
+                <select className="form-input" value={aiAction} onChange={(event) => setAiAction(event.target.value)}>
+                  <option value="improve">Improve writing</option><option value="summarize">Summarize</option><option value="outline">Create outline</option><option value="titles">Suggest titles</option><option value="translate">Translate</option>
+                </select>
+              </label>
+              {aiAction === 'translate' && <label className="form-label">Target language<input className="form-input" value={targetLanguage} onChange={(event) => setTargetLanguage(event.target.value)} maxLength={60} /></label>}
+              <button type="button" className="btn btn-secondary btn-sm" onClick={runAiAssistant} disabled={aiBusy || !content.trim()}>{aiBusy ? 'Generating…' : 'Generate suggestion'}</button>
+            </div>
+            {aiOutput && <div style={{ marginTop: '1rem' }}>
+              <textarea className="form-textarea" rows={6} value={aiOutput} readOnly aria-label="AI suggestion" />
+              {(aiAction === 'improve' || aiAction === 'translate') && <button type="button" className="btn btn-primary btn-sm" style={{ marginTop: '0.5rem' }} onClick={() => { setContent(aiOutput); setAiOutput(''); }}>Replace article content with suggestion</button>}
+              <button type="button" className="btn btn-secondary btn-sm" style={{ margin: '0.5rem' }} onClick={() => navigator.clipboard?.writeText(aiOutput)}>Copy suggestion</button>
+            </div>}
+          </section>
 
           <div className="form-group">
             <div className="editor-label-row"><label className="form-label">Article content</label><span className="field-hint">{wordCount} words · about {Math.max(1, Math.ceil(wordCount / 200))} min read</span></div>
