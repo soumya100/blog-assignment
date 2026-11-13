@@ -26,6 +26,7 @@ const DraftEditor = () => {
   const [loaded, setLoaded] = useState(false);
   const [revision, setRevision] = useState(0);
   const busy = createDraft.isPending || updateDraft.isPending || publishDraft.isPending;
+  const isDraftOwner = !isEditing || Boolean(draft?.author && user?._id === String(draft.author._id || draft.author));
   const autosaveTimer = useRef(null);
   const lastSaved = useRef('');
   const applyingRemoteChange = useRef(false);
@@ -184,7 +185,7 @@ const DraftEditor = () => {
         </div>
         <footer style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap', marginTop: '1.5rem' }}>
           <button type="button" className="btn btn-secondary" onClick={handleSave} disabled={busy}><Save size={16} /> {busy ? 'Saving...' : 'Save draft'}</button>
-          <button type="button" className="btn btn-primary" onClick={handlePublish} disabled={busy || title.trim().length < 3 || content.trim().length < 10}><Send size={16} /> {publishDraft.isPending ? 'Publishing...' : 'Publish article'}</button>
+          {isDraftOwner && <button type="button" className="btn btn-primary" onClick={handlePublish} disabled={busy || title.trim().length < 3 || content.trim().length < 10}><Send size={16} /> {publishDraft.isPending ? 'Publishing...' : 'Publish article'}</button>}
         </footer>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '0.75rem' }}>Publishing requires a title of at least 3 characters and content of at least 10 characters. Saving a draft has no minimum content requirement.</p>
       </section>
