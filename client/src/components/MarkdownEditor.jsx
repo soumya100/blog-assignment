@@ -11,6 +11,7 @@ import {
   Code,
   Link as LinkIcon,
   FileText,
+  ImagePlus,
 } from 'lucide-react';
 import MarkdownContent from './MarkdownContent';
 
@@ -25,9 +26,11 @@ const toolbar = [
   { label: 'Link', icon: LinkIcon, before: '[', after: '](https://example.com)', placeholder: 'link text' },
 ];
 
-const MarkdownEditor = ({ value = '', onChange, error }) => {
+const MarkdownEditor = ({ value = '', onChange, error, onImageUpload }) => {
   const textareaRef = useRef(null);
   const [preview, setPreview] = useState(false);
+  const imageInputRef = useRef(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const wordCount = value.trim() ? value.trim().split(/\s+/).length : 0;
 
   const applyFormat = (format) => {
@@ -43,6 +46,25 @@ const MarkdownEditor = ({ value = '', onChange, error }) => {
       const selectionStart = start + format.before.length;
       input.setSelectionRange(selectionStart, selectionStart + selected.length);
     });
+  };
+
+  const insertImage = async (event) => {
+    const file = event.target.files && event.target.files[0];
+    event.target.value = '';
+    if (!file || !onImageUpload) return;
+    setUploadingImage(true);
+    try {
+      const url = await onImageUpload(file);
+      const input = textareaRef.current;
+      if (input) {
+        const start = input.selectionStart;
+        const end = input.selectionEnd;
+        const markdown = '![' + file.name.replace(/\\.[^.]+$/, '') + '](' + url + ')';
+        onChange(value.slice(0, start) + markdown + value.slice(end));
+        requestAnimationFrame(() => { input.focus(); input.setSelectionRange(start + markdown.length, start + markdown.length); });
+      }
+    } catch (error) { window.alert(error.message || 'Image upload failed'); }
+    finally { setUploadingImage(false); }
   };
 
   return (
@@ -91,7 +113,8 @@ const MarkdownEditor = ({ value = '', onChange, error }) => {
             </button>
           ))}
           <span className="markdown-toolbar-divider" aria-hidden="true" />
-          <span className="markdown-toolbar-hint">Select text to format</span>
+          {onImageUpload && <><button type="button" className="markdown-tool" title="Upload image" aria-label="Upload image" disabled={preview || uploadingImage} onClick={() => imageInputRef.current && imageInputRef.current.click()}><ImagePlus size={16} /></button><input ref={imageInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={insertImage} hidden /></>}
+          <span className="markdown-toolbar-hint">{uploadingImage ? "Uploading image…" : "Select text to format"}</span>
         </div>
       </div>
 
