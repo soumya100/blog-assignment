@@ -1,11 +1,27 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FileText, Plus, Trash2, Clock } from 'lucide-react';
 import { useDeleteDraft, useDrafts } from '../hooks/useBlogApi';
+import ConfirmModal from '../components/ConfirmModal';
 
 const Drafts = () => {
   const { data: drafts = [], isLoading, isError, refetch } = useDrafts();
   const deleteDraft = useDeleteDraft();
+  const [draftToDelete, setDraftToDelete] = useState(null);
+
+  const handleDelete = async () => {
+    if (!draftToDelete || deleteDraft.isPending) return;
+    try {
+      await deleteDraft.mutateAsync(draftToDelete._id);
+      setDraftToDelete(null);
+    } catch {
+      // The mutation hook surfaces the failure through the application's toast/error handling.
+    }
+  };
+
+  const closeDeleteModal = () => {
+    if (!deleteDraft.isPending) setDraftToDelete(null);
+  };
 
   return (
     <main className="container" style={{ maxWidth: '980px', paddingTop: '3.5rem', paddingBottom: '5rem' }}>
@@ -28,12 +44,24 @@ const Drafts = () => {
               </div>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <Link to={'/drafts/' + draft._id + '/edit'} className="btn btn-secondary btn-sm">Continue editing</Link>
-                <button className="btn btn-outline-danger btn-sm" onClick={() => { if (window.confirm('Delete this draft permanently?')) deleteDraft.mutate(draft._id); }} disabled={deleteDraft.isPending} aria-label="Delete draft"><Trash2 size={14} /></button>
+                <button type="button" className="btn btn-outline-danger btn-sm" onClick={() => setDraftToDelete(draft)} disabled={deleteDraft.isPending} aria-label={`Delete ${draft.title || 'untitled draft'}`}>
+                  <Trash2 size={14} /> Delete
+                </button>
               </div>
             </article>
           ))}
         </div>
       )}
+      <ConfirmModal
+        isOpen={Boolean(draftToDelete)}
+        title="Delete this draft?"
+        message={`“${draftToDelete?.title || 'Untitled draft'}” will be permanently deleted. This action cannot be undone.`}
+        confirmText="Delete draft"
+        isDanger
+        isLoading={deleteDraft.isPending}
+        onCancel={closeDeleteModal}
+        onConfirm={handleDelete}
+      />
     </main>
   );
 };
