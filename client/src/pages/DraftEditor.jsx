@@ -24,6 +24,7 @@ const DraftEditor = () => {
   const [coverImage, setCoverImage] = useState('');
   const [tagsInput, setTagsInput] = useState('');
   const [loaded, setLoaded] = useState(false);
+  const [revision, setRevision] = useState(0);
   const busy = createDraft.isPending || updateDraft.isPending || publishDraft.isPending;
   const autosaveTimer = useRef(null);
   const lastSaved = useRef('');
@@ -39,6 +40,7 @@ const DraftEditor = () => {
       setExcerpt(draft.excerpt || '');
       setCoverImage(draft.coverImage || '');
       setTagsInput((draft.tags || []).join(', '));
+      setRevision(draft.revision || 0);
       lastSaved.current = JSON.stringify({ title: draft.title || '', content: draft.content || '', excerpt: draft.excerpt || '', coverImage: draft.coverImage || '', tags: draft.tags || [] });
       setLoaded(true);
     }
@@ -91,7 +93,8 @@ const DraftEditor = () => {
 
   const save = async () => {
     if (isEditing) {
-      const result = await updateDraft.mutateAsync({ id, ...payload() });
+      const result = await updateDraft.mutateAsync({ id, ...payload(), revision });
+      setRevision(result.data?.revision ?? revision + 1);
       return result.data;
     }
     const result = await createDraft.mutateAsync(payload());
@@ -110,7 +113,8 @@ const DraftEditor = () => {
     try {
       setAutosaveStatus('Saving to your account…');
       if (isEditing) {
-        await updateDraft.mutateAsync({ id, ...current });
+        const result = await updateDraft.mutateAsync({ id, ...current, revision });
+        setRevision(result.data?.revision ?? revision + 1);
       } else {
         const result = await createDraft.mutateAsync(current);
         const newId = result.data?._id;
@@ -121,7 +125,7 @@ const DraftEditor = () => {
     } catch {
       setAutosaveStatus('Autosave failed — use Save draft to retry');
     }
-  }, [title, content, excerpt, coverImage, tagsInput, isEditing, id, busy, updateDraft, createDraft, navigate]);
+  }, [title, content, excerpt, coverImage, tagsInput, isEditing, id, busy, updateDraft, createDraft, navigate, revision]);
 
   useEffect(() => {
     if (!loaded) return undefined;
