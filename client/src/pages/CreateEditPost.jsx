@@ -7,6 +7,7 @@ import { PenSquare, Save, ArrowLeft, Globe, AlertCircle, Image, FileText } from 
 import { usePost, useCreatePost, useUpdatePost } from '../hooks/useBlogApi';
 import MarkdownEditor from '../components/MarkdownEditor';
 import MarkdownContent from '../components/MarkdownContent';
+import apiClient, { API_BASE_URL } from '../api/client';
 
 const postSchema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters').max(200, 'Title cannot exceed 200 characters'),
@@ -31,6 +32,7 @@ const CreateEditPost = () => {
   const [content, setContent] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [draftMessage, setDraftMessage] = useState('');
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   const {
     register,
@@ -110,6 +112,42 @@ const CreateEditPost = () => {
     return () => window.clearTimeout(timeout);
   }, [content, title, id, isEditing, existingPost, watch]);
 
+
+  const uploadImage = async (file) => {
+    if (!file) return '';
+    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
+      throw new Error('Choose a JPEG, PNG, WebP or GIF image.');
+    }
+    if (file.size > 5 * 1024 * 1024) throw new Error('Images must be 5 MB or smaller.');
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error('Could not read the selected image.'));
+      reader.readAsDataURL(file);
+    });
+    const result = await apiClient.post('/uploads/image', { dataUrl });
+    const relativeUrl = result.data?.url;
+    if (!relativeUrl) throw new Error('The server did not return an image URL.');
+    const apiOrigin = new URL(API_BASE_URL, window.location.origin).origin;
+    return new URL(relativeUrl, apiOrigin).toString();
+  };
+
+  const handleCoverUpload = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setIsUploadingImage(true);
+    try {
+      const url = await uploadImage(file);
+      setValue('coverImage', url, { shouldDirty: true, shouldValidate: true });
+      setDraftMessage('Cover image uploaded');
+    } catch (error) {
+      setDraftMessage(error.message || 'Image upload failed');
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
   const onSubmit = async (values) => {
     const tags = (values.tagsInput || '').split(',').map((tag) => tag.trim()).filter(Boolean);
     const payload = {
@@ -174,7 +212,11 @@ const CreateEditPost = () => {
 
           <div className="form-group">
             <label className="form-label" htmlFor="article-cover">Cover image URL</label>
-            <div className="cover-url-field"><Image size={16} /><input id="article-cover" type="url" className="form-input" placeholder="https://example.com/cover.jpg" {...register('coverImage')} /></div>
+            <div className="cover-url-field"><Image size={16} /><input id="article-cover" type="url" className="form-input" placeholder="Paste an image URL or upload a file" {...register('coverImage')} /></div>
+            <label className="btn btn-secondary btn-sm" style={{ display: 'inline-flex', marginTop: '0.5rem', cursor: isUploadingImage ? 'wait' : 'pointer' }}>
+              {isUploadingImage ? 'Uploading image…' : 'Upload image (max 5 MB)'}
+              <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleCoverUpload} disabled={isUploadingImage} hidden />
+            </label>
             {errors.coverImage && <p className="field-error">{errors.coverImage.message}</p>}
             {coverImage && !errors.coverImage && <img className="cover-image-preview" src={coverImage} alt="Article cover preview" onError={(event) => { event.currentTarget.style.display = 'none'; }} onLoad={(event) => { event.currentTarget.style.display = 'block'; }} />}
           </div>
@@ -203,7 +245,7 @@ const CreateEditPost = () => {
 
           <div className="form-group">
             <div className="editor-label-row"><label className="form-label">Article content</label><span className="field-hint">{wordCount} words · about {Math.max(1, Math.ceil(wordCount / 200))} min read</span></div>
-            <MarkdownEditor value={content} onChange={setContent} error={errors.content} />
+            <MarkdownEditor value={content} onChange={setContent} error={errors.content} onImageUpload={uploadImage} />
             {errors.content && <p className="field-error"><AlertCircle size={12} />{errors.content.message}</p>}
           </div>
 
