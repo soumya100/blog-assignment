@@ -4,6 +4,7 @@ const app = require('../../src/app');
 const User = require('../../src/models/User');
 const { ROLES } = require('../../src/constants/roles');
 const emailService = require('../../src/utils/emailService');
+const { vi } = require('vitest');
 
 describe('Cryptographic OTP & Password Recovery End-to-End', () => {
   let testUser;
@@ -58,7 +59,7 @@ describe('Cryptographic OTP & Password Recovery End-to-End', () => {
 
   it('POST /api/v1/auth/forgot-password returns HTTP 503 when email service fails (does not swallow error)', async () => {
     // Spy and force sendPasswordRecoveryEmail to throw an SMTP connection/auth error
-    const spy = jest
+    const spy = vi
       .spyOn(emailService, 'sendPasswordRecoveryEmail')
       .mockRejectedValueOnce(new Error('Invalid login: 535-5.7.8 Username and Password not accepted'));
 
