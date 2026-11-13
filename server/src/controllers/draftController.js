@@ -71,15 +71,18 @@ const updateDraft = async (req, res, next) => {
         updates[key] = key === 'title' || key === 'excerpt' || key === 'coverImage' ? req.body[key].trim() : req.body[key];
       }
     }
+    const filter = { _id: req.params.id, $or: [{ author: req.user._id }, { collaborators: req.user._id }] };
+    if (Number.isInteger(req.body.revision)) filter.revision = req.body.revision;
     const draft = await Draft.findOneAndUpdate(
-      { _id: req.params.id, $or: [{ author: req.user._id }, { collaborators: req.user._id }] },
+      filter,
       { $set: updates, $inc: { revision: 1 } },
       { new: true, runValidators: true }
     );
     if (!draft) {
-      const error = new Error('Draft not found');
-      error.statusCode = 404;
-      error.code = 'DRAFT_NOT_FOUND';
+      const exists = await Draft.exists({ _id: req.params.id, $or: [{ author: req.user._id }, { collaborators: req.user._id }] });
+      const error = new Error(exists && Number.isInteger(req.body.revision) ? 'This draft changed elsewhere. Reload the latest version before saving.' : 'Draft not found');
+      error.statusCode = exists && Number.isInteger(req.body.revision) ? 409 : 404;
+      error.code = exists && Number.isInteger(req.body.revision) ? 'DRAFT_REVISION_CONFLICT' : 'DRAFT_NOT_FOUND';
       throw error;
     }
     return successResponse(res, 200, 'Draft saved successfully', draft);
