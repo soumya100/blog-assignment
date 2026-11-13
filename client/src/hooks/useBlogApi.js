@@ -51,6 +51,52 @@ export function useDeletePost(options = {}) {
   });
 }
 
+export function useDrafts(options = {}) {
+  return useApiQuery(queryKeys.drafts.all, '/drafts', {
+    select: (res) => res.data || [],
+    ...options,
+  });
+}
+
+export function useDraft(id, enabled = true) {
+  return useApiQuery(queryKeys.drafts.detail(id), '/drafts/' + id, {
+    enabled: Boolean(id) && enabled,
+    select: (res) => res.data,
+  });
+}
+
+export function useCreateDraft(options = {}) {
+  return useApiMutation((payload) => apiClient.post('/drafts', payload), {
+    invalidateKeys: [queryKeys.drafts.all],
+    successToast: 'Draft saved',
+    ...options,
+  });
+}
+
+export function useUpdateDraft(options = {}) {
+  return useApiMutation(({ id, ...payload }) => apiClient.patch('/drafts/' + id, payload), {
+    invalidateKeys: [queryKeys.drafts.all],
+    successToast: 'Draft saved',
+    ...options,
+  });
+}
+
+export function usePublishDraft(options = {}) {
+  return useApiMutation((id) => apiClient.post('/drafts/' + id + '/publish'), {
+    invalidateKeys: [queryKeys.drafts.all, queryKeys.posts.all, queryKeys.admin.posts(), queryKeys.admin.stats()],
+    successToast: 'Article published successfully',
+    ...options,
+  });
+}
+
+export function useDeleteDraft(options = {}) {
+  return useApiMutation((id) => apiClient.delete('/drafts/' + id), {
+    invalidateKeys: [queryKeys.drafts.all],
+    successToast: 'Draft deleted',
+    ...options,
+  });
+}
+
 export function useSavedPostStatus(postId, enabled = true) {
   return useApiQuery(queryKeys.savedPosts.status(postId), '/saved-posts/status/' + postId, {
     enabled: Boolean(postId) && enabled,
