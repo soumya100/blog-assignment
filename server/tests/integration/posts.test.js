@@ -4,6 +4,7 @@ const User = require('../../src/models/User');
 const Post = require('../../src/models/Post');
 const { ROLES } = require('../../src/constants/roles');
 const { generateAccessToken } = require('../../src/utils/jwt');
+const { publishDuePosts } = require('../../src/services/scheduledPublishingService');
 
 describe('Blog Posts CRUD & Authorization Tests', () => {
   let authorUser, attackerUser, adminUser;
@@ -156,4 +157,47 @@ describe('Blog Posts CRUD & Authorization Tests', () => {
     const dbPost = await Post.findById(post._id);
     expect(dbPost.isDeleted).toBe(false);
   });
+  test('scheduled article is hidden publicly until its publication time', async () => {
+    const scheduledAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    const created = await request(app)
+      .post('/api/v1/posts')
+      .set('Authorization', `Bearer ${authorToken}`)
+      .send({ title: 'Future publication article', content: 'This article should not be public before its scheduled time.', scheduledAt });
+
+    expect(created.statusCode).toBe(201);
+    expect(created.body.data.status).toBe('scheduled');
+
+    const publicList = await request(app).get('/api/v1/posts');
+    expect(publicList.body.data.some((post) => post._id === created.body.data._id)).toBe(false);
+
+    const anonymousDetail = await request(app).get('/api/v1/posts/' + created.body.data.slug);
+    expect(anonymousDetail.statusCode).toBe(404);
+
+    const ownerDetail = await request(app)
+      .get('/api/v1/posts/' + created.body.data.slug)
+      .set('Authorization', 'Bearer ' + authorToken);
+    expect(ownerDetail.statusCode).toBe(200);
+    expect(ownerDetail.body.data.status).toBe('scheduled');
+  });
+
+  test('scheduled publishing worker atomically publishes due articles', async () => {
+    const post = await Post.create({
+      title: 'Due scheduled article',
+      slug: 'due-scheduled-article',
+      content: 'This article has reached its publication time and should become public.',
+      author: authorUser._id,
+      status: 'scheduled',
+      scheduledAt: new Date(Date.now() - 1000),
+      publishedAt: null,
+    });
+
+    await publishDuePosts();
+    const published = await Post.findById(post._id);
+    expect(published.status).toBe('published');
+    expect(published.scheduledAt).toBeNull();
+
+    const publicDetail = await request(app).get('/api/v1/posts/' + post.slug);
+    expect(publicDetail.statusCode).toBe(200);
+  });
+
 });
