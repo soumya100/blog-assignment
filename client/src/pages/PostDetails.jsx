@@ -200,6 +200,11 @@ const PostDetails = () => {
   });
 
   useEffect(() => {
+    if (!post?._id) return;
+    apiClient.post('/analytics/posts/' + post._id + '/view', {}).catch(() => {});
+  }, [post?._id]);
+
+  useEffect(() => {
     if (!isAuthenticated || !post?._id) return;
     apiClient.post('/reading-history/' + post._id, { progress: 0, secondsRead: 0 }).catch(() => {});
     let lastBucket = 0;
