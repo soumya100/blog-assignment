@@ -8,6 +8,7 @@ const draftRoutes = require('./draftRoutes');
 const readingHistoryRoutes = require('./readingHistoryRoutes');
 const communityRoutes = require('./communityRoutes');
 const rssRoutes = require('./rssRoutes');
+const uploadRoutes = require('./uploadRoutes');
 const { successResponse } = require('../utils/apiResponse');
 
 const router = express.Router();
@@ -31,5 +32,6 @@ router.use('/drafts', draftRoutes);
 router.use('/reading-history', readingHistoryRoutes);
 router.use('/community', communityRoutes);
 router.use('/rss.xml', rssRoutes);
+router.use('/uploads', uploadRoutes);
 
 module.exports = router;
