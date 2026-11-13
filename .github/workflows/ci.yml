@@ -4,9 +4,14 @@ on:
   push:
     branches:
       - feat/publishing-experience
+      - feat/seo-rss-publishing-controls
+      - feat/platform-feature-completion
   pull_request:
     branches:
       - main
+      - feat/platform-reader-dashboard
+      - feat/platform-completion-publishing-community
+      - feat/seo-rss-publishing-controls
   workflow_dispatch:
 
 permissions:
