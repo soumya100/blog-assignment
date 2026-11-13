@@ -13,6 +13,7 @@ import {
   Menu,
   X,
   Compass,
+  Bookmark,
 } from 'lucide-react';
 
 const Navbar = () => {
@@ -109,7 +110,19 @@ const Navbar = () => {
               Explore
             </Link>
 
-            {isAdmin && (
+            {isAuthenticated && (
+              <Link to="/saved" style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', color: 'var(--text-secondary)', fontWeight: 500, fontSize: '0.925rem' }}>
+                <Bookmark size={16} /> Saved articles
+              </Link>
+            )}
+
+            {isAuthenticated && (
+            <Link to="/saved" onClick={() => setMobileMenuOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.95rem', padding: '0.35rem 0' }}>
+              <Bookmark size={18} /> Saved articles
+            </Link>
+          )}
+
+          {isAdmin && (
               <Link
                 to="/admin"
                 style={{
