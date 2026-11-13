@@ -7,6 +7,9 @@ const logger = require('./utils/logger');
 const User = require('./models/User');
 const { ROLES, USER_STATUS } = require('./constants/roles');
 const { startScheduler, stopScheduler } = require('./services/scheduledPublishingService');
+const { verifyAccessToken } = require('./utils/jwt');
+const Draft = require('./models/Draft');
+const mongoose = require('mongoose');
 
 const configuredOrigins = (env.CLIENT_URL || '')
   .split(',')
@@ -67,6 +70,23 @@ const io = new Server(server, {
 // Attach socket io to app for access in services/controllers
 app.set('io', io);
 
+io.use(async (socket, next) => {
+  try {
+    const cookieHeader = socket.handshake.headers.cookie || '';
+    const cookieMatch = cookieHeader.match(/(?:^|;\\s*)accessToken=([^;]+)/);
+    const token = socket.handshake.auth?.token || (cookieMatch ? decodeURIComponent(cookieMatch[1]) : null);
+    if (!token) return next(new Error('Authentication required'));
+    const decoded = verifyAccessToken(token);
+    const user = await User.findById(decoded.sub).select('_id status');
+    if (!user || user.status !== USER_STATUS.ACTIVE) return next(new Error('Active account required'));
+    socket.data.userId = user._id.toString();
+    next();
+  } catch (error) {
+    next(new Error('Socket authentication failed'));
+  }
+});
+
+
 io.on('connection', (socket) => {
   logger.debug(`Socket client connected: ${socket.id}`);
 
@@ -77,6 +97,32 @@ io.on('connection', (socket) => {
 
   socket.on('leave_post', (postId) => {
     socket.leave(`post_${postId}`);
+  });
+
+  socket.on('join_draft', async (draftId, callback) => {
+    try {
+      if (!mongoose.isValidObjectId(draftId)) return callback?.({ ok: false, message: 'Invalid draft ID' });
+      const draft = await Draft.findOne({ _id: draftId, $or: [{ author: socket.data.userId }, { collaborators: socket.data.userId }] }).select('_id');
+      if (!draft) return callback?.({ ok: false, message: 'You are not a collaborator on this draft' });
+      await socket.join(`draft_${draftId}`);
+      callback?.({ ok: true });
+    } catch (error) { callback?.({ ok: false, message: 'Could not join draft' }); }
+  });
+
+  socket.on('leave_draft', (draftId) => {
+    if (mongoose.isValidObjectId(draftId)) socket.leave(`draft_${draftId}`);
+  });
+
+  socket.on('draft_change', async (payload) => {
+    const draftId = payload?.draftId;
+    if (!mongoose.isValidObjectId(draftId) || !socket.rooms.has(`draft_${draftId}`)) return;
+    if (typeof payload.content !== 'string' || payload.content.length > 200000) return;
+    socket.to(`draft_${draftId}`).emit('draft_remote_change', {
+      draftId,
+      content: payload.content,
+      editorId: socket.data.userId,
+      changedAt: new Date().toISOString(),
+    });
   });
 
   socket.on('disconnect', () => {
