@@ -15,6 +15,7 @@ import { PageLoader } from './components/SkeletonLoader';
 // Lazy-loaded Public Pages
 const Home = lazy(() => import('./pages/Home'));
 const Community = lazy(() => import('./pages/Community'));
+const AuthorAnalytics = lazy(() => import('./pages/AuthorAnalytics'));
 const PostDetails = lazy(() => import('./pages/PostDetails'));
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
@@ -100,6 +101,7 @@ function App() {
                       <Route path="/drafts/new" element={<ProtectedRoute><DraftEditor /></ProtectedRoute>} />
                       <Route path="/drafts/:id/edit" element={<ProtectedRoute><DraftEditor /></ProtectedRoute>} />
                       <Route path="/reader" element={<ProtectedRoute><ReaderDashboard /></ProtectedRoute>} />
+                      <Route path="/analytics" element={<ProtectedRoute><AuthorAnalytics /></ProtectedRoute>} />
                       <Route
                         path="/saved"
                         element={
