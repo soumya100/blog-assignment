@@ -59,7 +59,7 @@ const MarkdownEditor = ({ value = '', onChange, error, onImageUpload }) => {
       if (input) {
         const start = input.selectionStart;
         const end = input.selectionEnd;
-        const markdown = '![' + file.name.replace(/\\.[^.]+$/, '') + '](' + url + ')';
+        const markdown = '![' + file.name.split('.').slice(0, -1).join('.') || file.name + '](' + url + ')';
         onChange(value.slice(0, start) + markdown + value.slice(end));
         requestAnimationFrame(() => { input.focus(); input.setSelectionRange(start + markdown.length, start + markdown.length); });
       }
