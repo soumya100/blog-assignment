@@ -5,13 +5,17 @@ const postVersionController = require('./postVersionController');
 
 const createPost = async (req, res, next) => {
   try {
-    const { title, content, excerpt, tags, coverImage } = req.body;
+    const { title, content, excerpt, tags, coverImage, seoTitle, seoDescription, canonicalUrl, noIndex } = req.body;
     const post = await postService.createPost({
       title,
       content,
       excerpt,
       tags,
       coverImage,
+      seoTitle,
+      seoDescription,
+      canonicalUrl,
+      noIndex,
       authorId: req.user._id,
       req,
     });
