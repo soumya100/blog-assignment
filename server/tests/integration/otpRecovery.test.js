@@ -4,7 +4,6 @@ const app = require('../../src/app');
 const User = require('../../src/models/User');
 const { ROLES } = require('../../src/constants/roles');
 const emailService = require('../../src/utils/emailService');
-const { vi } = require('vitest');
 
 describe('Cryptographic OTP & Password Recovery End-to-End', () => {
   let testUser;
