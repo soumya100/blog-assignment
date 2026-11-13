@@ -5,11 +5,11 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "nodemon src/server.js",
+    "dev": "node --watch src/server.js",
     "seed": "node src/scripts/seed.js",
-    "test": "jest --runInBand --detectOpenHandles",
-    "test:watch": "jest --watch",
-    "test:security": "jest tests/security --runInBand --detectOpenHandles",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:security": "vitest run tests/security",
     "test:email": "node src/scripts/testEmail.js"
   },
   "dependencies": {
@@ -30,16 +30,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "jest": "^29.7.0",
-    "nodemon": "^3.1.9",
-    "supertest": "^7.0.0"
-  },
-  "jest": {
-    "testEnvironment": "node",
-    "testTimeout": 30000,
-    "verbose": true,
-    "setupFilesAfterEnv": [
-      "<rootDir>/tests/setup.js"
-    ]
+    "supertest": "^7.0.0",
+    "vitest": "^4.1.0"
   }
 }
