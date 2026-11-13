@@ -100,4 +100,34 @@ const getTrending = async (req, res, next) => {
   } catch (error) { next(error); }
 };
 
-module.exports = { toggleReaction, followAuthor, getFollowingFeed, reportContent, getTrending };
+
+const getPostReactions = async (req, res, next) => {
+  try {
+    const { postId } = req.params;
+    if (!mongoose.isValidObjectId(postId)) throw fail(400, 'Invalid article identifier', 'INVALID_POST_ID');
+    const post = await Post.findOne({ _id: postId, isDeleted: false }).select('_id');
+    if (!post) throw fail(404, 'Article not found', 'POST_NOT_FOUND');
+    const [likes, claps, mine] = await Promise.all([
+      PostReaction.countDocuments({ post: postId, type: 'like' }),
+      PostReaction.countDocuments({ post: postId, type: 'clap' }),
+      req.user ? PostReaction.findOne({ post: postId, user: req.user._id }).select('type').lean() : null,
+    ]);
+    return successResponse(res, 200, 'Article reactions retrieved', { likes, claps, myReaction: mine?.type || null });
+  } catch (error) { next(error); }
+};
+
+const getFollowStatus = async (req, res, next) => {
+  try {
+    const { authorId } = req.params;
+    if (!mongoose.isValidObjectId(authorId)) throw fail(400, 'Invalid author identifier', 'INVALID_AUTHOR_ID');
+    const [followers, following] = await Promise.all([
+      AuthorFollow.countDocuments({ author: authorId }),
+      req.user && req.user._id.toString() !== authorId
+        ? AuthorFollow.exists({ follower: req.user._id, author: authorId })
+        : false,
+    ]);
+    return successResponse(res, 200, 'Author follow status retrieved', { followers, following: Boolean(following) });
+  } catch (error) { next(error); }
+};
+
+module.exports = { toggleReaction, followAuthor, getFollowingFeed, reportContent, getTrending, getPostReactions, getFollowStatus };
