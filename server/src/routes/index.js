@@ -3,6 +3,7 @@ const authRoutes = require('./authRoutes');
 const postRoutes = require('./postRoutes');
 const commentRoutes = require('./commentRoutes');
 const adminRoutes = require('./adminRoutes');
+const savedPostRoutes = require('./savedPostRoutes');
 const { successResponse } = require('../utils/apiResponse');
 
 const router = express.Router();
@@ -21,5 +22,6 @@ router.use('/auth', authRoutes);
 router.use('/posts', postRoutes);
 router.use('/comments', commentRoutes);
 router.use('/admin', adminRoutes);
+router.use('/saved-posts', savedPostRoutes);
 
 module.exports = router;
