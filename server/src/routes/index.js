@@ -6,6 +6,7 @@ const adminRoutes = require('./adminRoutes');
 const savedPostRoutes = require('./savedPostRoutes');
 const draftRoutes = require('./draftRoutes');
 const readingHistoryRoutes = require('./readingHistoryRoutes');
+const communityRoutes = require('./communityRoutes');
 const { successResponse } = require('../utils/apiResponse');
 
 const router = express.Router();
@@ -27,5 +28,6 @@ router.use('/admin', adminRoutes);
 router.use('/saved-posts', savedPostRoutes);
 router.use('/drafts', draftRoutes);
 router.use('/reading-history', readingHistoryRoutes);
+router.use('/community', communityRoutes);
 
 module.exports = router;

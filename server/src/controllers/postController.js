@@ -1,6 +1,7 @@
 const postService = require('../services/postService');
 const { successResponse, paginatedResponse } = require('../utils/apiResponse');
 const { ROLES } = require('../constants/roles');
+const postVersionController = require('./postVersionController');
 
 const createPost = async (req, res, next) => {
   try {
@@ -88,6 +89,7 @@ const restorePost = async (req, res, next) => {
 };
 
 module.exports = {
+  listVersions: postVersionController.listVersions,
   createPost,
   getPosts,
   getPostByIdOrSlug,

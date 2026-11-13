@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Save, Send, FileText } from 'lucide-react';
 import { useCreateDraft, useDraft, usePublishDraft, useUpdateDraft } from '../hooks/useBlogApi';
@@ -19,6 +19,9 @@ const DraftEditor = () => {
   const [tagsInput, setTagsInput] = useState('');
   const [loaded, setLoaded] = useState(false);
   const busy = createDraft.isPending || updateDraft.isPending || publishDraft.isPending;
+  const autosaveTimer = useRef(null);
+  const lastSaved = useRef('');
+  const [autosaveStatus, setAutosaveStatus] = useState('Private draft');
 
   useEffect(() => {
     if (draft && !loaded) {
@@ -27,6 +30,7 @@ const DraftEditor = () => {
       setExcerpt(draft.excerpt || '');
       setCoverImage(draft.coverImage || '');
       setTagsInput((draft.tags || []).join(', '));
+      lastSaved.current = JSON.stringify({ title: draft.title || '', content: draft.content || '', excerpt: draft.excerpt || '', coverImage: draft.coverImage || '', tags: draft.tags || [] });
       setLoaded(true);
     }
   }, [draft, loaded]);
@@ -53,6 +57,32 @@ const DraftEditor = () => {
     if (!isEditing && saved?._id) navigate('/drafts/' + saved._id + '/edit', { replace: true });
   };
 
+  const persistDraft = useCallback(async () => {
+    const current = payload();
+    const serialized = JSON.stringify(current);
+    if (serialized === lastSaved.current || busy) return;
+    try {
+      setAutosaveStatus('Saving to your account…');
+      if (isEditing) {
+        await updateDraft.mutateAsync({ id, ...current });
+      } else {
+        const result = await createDraft.mutateAsync(current);
+        const newId = result.data?._id;
+        if (newId) navigate('/drafts/' + newId + '/edit', { replace: true });
+      }
+      lastSaved.current = serialized;
+      setAutosaveStatus('Saved to your account');
+    } catch {
+      setAutosaveStatus('Autosave failed — use Save draft to retry');
+    }
+  }, [title, content, excerpt, coverImage, tagsInput, isEditing, id, busy, updateDraft, createDraft, navigate]);
+
+  useEffect(() => {
+    if (!loaded) return undefined;
+    if (autosaveTimer.current) window.clearTimeout(autosaveTimer.current);
+    autosaveTimer.current = window.setTimeout(persistDraft, 1200);
+    return () => { if (autosaveTimer.current) window.clearTimeout(autosaveTimer.current); };
+  }, [loaded, title, content, excerpt, coverImage, tagsInput, persistDraft]);
   const handlePublish = async () => {
     const saved = await save();
     const draftId = id || saved?._id;
@@ -72,7 +102,7 @@ const DraftEditor = () => {
         <header className="publishing-heading">
           <div className="publishing-icon"><FileText size={20} /></div>
           <div><h1>{isEditing ? 'Continue your draft' : 'Start a draft'}</h1><p>Only you can see this article until you publish it.</p></div>
-          <span className="autosave-indicator">Private draft</span>
+          <span className="autosave-indicator" role="status" aria-live="polite">{autosaveStatus}</span>
         </header>
         <div className="form-group">
           <label className="form-label" htmlFor="draft-title">Article title</label>

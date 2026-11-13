@@ -1,0 +1,11 @@
+const express = require('express');
+const controller = require('../controllers/communityController');
+const { requireAuth, optionalAuth } = require('../middleware/auth');
+const { contentCreationLimiter } = require('../middleware/rateLimiter');
+const router = express.Router();
+router.get('/trending', optionalAuth, controller.getTrending);
+router.get('/feed/following', requireAuth, controller.getFollowingFeed);
+router.post('/authors/:authorId/follow', requireAuth, controller.followAuthor);
+router.post('/posts/:postId/reactions', requireAuth, controller.toggleReaction);
+router.post('/reports', requireAuth, contentCreationLimiter, controller.reportContent);
+module.exports = router;
