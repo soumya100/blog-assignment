@@ -70,6 +70,12 @@ const savePost = async (req, res, next) => {
 
 const removeSavedPost = async (req, res, next) => {
   try {
+    if (!mongoose.isValidObjectId(req.params.postId)) {
+      const error = new Error('Invalid article identifier');
+      error.statusCode = 400;
+      error.code = 'INVALID_ID';
+      throw error;
+    }
     await SavedPost.deleteOne({ user: req.user._id, post: req.params.postId });
     return successResponse(res, 200, 'Article removed from your reading list', { isSaved: false });
   } catch (err) {
