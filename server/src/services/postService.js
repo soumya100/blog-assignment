@@ -155,7 +155,11 @@ const updatePost = async (postId, updateData, user, req) => {
 
   if (updateData.content !== undefined) {
     post.content = updateData.content;
-    post.excerpt = updateData.excerpt || updateData.content.replace(/<[^>]*>?/gm, '').slice(0, 160) + '...';
+    post.excerpt = updateData.excerpt !== undefined
+      ? updateData.excerpt
+      : updateData.content.replace(/<[^>]*>?/gm, '').slice(0, 160) + '...';
+  } else if (updateData.excerpt !== undefined) {
+    post.excerpt = updateData.excerpt;
   }
 
   if (updateData.tags !== undefined) {

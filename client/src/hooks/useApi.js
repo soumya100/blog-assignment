@@ -14,6 +14,15 @@ export const queryKeys = {
     details: () => [...queryKeys.posts.all, 'detail'],
     detail: (idOrSlug) => [...queryKeys.posts.details(), idOrSlug],
   },
+  drafts: {
+    all: ['drafts'],
+    details: () => [...queryKeys.drafts.all, 'detail'],
+    detail: (id) => [...queryKeys.drafts.details(), id],
+  },
+  savedPosts: {
+    all: ['savedPosts'],
+    status: (postId) => [...queryKeys.savedPosts.all, 'status', postId],
+  },
   comments: {
     all: ['comments'],
     lists: () => [...queryKeys.comments.all, 'list'],

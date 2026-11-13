@@ -139,7 +139,7 @@ const Home = () => {
             <button
               onClick={() => {
                 setSelectedTag('');
-                setPagination((p) => ({ ...p, page: 1 }));
+                setPage(1);
               }}
               className={`btn btn-sm ${!selectedTag ? 'btn-primary' : 'btn-secondary'}`}
               style={{ borderRadius: 'var(--radius-full)' }}

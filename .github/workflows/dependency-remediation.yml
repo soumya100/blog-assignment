@@ -1,0 +1,66 @@
+name: Dependency remediation validation
+
+on:
+  push:
+    branches:
+      - chore/dependency-security-remediation
+  pull_request:
+    branches:
+      - feat/publishing-experience
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  regenerate-and-validate:
+    name: Regenerate lockfiles, test and audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout remediation branch
+        uses: actions/checkout@v4
+        with:
+          ref: chore/dependency-security-remediation
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Regenerate frontend lockfile
+        working-directory: client
+        run: npm install --package-lock-only
+      - name: Regenerate backend lockfile
+        working-directory: server
+        run: npm install --package-lock-only
+      - name: Install frontend from regenerated lockfile
+        working-directory: client
+        run: npm ci
+      - name: Install backend from regenerated lockfile
+        working-directory: server
+        run: npm ci
+      - name: Run frontend regression tests
+        working-directory: client
+        run: npm test
+      - name: Build frontend
+        working-directory: client
+        run: npm run build
+      - name: Run backend regression and security tests
+        working-directory: server
+        run: npm test
+      - name: Audit frontend dependencies
+        working-directory: client
+        run: npm audit --audit-level=low
+      - name: Audit backend dependencies
+        working-directory: server
+        run: npm audit --audit-level=low
+      - name: Commit regenerated lockfiles
+        run: |
+          if ! git diff --quiet -- client/package-lock.json server/package-lock.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add client/package-lock.json server/package-lock.json
+            git commit -m "chore(security): regenerate npm lockfiles"
+            git push origin chore/dependency-security-remediation
+          else
+            echo "Lockfiles are already up to date."
+          fi

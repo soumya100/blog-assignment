@@ -13,6 +13,8 @@ import {
   Menu,
   X,
   Compass,
+  Bookmark,
+  FileText,
 } from 'lucide-react';
 
 const Navbar = () => {
@@ -109,7 +111,19 @@ const Navbar = () => {
               Explore
             </Link>
 
-            {isAdmin && (
+            {isAuthenticated && (
+              <Link to="/drafts" style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', color: 'var(--text-secondary)', fontWeight: 500, fontSize: '0.925rem' }}>
+                <FileText size={16} /> My drafts
+              </Link>
+            )}
+
+            {isAuthenticated && (
+              <Link to="/saved" style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', color: 'var(--text-secondary)', fontWeight: 500, fontSize: '0.925rem' }}>
+                <Bookmark size={16} /> Saved articles
+              </Link>
+            )}
+
+{isAdmin && (
               <Link
                 to="/admin"
                 style={{
@@ -216,6 +230,18 @@ const Navbar = () => {
           >
             Explore Articles
           </Link>
+
+          {isAuthenticated && (
+            <Link to="/drafts" onClick={() => setMobileMenuOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.95rem', padding: '0.35rem 0' }}>
+              <FileText size={18} /> My drafts
+            </Link>
+          )}
+
+          {isAuthenticated && (
+            <Link to="/saved" onClick={() => setMobileMenuOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.95rem', padding: '0.35rem 0' }}>
+              <Bookmark size={18} /> Saved articles
+            </Link>
+          )}
 
           {isAdmin && (
             <Link

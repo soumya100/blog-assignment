@@ -24,6 +24,9 @@ const OAuthCallback = lazy(() => import('./pages/OAuthCallback'));
 // Lazy-loaded Authenticated User Pages
 const CreateEditPost = lazy(() => import('./pages/CreateEditPost'));
 const Profile = lazy(() => import('./pages/Profile'));
+const SavedPosts = lazy(() => import('./pages/SavedPosts'));
+const Drafts = lazy(() => import('./pages/Drafts'));
+const DraftEditor = lazy(() => import('./pages/DraftEditor'));
 
 // Lazy-loaded Admin Pages
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'));
@@ -80,19 +83,23 @@ function App() {
                       <Route path="/oauth/callback" element={<OAuthCallback />} />
 
                       {/* Authenticated User Routes */}
+                      <Route path="/posts/new" element={<ProtectedRoute><DraftEditor /></ProtectedRoute>} />
                       <Route
-                        path="/posts/new"
+                        path="/posts/:id/edit"
                         element={
                           <ProtectedRoute>
                             <CreateEditPost />
                           </ProtectedRoute>
                         }
                       />
+                      <Route path="/drafts" element={<ProtectedRoute><Drafts /></ProtectedRoute>} />
+                      <Route path="/drafts/new" element={<ProtectedRoute><DraftEditor /></ProtectedRoute>} />
+                      <Route path="/drafts/:id/edit" element={<ProtectedRoute><DraftEditor /></ProtectedRoute>} />
                       <Route
-                        path="/posts/:id/edit"
+                        path="/saved"
                         element={
                           <ProtectedRoute>
-                            <CreateEditPost />
+                            <SavedPosts />
                           </ProtectedRoute>
                         }
                       />

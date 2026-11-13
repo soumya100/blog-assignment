@@ -20,9 +20,13 @@ import {
   useDeleteComment,
   useDeletePost,
   useUpdateComment,
+  useSavedPostStatus,
+  useSavePost,
+  useRemoveSavedPost,
 } from '../hooks/useBlogApi';
 import CommentItem from '../components/CommentItem';
 import SEO from '../components/SEO';
+import MarkdownContent from '../components/MarkdownContent';
 
 import {
   Calendar,
@@ -38,7 +42,10 @@ import {
   Lock,
   MessageSquare,
   AlertCircle,
+  Bookmark,
 } from 'lucide-react';
+
+const getHeadingId = (value) => value.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-');
 
 const commentSchema = z.object({
   content: z
@@ -66,6 +73,14 @@ const PostDetails = () => {
   const deleteCommentMutation = useDeleteComment(post?._id);
   const updateCommentMutation = useUpdateComment(post?._id);
   const deletePostMutation = useDeletePost();
+  const { data: isSaved = false } = useSavedPostStatus(post?._id, isAuthenticated);
+  const savePostMutation = useSavePost();
+  const removeSavedPostMutation = useRemoveSavedPost();
+  const isSavingPost = savePostMutation.isPending || removeSavedPostMutation.isPending;
+  const handleSaveToggle = () => {
+    if (!post?._id || isSavingPost) return;
+    (isSaved ? removeSavedPostMutation : savePostMutation).mutate(post._id);
+  };
 
   // Edit Comment state
   const [editingCommentId, setEditingCommentId] = useState(null);
@@ -76,6 +91,8 @@ const PostDetails = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null); // { type: 'post' | 'comment', id }
   const [copiedLink, setCopiedLink] = useState(false);
+  const [readingProgress, setReadingProgress] = useState(0);
+  const headings = (post?.content || '').split('\n').filter((line) => /^#{1,3}\s+/.test(line)).map((line) => ({ level: line.match(/^#+/)[0].length, title: line.replace(/^#{1,3}\s+/, '').trim() }));
 
   // React Hook Form for new comments
   const {
@@ -87,6 +104,16 @@ const PostDetails = () => {
     resolver: zodResolver(commentSchema),
     defaultValues: { content: '' },
   });
+
+  useEffect(() => {
+    const updateProgress = () => {
+      const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+      setReadingProgress(scrollable > 0 ? Math.min(100, Math.max(0, (window.scrollY / scrollable) * 100)) : 0);
+    };
+    window.addEventListener('scroll', updateProgress, { passive: true });
+    updateProgress();
+    return () => window.removeEventListener('scroll', updateProgress);
+  }, [post?._id]);
 
   // Real-time socket room synchronization
   useEffect(() => {
@@ -245,6 +272,8 @@ const PostDetails = () => {
   const canManagePost = isPostAuthor || isAdmin;
 
   return (
+    <>
+    <div className="article-reading-progress" style={{ width: readingProgress + "%" }} aria-hidden="true" />
     <article className="container" style={{ paddingTop: '2.5rem', maxWidth: '820px' }}>
       <SEO
         title={post.title}
@@ -357,6 +386,12 @@ const PostDetails = () => {
 
           {/* Action buttons */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {isAuthenticated && (
+              <button onClick={handleSaveToggle} className="btn btn-secondary btn-sm" disabled={isSavingPost} aria-pressed={isSaved} title={isSaved ? 'Remove from saved articles' : 'Save article'}>
+                <Bookmark size={14} fill={isSaved ? 'currentColor' : 'none'} />
+                {isSavingPost ? 'Saving...' : isSaved ? 'Saved' : 'Save'}
+              </button>
+            )}
             <button
               onClick={handleShare}
               className="btn btn-secondary btn-sm"
@@ -390,6 +425,19 @@ const PostDetails = () => {
         </div>
       </header>
 
+      {post.coverImage && <img className="article-cover" src={post.coverImage} alt={post.title} loading="eager" />}
+      {post.excerpt && <p className="article-excerpt">{post.excerpt}</p>}
+      {headings.length > 1 && (
+        <nav className="article-toc" aria-label="Table of contents">
+          <h2>In this article</h2>
+          <ul>{headings.map((heading, index) => (
+            <li key={heading.title + index} style={{ marginLeft: ((heading.level - 1) * 0.8) + "rem" }}>
+              <a href={"#" + getHeadingId(heading.title)}>{heading.title}</a>
+            </li>
+          ))}</ul>
+        </nav>
+      )}
+
       {/* Post Body */}
       <section
         style={{
@@ -401,7 +449,7 @@ const PostDetails = () => {
           wordBreak: 'break-word',
         }}
       >
-        {post.content}
+        <MarkdownContent content={post.content} />
       </section>
 
       {/* Author Bio Card */}
@@ -581,6 +629,7 @@ const PostDetails = () => {
         isLoading={deletePostMutation.isPending || deleteCommentMutation.isPending}
       />
     </article>
+    </>
   );
 };
 
