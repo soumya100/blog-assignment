@@ -5,6 +5,7 @@ const Comment = require('../models/Comment');
 const PostReaction = require('../models/PostReaction');
 const AuthorFollow = require('../models/AuthorFollow');
 const ContentReport = require('../models/ContentReport');
+const { USER_STATUS } = require('../constants/roles');
 const { successResponse } = require('../utils/apiResponse');
 
 const fail = (statusCode, message, code) => Object.assign(new Error(message), { statusCode, code });
@@ -41,7 +42,7 @@ const followAuthor = async (req, res, next) => {
     if (!mongoose.isValidObjectId(authorId)) throw fail(400, 'Invalid author identifier', 'INVALID_AUTHOR_ID');
     if (authorId === req.user._id.toString()) throw fail(400, 'You cannot follow yourself', 'SELF_FOLLOW');
     const author = await User.findById(authorId).select('_id status');
-    if (!author || author.status !== 'active') throw fail(404, 'Author not found', 'AUTHOR_NOT_FOUND');
+    if (!author || author.status !== USER_STATUS.ACTIVE) throw fail(404, 'Author not found', 'AUTHOR_NOT_FOUND');
     const existing = await AuthorFollow.findOne({ follower: req.user._id, author: authorId });
     let following = true;
     if (existing) { await existing.deleteOne(); following = false; }
