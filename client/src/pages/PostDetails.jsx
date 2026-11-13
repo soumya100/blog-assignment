@@ -23,6 +23,7 @@ import {
 } from '../hooks/useBlogApi';
 import CommentItem from '../components/CommentItem';
 import SEO from '../components/SEO';
+import MarkdownContent from '../components/MarkdownContent';
 
 import {
   Calendar,
@@ -39,6 +40,8 @@ import {
   MessageSquare,
   AlertCircle,
 } from 'lucide-react';
+
+const getHeadingId = (value) => value.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-');
 
 const commentSchema = z.object({
   content: z
@@ -76,6 +79,8 @@ const PostDetails = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null); // { type: 'post' | 'comment', id }
   const [copiedLink, setCopiedLink] = useState(false);
+  const [readingProgress, setReadingProgress] = useState(0);
+  const headings = (post?.content || '').split('\n').filter((line) => /^#{1,3}\s+/.test(line)).map((line) => ({ level: line.match(/^#+/)[0].length, title: line.replace(/^#{1,3}\s+/, '').trim() }));
 
   // React Hook Form for new comments
   const {
@@ -87,6 +92,16 @@ const PostDetails = () => {
     resolver: zodResolver(commentSchema),
     defaultValues: { content: '' },
   });
+
+  useEffect(() => {
+    const updateProgress = () => {
+      const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+      setReadingProgress(scrollable > 0 ? Math.min(100, Math.max(0, (window.scrollY / scrollable) * 100)) : 0);
+    };
+    window.addEventListener('scroll', updateProgress, { passive: true });
+    updateProgress();
+    return () => window.removeEventListener('scroll', updateProgress);
+  }, [post?._id]);
 
   // Real-time socket room synchronization
   useEffect(() => {
@@ -245,6 +260,8 @@ const PostDetails = () => {
   const canManagePost = isPostAuthor || isAdmin;
 
   return (
+    <>
+    <div className="article-reading-progress" style={{ width: readingProgress + "%" }} aria-hidden="true" />
     <article className="container" style={{ paddingTop: '2.5rem', maxWidth: '820px' }}>
       <SEO
         title={post.title}
@@ -390,6 +407,19 @@ const PostDetails = () => {
         </div>
       </header>
 
+      {post.coverImage && <img className="article-cover" src={post.coverImage} alt={post.title} loading="eager" />}
+      {post.excerpt && <p className="article-excerpt">{post.excerpt}</p>}
+      {headings.length > 1 && (
+        <nav className="article-toc" aria-label="Table of contents">
+          <h2>In this article</h2>
+          <ul>{headings.map((heading, index) => (
+            <li key={heading.title + index} style={{ marginLeft: ((heading.level - 1) * 0.8) + "rem" }}>
+              <a href={"#" + getHeadingId(heading.title)}>{heading.title}</a>
+            </li>
+          ))}</ul>
+        </nav>
+      )}
+
       {/* Post Body */}
       <section
         style={{
@@ -401,7 +431,7 @@ const PostDetails = () => {
           wordBreak: 'break-word',
         }}
       >
-        {post.content}
+        <MarkdownContent content={post.content} />
       </section>
 
       {/* Author Bio Card */}
@@ -581,6 +611,7 @@ const PostDetails = () => {
         isLoading={deletePostMutation.isPending || deleteCommentMutation.isPending}
       />
     </article>
+    </>
   );
 };
 
