@@ -13,6 +13,7 @@ const analyticsRoutes = require('./analyticsRoutes');
 const newsletterRoutes = require('./newsletterRoutes');
 const contentCollectionRoutes = require('./contentCollectionRoutes');
 const mentionRoutes = require('./mentionRoutes');
+const aiRoutes = require('./aiRoutes');
 const { successResponse } = require('../utils/apiResponse');
 
 const router = express.Router();
@@ -41,5 +42,6 @@ router.use('/analytics', analyticsRoutes);
 router.use('/newsletter', newsletterRoutes);
 router.use('/library', contentCollectionRoutes);
 router.use('/mentions', mentionRoutes);
+router.use('/ai', aiRoutes);
 
 module.exports = router;
