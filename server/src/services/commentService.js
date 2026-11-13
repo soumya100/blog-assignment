@@ -61,7 +61,7 @@ const createComment = async ({ postId, authorId, content, parentCommentId, req }
     throw error;
   }
 
-  const post = await Post.findOne({ _id: postId, isDeleted: false });
+  const post = await Post.findOne({ _id: postId, isDeleted: false, status: 'published' });
   if (!post) {
     const error = new Error('Target post does not exist or has been deleted');
     error.statusCode = 404;
