@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - chore/dependency-security-remediation
+  pull_request:
+    branches:
+      - feat/publishing-experience
   workflow_dispatch:
 
 permissions:
