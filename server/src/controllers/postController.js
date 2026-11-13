@@ -114,7 +114,7 @@ const importMyPosts = async (req, res, next) => {
     }
     const imported = [];
     for (const item of payload.posts) {
-      if (!item || typeof item.title !== 'string' || item.title.trim().length < 3 || typeof item.content !== 'string' || item.content.trim().length < 10) {
+      if (!item || typeof item.title !== 'string' || item.title.trim().length < 3 || typeof item.content !== 'string' || item.content.trim().length < 10 || item.content.length > 200000) {
         return res.status(400).json({ success: false, message: 'Each imported article must include a valid title and content.' });
       }
       const post = await postService.createPost({
