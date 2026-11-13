@@ -220,7 +220,7 @@ const updatePost = async (postId, updateData, user, req) => {
     post.publishedAt = scheduleDate ? null : new Date();
   }
 
-  if (updateData.scheduledAt !== undefined) {\n    const scheduleDate = updateData.scheduledAt ? new Date(updateData.scheduledAt) : null;\n    if (scheduleDate && (!Number.isFinite(scheduleDate.getTime()) || scheduleDate <= new Date())) {\n      const error = new Error('Scheduled publishing time must be in the future');\n      error.statusCode = 400;\n      error.code = 'INVALID_SCHEDULE_TIME';\n      throw error;\n    }\n    post.scheduledAt = scheduleDate;\n    post.status = scheduleDate ? 'scheduled' : 'published';\n    post.publishedAt = scheduleDate ? null : new Date();\n  }\n\n  for (const field of ['seoTitle', 'seoDescription', 'canonicalUrl', 'noIndex']) {
+\n  for (const field of ['seoTitle', 'seoDescription', 'canonicalUrl', 'noIndex']) {
     if (updateData[field] !== undefined) post[field] = updateData[field];
   }
 
