@@ -37,6 +37,7 @@ const updatePostSchema = z.object({
   seoDescription: z.string().trim().max(160).optional(),
   canonicalUrl: z.string().url().max(500).or(z.literal('')).optional(),
   noIndex: z.boolean().optional(),
+  scheduledAt: z.string().datetime().nullable().optional(),
 });
 
 const queryPostSchema = z.object({
