@@ -16,7 +16,7 @@ const getFeed = async (req, res, next) => {
       .sort({ createdAt: -1 })
       .limit(50)
       .populate('author', 'username')
-      .select('title slug content excerpt author createdAt updatedAt')
+      .select('title slug content excerpt seoDescription author createdAt updatedAt')
       .lean();
 
     const baseUrl = (env.CLIENT_URL || '').split(',')[0].trim().replace(/\/$/, '');
