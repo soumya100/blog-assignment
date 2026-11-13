@@ -5,6 +5,8 @@ const { ACTIVITY_TYPES } = require('../constants/activityTypes');
 const { recordActivity } = require('../middleware/activityLogger');
 const { ROLES } = require('../constants/roles');
 const commentCache = require('./commentCache');
+const User = require('../models/User');
+const Mention = require('../models/Mention');
 
 const invalidatePostCache = async (postId) => {
   if (postId) await commentCache.bumpVersion(postId.toString());
@@ -122,6 +124,21 @@ const createComment = async ({ postId, authorId, content, parentCommentId, req }
       { _id: parent._id },
       { $inc: { directReplyCount: 1, engagementScore: 1 } }
     );
+  }
+
+
+  const mentionedNames = [...new Set((content.match(/@([a-zA-Z0-9_]{3,30})/g) || []).map((mention) => mention.slice(1).toLowerCase()))];
+  if (mentionedNames.length) {
+    const mentionedUsers = await User.find({
+      username: { $in: mentionedNames.map((name) => new RegExp('^' + name.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\  await comment.populate('author', 'username email avatar role');') + '\\u0024', 'i')) },
+      status: 'active',
+      _id: { $ne: authorId },
+    }).select('_id').lean();
+    if (mentionedUsers.length) {
+      await Mention.insertMany(mentionedUsers.map((mentionedUser) => ({
+        recipient: mentionedUser._id, actor: authorId, comment: comment._id, post: post._id,
+      })), { ordered: false });
+    }
   }
 
   await comment.populate('author', 'username email avatar role');
