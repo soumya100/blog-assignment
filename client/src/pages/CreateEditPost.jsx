@@ -120,19 +120,47 @@ const CreateEditPost = () => {
   }, [content, title, id, isEditing, existingPost, watch]);
 
 
-  const uploadImage = async (file) => {
+  const uploadImage = async (file, cropToCover = false) => {
     if (!file) return '';
     if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
       throw new Error('Choose a JPEG, PNG, WebP or GIF image.');
     }
     if (file.size > 5 * 1024 * 1024) throw new Error('Images must be 5 MB or smaller.');
+
     const dataUrl = await new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result);
       reader.onerror = () => reject(new Error('Could not read the selected image.'));
       reader.readAsDataURL(file);
     });
-    const result = await apiClient.post('/uploads/image', { dataUrl });
+
+    let uploadData = dataUrl;
+    if (file.type !== 'image/gif' && typeof createImageBitmap === 'function') {
+      const bitmap = await createImageBitmap(file);
+      const targetRatio = 16 / 9;
+      let sourceX = 0;
+      let sourceY = 0;
+      let sourceWidth = bitmap.width;
+      let sourceHeight = bitmap.height;
+      if (cropToCover && bitmap.width / bitmap.height > targetRatio) {
+        sourceWidth = bitmap.height * targetRatio;
+        sourceX = (bitmap.width - sourceWidth) / 2;
+      } else if (cropToCover && bitmap.width / bitmap.height < targetRatio) {
+        sourceHeight = bitmap.width / targetRatio;
+        sourceY = (bitmap.height - sourceHeight) / 2;
+      }
+      const scale = Math.min(1, 1920 / sourceWidth);
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(sourceWidth * scale));
+      canvas.height = Math.max(1, Math.round(sourceHeight * scale));
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('Image editing is not supported in this browser.');
+      context.drawImage(bitmap, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, canvas.width, canvas.height);
+      uploadData = canvas.toDataURL(file.type === 'image/png' ? 'image/png' : file.type === 'image/webp' ? 'image/webp' : 'image/jpeg', 0.88);
+      bitmap.close?.();
+    }
+
+    const result = await apiClient.post('/uploads/image', { dataUrl: uploadData });
     const relativeUrl = result.data?.url;
     if (!relativeUrl) throw new Error('The server did not return an image URL.');
     const apiOrigin = new URL(API_BASE_URL, window.location.origin).origin;
@@ -145,7 +173,7 @@ const CreateEditPost = () => {
     if (!file) return;
     setIsUploadingImage(true);
     try {
-      const url = await uploadImage(file);
+      const url = await uploadImage(file, true);
       setValue('coverImage', url, { shouldDirty: true, shouldValidate: true });
       setDraftMessage('Cover image uploaded');
     } catch (error) {
