@@ -32,9 +32,6 @@ jobs:
       - name: Regenerate backend lockfile
         working-directory: server
         run: npm install --package-lock-only
-      - name: Apply non-breaking backend security updates
-        working-directory: server
-        run: npm audit fix --package-lock-only
       - name: Install frontend from regenerated lockfile
         working-directory: client
         run: npm ci
@@ -52,10 +49,10 @@ jobs:
         run: npm test
       - name: Audit frontend dependencies
         working-directory: client
-        run: npm audit --audit-level=high
+        run: npm audit --audit-level=low
       - name: Audit backend dependencies
         working-directory: server
-        run: npm audit --audit-level=high
+        run: npm audit --audit-level=low
       - name: Commit regenerated lockfiles
         run: |
           if ! git diff --quiet -- client/package-lock.json server/package-lock.json; then
