@@ -2,6 +2,8 @@ const crypto = require('crypto');
 const mongoose = require('mongoose');
 const Post = require('../models/Post');
 const PostView = require('../models/PostView');
+const PostReaction = require('../models/PostReaction');
+const Comment = require('../models/Comment');
 const { successResponse } = require('../utils/apiResponse');
 
 const trackView = async (req, res, next) => {
@@ -25,8 +27,10 @@ const trackView = async (req, res, next) => {
 const getAuthorAnalytics = async (req, res, next) => {
   try {
     const postIds = await Post.find({ author: req.user._id, isDeleted: false, status: 'published' }).distinct('_id');
-    const [totalViews, topPosts, daily] = await Promise.all([
+    const [totalViews, totalReactions, totalComments, topPosts, daily] = await Promise.all([
       PostView.countDocuments({ author: req.user._id }),
+      PostReaction.countDocuments({ post: { $in: postIds } }),
+      Comment.countDocuments({ post: { $in: postIds }, isDeleted: false }),
       PostView.aggregate([
         { $match: { author: new mongoose.Types.ObjectId(req.user._id) } },
         { $group: { _id: '$post', views: { $sum: 1 } } },
@@ -40,7 +44,7 @@ const getAuthorAnalytics = async (req, res, next) => {
         { $group: { _id: '$day', views: { $sum: 1 } } }, { $sort: { _id: 1 } },
       ]),
     ]);
-    return successResponse(res, 200, 'Author analytics retrieved', { totalViews, publishedArticles: postIds.length, topPosts, daily });
+    return successResponse(res, 200, 'Author analytics retrieved', { totalViews, totalReactions, totalComments, publishedArticles: postIds.length, topPosts, daily });
   } catch (error) { next(error); }
 };
 
