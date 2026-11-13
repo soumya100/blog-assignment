@@ -549,6 +549,8 @@ const PostDetails = () => {
           <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleReaction('clap')} aria-pressed={engagement.myReaction === 'clap'}>👏 Clap ({engagement.claps})</button>
           {post.author?._id && user?._id !== post.author._id && <button type="button" className="btn btn-secondary btn-sm" onClick={handleFollowAuthor}>{followState.following ? 'Following' : 'Follow author'} · {followState.followers}</button>}
           <button type="button" className="btn btn-secondary btn-sm" onClick={handleReportPost}>Report</button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => window.open("https://www.linkedin.com/sharing/share-offsite/?url=" + encodeURIComponent(window.location.href), "_blank", "noopener,noreferrer")}>LinkedIn</button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => window.open("https://twitter.com/intent/tweet?url=" + encodeURIComponent(window.location.href) + "&text=" + encodeURIComponent(post.title), "_blank", "noopener,noreferrer")}>X</button>
         </div>
         <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
           Text size <input aria-label="Article text size" type="range" min="85" max="125" step="5" value={fontScale} onChange={(event) => setFontScale(Number(event.target.value))} /> <span>{fontScale}%</span>
