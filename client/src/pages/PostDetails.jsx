@@ -298,6 +298,7 @@ const PostDetails = () => {
         canonicalUrl={post.canonicalUrl}
         noIndex={post.noIndex}
         type="article"
+        image={post.coverImage || '/favicon.svg'}
         keywords={post.tags?.join(', ') || 'software engineering, DevLog'}
       />
       {/* Back button */}
