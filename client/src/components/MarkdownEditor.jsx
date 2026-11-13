@@ -114,6 +114,8 @@ const MarkdownEditor = ({ value = '', onChange, error, onImageUpload }) => {
           ))}
           <span className="markdown-toolbar-divider" aria-hidden="true" />
           {onImageUpload && <><button type="button" className="markdown-tool" title="Upload image" aria-label="Upload image" disabled={preview || uploadingImage} onClick={() => imageInputRef.current && imageInputRef.current.click()}><ImagePlus size={16} /></button><input ref={imageInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={insertImage} hidden /></>}
+          <button type="button" className="markdown-tool" title="Insert table" aria-label="Insert table" disabled={preview} onClick={() => { const input = textareaRef.current; const start = input ? input.selectionStart : value.length; const end = input ? input.selectionEnd : start; const table = "\n| Column 1 | Column 2 |\n| --- | --- |\n| Value | Value |\n"; onChange(value.slice(0, start) + table + value.slice(end)); }}><span aria-hidden="true">▦</span></button>
+          <button type="button" className="markdown-tool" title="Insert divider" aria-label="Insert divider" disabled={preview} onClick={() => onChange(value + "\n\n---\n\n")}><span aria-hidden="true">—</span></button>
           <span className="markdown-toolbar-hint">{uploadingImage ? "Uploading image…" : "Select text to format"}</span>
         </div>
       </div>
@@ -140,6 +142,7 @@ const MarkdownEditor = ({ value = '', onChange, error, onImageUpload }) => {
           aria-label="Article content"
           aria-invalid={Boolean(error)}
           spellCheck="true"
+          onKeyDown={(event) => { if (!(event.ctrlKey || event.metaKey)) return; const key = event.key.toLowerCase(); if (key === "b" || key === "i") { event.preventDefault(); applyFormat(toolbar[key === "b" ? 0 : 1]); } }}
         />
       )}
 
