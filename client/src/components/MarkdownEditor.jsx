@@ -12,6 +12,8 @@ import {
   Link as LinkIcon,
   FileText,
   ImagePlus,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import MarkdownContent from './MarkdownContent';
 
@@ -31,6 +33,7 @@ const MarkdownEditor = ({ value = '', onChange, error, onImageUpload }) => {
   const [preview, setPreview] = useState(false);
   const imageInputRef = useRef(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
   const wordCount = value.trim() ? value.trim().split(/\s+/).length : 0;
 
   const applyFormat = (format) => {
@@ -68,7 +71,7 @@ const MarkdownEditor = ({ value = '', onChange, error, onImageUpload }) => {
   };
 
   return (
-    <section className={`markdown-editor ${error ? 'markdown-editor-error' : ''}`} aria-label="Article editor">
+    <section className={`markdown-editor ${error ? 'markdown-editor-error' : ''}`} aria-label="Article editor" style={fullscreen ? { position: 'fixed', inset: 12, zIndex: 1000, background: 'var(--bg-primary)', display: 'flex', flexDirection: 'column', overflow: 'auto' } : undefined}>
       <div className="markdown-editor-chrome">
         <div className="markdown-editor-toolbar-row">
           <div className="markdown-editor-toolbar-label">
@@ -116,6 +119,7 @@ const MarkdownEditor = ({ value = '', onChange, error, onImageUpload }) => {
           {onImageUpload && <><button type="button" className="markdown-tool" title="Upload image" aria-label="Upload image" disabled={preview || uploadingImage} onClick={() => imageInputRef.current && imageInputRef.current.click()}><ImagePlus size={16} /></button><input ref={imageInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={insertImage} hidden /></>}
           <button type="button" className="markdown-tool" title="Insert table" aria-label="Insert table" disabled={preview} onClick={() => { const input = textareaRef.current; const start = input ? input.selectionStart : value.length; const end = input ? input.selectionEnd : start; const table = "\n| Column 1 | Column 2 |\n| --- | --- |\n| Value | Value |\n"; onChange(value.slice(0, start) + table + value.slice(end)); }}><span aria-hidden="true">▦</span></button>
           <button type="button" className="markdown-tool" title="Insert divider" aria-label="Insert divider" disabled={preview} onClick={() => onChange(value + "\n\n---\n\n")}><span aria-hidden="true">—</span></button>
+          <button type="button" className="markdown-tool" title="Toggle fullscreen" aria-label="Toggle fullscreen" onClick={() => setFullscreen((current) => !current)}>{fullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}</button>
           <span className="markdown-toolbar-hint">{uploadingImage ? "Uploading image…" : "Select text to format"}</span>
         </div>
       </div>
