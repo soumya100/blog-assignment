@@ -73,8 +73,8 @@ app.set('io', io);
 io.use(async (socket, next) => {
   try {
     const cookieHeader = socket.handshake.headers.cookie || '';
-    const cookieMatch = cookieHeader.match(/(?:^|;\\s*)accessToken=([^;]+)/);
-    const token = socket.handshake.auth?.token || (cookieMatch ? decodeURIComponent(cookieMatch[1]) : null);
+    const cookiePart = cookieHeader.split(';').map((part) => part.trim()).find((part) => part.startsWith('accessToken='));
+    const token = socket.handshake.auth?.token || (cookiePart ? decodeURIComponent(cookiePart.slice('accessToken='.length)) : null);
     if (!token) return next(new Error('Authentication required'));
     const decoded = verifyAccessToken(token);
     const user = await User.findById(decoded.sub).select('_id status');
