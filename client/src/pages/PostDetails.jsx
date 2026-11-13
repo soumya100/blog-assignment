@@ -293,9 +293,12 @@ const PostDetails = () => {
     <div className="article-reading-progress" style={{ width: readingProgress + "%" }} aria-hidden="true" />
     <article className="container" style={{ paddingTop: '2.5rem', maxWidth: '820px' }}>
       <SEO
-        title={post.title}
-        description={post.content ? post.content.replace(/[#*`_~\[\]]/g, '').slice(0, 160).trim() + '...' : 'Technical article on DevLog'}
+        title={post.seoTitle || post.title}
+        description={post.seoDescription || (post.content ? post.content.replace(/[#*`_~\[\]]/g, '').slice(0, 160).trim() + '...' : 'Technical article on DevLog')}
+        canonicalUrl={post.canonicalUrl}
+        noIndex={post.noIndex}
         type="article"
+        image={post.coverImage || '/favicon.svg'}
         keywords={post.tags?.join(', ') || 'software engineering, DevLog'}
       />
       {/* Back button */}

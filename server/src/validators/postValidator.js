@@ -12,6 +12,10 @@ const createPostSchema = z.object({
   excerpt: z.string().max(300, 'Excerpt cannot exceed 300 characters').optional(),
   tags: z.array(z.string().trim().max(30)).max(10).optional(),
   coverImage: z.string().max(500).optional(),
+  seoTitle: z.string().trim().max(70).optional(),
+  seoDescription: z.string().trim().max(160).optional(),
+  canonicalUrl: z.string().url().max(500).or(z.literal('')).optional(),
+  noIndex: z.boolean().optional(),
 });
 
 const updatePostSchema = z.object({
@@ -28,6 +32,10 @@ const updatePostSchema = z.object({
   excerpt: z.string().max(300).optional(),
   tags: z.array(z.string().trim().max(30)).max(10).optional(),
   coverImage: z.string().max(500).optional(),
+  seoTitle: z.string().trim().max(70).optional(),
+  seoDescription: z.string().trim().max(160).optional(),
+  canonicalUrl: z.string().url().max(500).or(z.literal('')).optional(),
+  noIndex: z.boolean().optional(),
 });
 
 const queryPostSchema = z.object({

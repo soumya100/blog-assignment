@@ -9,7 +9,7 @@ const { ROLES } = require('../constants/roles');
 /**
  * Create a new blog post
  */
-const createPost = async ({ title, content, excerpt, tags = [], coverImage = '', authorId, req }) => {
+const createPost = async ({ title, content, excerpt, tags = [], coverImage = '', seoTitle = '', seoDescription = '', canonicalUrl = '', noIndex = false, authorId, req }) => {
   const slug = await createUniqueSlug(Post, title);
 
   const post = await Post.create({
@@ -19,6 +19,10 @@ const createPost = async ({ title, content, excerpt, tags = [], coverImage = '',
     excerpt: excerpt || content.replace(/<[^>]*>?/gm, '').slice(0, 160) + '...',
     tags: tags.map((t) => t.toLowerCase().trim()),
     coverImage,
+    seoTitle,
+    seoDescription,
+    canonicalUrl,
+    noIndex,
     author: authorId,
   });
 
@@ -158,6 +162,10 @@ const updatePost = async (postId, updateData, user, req) => {
     excerpt: post.excerpt,
     tags: post.tags,
     coverImage: post.coverImage,
+    seoTitle: post.seoTitle,
+    seoDescription: post.seoDescription,
+    canonicalUrl: post.canonicalUrl,
+    noIndex: post.noIndex,
     versionNumber: (latestVersion?.versionNumber || 0) + 1,
   });
 
@@ -182,6 +190,10 @@ const updatePost = async (postId, updateData, user, req) => {
 
   if (updateData.coverImage !== undefined) {
     post.coverImage = updateData.coverImage;
+  }
+
+  for (const field of ['seoTitle', 'seoDescription', 'canonicalUrl', 'noIndex']) {
+    if (updateData[field] !== undefined) post[field] = updateData[field];
   }
 
   await post.save();

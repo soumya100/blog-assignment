@@ -13,6 +13,10 @@ const postSchema = z.object({
   content: z.string().min(10, 'Article content must be at least 10 characters'),
   excerpt: z.string().max(300, 'Excerpt cannot exceed 300 characters').optional(),
   coverImage: z.string().url('Enter a valid image URL').or(z.literal('')).optional(),
+  seoTitle: z.string().max(70, 'SEO title cannot exceed 70 characters').optional(),
+  seoDescription: z.string().max(160, 'SEO description cannot exceed 160 characters').optional(),
+  canonicalUrl: z.string().url('Enter a valid canonical URL').or(z.literal('')).optional(),
+  noIndex: z.boolean().optional(),
   tagsInput: z.string().optional(),
 });
 
@@ -37,7 +41,7 @@ const CreateEditPost = () => {
     formState: { errors },
   } = useForm({
     resolver: zodResolver(postSchema),
-    defaultValues: { title: '', content: '', excerpt: '', coverImage: '', tagsInput: '' },
+    defaultValues: { title: '', content: '', excerpt: '', coverImage: '', seoTitle: '', seoDescription: '', canonicalUrl: '', noIndex: false, tagsInput: '' },
   });
 
   const title = watch('title', '');
@@ -50,7 +54,7 @@ const CreateEditPost = () => {
         const saved = window.localStorage.getItem('blog-editor-draft:new');
         if (saved) {
           const draft = JSON.parse(saved);
-          reset({ title: draft.title || '', content: draft.content || '', excerpt: draft.excerpt || '', coverImage: draft.coverImage || '', tagsInput: draft.tagsInput || '' });
+          reset({ title: draft.title || '', content: draft.content || '', excerpt: draft.excerpt || '', coverImage: draft.coverImage || '', seoTitle: draft.seoTitle || '', seoDescription: draft.seoDescription || '', canonicalUrl: draft.canonicalUrl || '', noIndex: Boolean(draft.noIndex), tagsInput: draft.tagsInput || '' });
           setContent(draft.content || '');
           setDraftMessage('Recovered local draft');
         }
@@ -68,6 +72,10 @@ const CreateEditPost = () => {
         content: existingPost.content || '',
         excerpt: existingPost.excerpt || '',
         coverImage: existingPost.coverImage || '',
+        seoTitle: existingPost.seoTitle || '',
+        seoDescription: existingPost.seoDescription || '',
+        canonicalUrl: existingPost.canonicalUrl || '',
+        noIndex: Boolean(existingPost.noIndex),
         tagsInput: (existingPost.tags || []).join(', '),
       });
     }
@@ -87,6 +95,10 @@ const CreateEditPost = () => {
           content,
           excerpt: watch('excerpt') || '',
           coverImage: watch('coverImage') || '',
+          seoTitle: watch('seoTitle') || '',
+          seoDescription: watch('seoDescription') || '',
+          canonicalUrl: watch('canonicalUrl') || '',
+          noIndex: Boolean(watch('noIndex')),
           tagsInput: watch('tagsInput') || '',
           savedAt: new Date().toISOString(),
         }));
@@ -105,6 +117,10 @@ const CreateEditPost = () => {
       content: content.trim(),
       excerpt: values.excerpt?.trim() || '',
       coverImage: values.coverImage?.trim() || '',
+      seoTitle: values.seoTitle?.trim() || '',
+      seoDescription: values.seoDescription?.trim() || '',
+      canonicalUrl: values.canonicalUrl?.trim() || '',
+      noIndex: Boolean(values.noIndex),
       tags,
     };
 
@@ -167,6 +183,23 @@ const CreateEditPost = () => {
             <label className="form-label" htmlFor="article-tags">Topics / tags</label>
             <input id="article-tags" type="text" className="form-input" placeholder="react, nodejs, security, architecture" {...register('tagsInput')} />
           </div>
+
+          <details className="form-group" style={{ border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '1rem' }}>
+            <summary style={{ cursor: 'pointer', fontWeight: 650 }}>Search engine settings (SEO)</summary>
+            <p className="field-hint" style={{ margin: '0.5rem 0 1rem' }}>Optional metadata used by search engines and link previews. Leave blank to use the article title and excerpt.</p>
+            <label className="form-label" htmlFor="article-seo-title">SEO title</label>
+            <input id="article-seo-title" maxLength={70} className="form-input" placeholder="Search-friendly title (max 70 characters)" {...register('seoTitle')} />
+            <span className="field-hint">{(watch('seoTitle') || '').length}/70</span>
+            <label className="form-label" htmlFor="article-seo-description">SEO description</label>
+            <textarea id="article-seo-description" rows={2} maxLength={160} className="form-textarea" placeholder="Concise search description (max 160 characters)" {...register('seoDescription')} />
+            <span className="field-hint">{(watch('seoDescription') || '').length}/160</span>
+            <label className="form-label" htmlFor="article-canonical-url">Canonical URL</label>
+            <input id="article-canonical-url" type="url" className="form-input" placeholder="https://example.com/original-article" {...register('canonicalUrl')} />
+            {errors.canonicalUrl && <p className="field-error">{errors.canonicalUrl.message}</p>}
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.75rem' }}>
+              <input type="checkbox" {...register('noIndex')} /> Prevent search engines from indexing this article
+            </label>
+          </details>
 
           <div className="form-group">
             <div className="editor-label-row"><label className="form-label">Article content</label><span className="field-hint">{wordCount} words · about {Math.max(1, Math.ceil(wordCount / 200))} min read</span></div>
