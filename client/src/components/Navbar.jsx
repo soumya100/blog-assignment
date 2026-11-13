@@ -116,13 +116,7 @@ const Navbar = () => {
               </Link>
             )}
 
-            {isAuthenticated && (
-            <Link to="/saved" onClick={() => setMobileMenuOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.95rem', padding: '0.35rem 0' }}>
-              <Bookmark size={18} /> Saved articles
-            </Link>
-          )}
-
-          {isAdmin && (
+{isAdmin && (
               <Link
                 to="/admin"
                 style={{
@@ -229,6 +223,12 @@ const Navbar = () => {
           >
             Explore Articles
           </Link>
+
+          {isAuthenticated && (
+            <Link to="/saved" onClick={() => setMobileMenuOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.95rem', padding: '0.35rem 0' }}>
+              <Bookmark size={18} /> Saved articles
+            </Link>
+          )}
 
           {isAdmin && (
             <Link
