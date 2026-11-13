@@ -25,6 +25,8 @@ const OAuthCallback = lazy(() => import('./pages/OAuthCallback'));
 const CreateEditPost = lazy(() => import('./pages/CreateEditPost'));
 const Profile = lazy(() => import('./pages/Profile'));
 const SavedPosts = lazy(() => import('./pages/SavedPosts'));
+const Drafts = lazy(() => import('./pages/Drafts'));
+const DraftEditor = lazy(() => import('./pages/DraftEditor'));
 
 // Lazy-loaded Admin Pages
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'));
@@ -97,6 +99,9 @@ function App() {
                           </ProtectedRoute>
                         }
                       />
+                      <Route path="/drafts" element={<ProtectedRoute><Drafts /></ProtectedRoute>} />
+                      <Route path="/drafts/new" element={<ProtectedRoute><DraftEditor /></ProtectedRoute>} />
+                      <Route path="/drafts/:id/edit" element={<ProtectedRoute><DraftEditor /></ProtectedRoute>} />
                       <Route
                         path="/saved"
                         element={
