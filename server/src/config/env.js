@@ -10,6 +10,9 @@ const env = {
   PORT: parseInt(process.env.PORT || '5000', 10),
   CLIENT_URL: process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:5173',
   BACKEND_URL: process.env.BACKEND_URL || process.env.RENDER_EXTERNAL_URL || '',
+  AI_API_KEY: process.env.AI_API_KEY || '',
+  AI_BASE_URL: process.env.AI_BASE_URL || 'https://api.openai.com/v1',
+  AI_MODEL: process.env.AI_MODEL || '',
   UPLOAD_DIR: process.env.UPLOAD_DIR || path.resolve(__dirname, '../../uploads'),
   MONGODB_URI: process.env.MONGODB_URI || '',
 
