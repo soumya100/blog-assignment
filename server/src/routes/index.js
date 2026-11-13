@@ -11,6 +11,7 @@ const rssRoutes = require('./rssRoutes');
 const uploadRoutes = require('./uploadRoutes');
 const analyticsRoutes = require('./analyticsRoutes');
 const newsletterRoutes = require('./newsletterRoutes');
+const contentCollectionRoutes = require('./contentCollectionRoutes');
 const { successResponse } = require('../utils/apiResponse');
 
 const router = express.Router();
@@ -37,5 +38,6 @@ router.use('/rss.xml', rssRoutes);
 router.use('/uploads', uploadRoutes);
 router.use('/analytics', analyticsRoutes);
 router.use('/newsletter', newsletterRoutes);
+router.use('/library', contentCollectionRoutes);
 
 module.exports = router;
