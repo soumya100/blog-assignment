@@ -1,4 +1,5 @@
 const Post = require('../models/Post');
+const PostVersion = require('../models/PostVersion');
 const Comment = require('../models/Comment');
 const { createUniqueSlug } = require('../utils/slugify');
 const { ACTIVITY_TYPES } = require('../constants/activityTypes');
@@ -146,6 +147,19 @@ const updatePost = async (postId, updateData, user, req) => {
     error.code = 'FORBIDDEN';
     throw error;
   }
+
+  // Preserve the current published state before applying an edit.
+  const latestVersion = await PostVersion.findOne({ post: post._id }).sort({ versionNumber: -1 }).select('versionNumber').lean();
+  await PostVersion.create({
+    post: post._id,
+    author: post.author,
+    title: post.title,
+    content: post.content,
+    excerpt: post.excerpt,
+    tags: post.tags,
+    coverImage: post.coverImage,
+    versionNumber: (latestVersion?.versionNumber || 0) + 1,
+  });
 
   // Update slug if title was modified
   if (updateData.title && updateData.title !== post.title) {
