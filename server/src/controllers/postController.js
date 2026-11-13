@@ -5,7 +5,7 @@ const postVersionController = require('./postVersionController');
 
 const createPost = async (req, res, next) => {
   try {
-    const { title, content, excerpt, tags, coverImage, seoTitle, seoDescription, canonicalUrl, noIndex } = req.body;
+    const { title, content, excerpt, tags, coverImage, seoTitle, seoDescription, canonicalUrl, noIndex, scheduledAt } = req.body;
     const post = await postService.createPost({
       title,
       content,
@@ -16,6 +16,7 @@ const createPost = async (req, res, next) => {
       seoDescription,
       canonicalUrl,
       noIndex,
+      scheduledAt,
       authorId: req.user._id,
       req,
     });
@@ -51,7 +52,7 @@ const getPostByIdOrSlug = async (req, res, next) => {
   try {
     const { id } = req.params;
     const isAdmin = req.user && req.user.role === ROLES.ADMIN;
-    const post = await postService.getPostBySlugOrId(id, isAdmin);
+    const post = await postService.getPostBySlugOrId(id, isAdmin, req.user);
 
     return successResponse(res, 200, 'Post retrieved successfully', post);
   } catch (err) {
