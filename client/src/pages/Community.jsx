@@ -20,7 +20,7 @@ export default function Community() {
       .catch((error) => { if (active) toast.error(error.message || 'Could not load community feed'); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [tab]);
+  }, [tab, isAuthenticated]);
 
   return (
     <main className="container" style={{ paddingTop: '2.5rem', paddingBottom: '4rem', maxWidth: 920 }}>
