@@ -9,8 +9,16 @@ const { ROLES } = require('../constants/roles');
 /**
  * Create a new blog post
  */
-const createPost = async ({ title, content, excerpt, tags = [], coverImage = '', seoTitle = '', seoDescription = '', canonicalUrl = '', noIndex = false, authorId, req }) => {
+const createPost = async ({ title, content, excerpt, tags = [], coverImage = '', seoTitle = '', seoDescription = '', canonicalUrl = '', noIndex = false, scheduledAt = null, authorId, req }) => {
   const slug = await createUniqueSlug(Post, title);
+
+  const scheduleDate = scheduledAt ? new Date(scheduledAt) : null;
+  if (scheduleDate && (!Number.isFinite(scheduleDate.getTime()) || scheduleDate <= new Date())) {
+    const error = new Error('Scheduled publishing time must be in the future');
+    error.statusCode = 400;
+    error.code = 'INVALID_SCHEDULE_TIME';
+    throw error;
+  }
 
   const post = await Post.create({
     title,
@@ -23,6 +31,9 @@ const createPost = async ({ title, content, excerpt, tags = [], coverImage = '',
     seoDescription,
     canonicalUrl,
     noIndex,
+    status: scheduleDate ? 'scheduled' : 'published',
+    scheduledAt: scheduleDate,
+    publishedAt: scheduleDate ? null : new Date(),
     author: authorId,
   });
 
@@ -107,7 +118,7 @@ const getPosts = async ({ page = 1, limit = 10, search, tag, author, includeDele
 /**
  * Get post by slug or ID
  */
-const getPostBySlugOrId = async (identifier, includeDeleted = false) => {
+const getPostBySlugOrId = async (identifier, includeDeleted = false, user = null) => {
   const isObjectId = /^[0-9a-fA-F]{24}$/.test(identifier);
   const query = isObjectId ? { _id: identifier } : { slug: identifier };
 
@@ -192,7 +203,7 @@ const updatePost = async (postId, updateData, user, req) => {
     post.coverImage = updateData.coverImage;
   }
 
-  for (const field of ['seoTitle', 'seoDescription', 'canonicalUrl', 'noIndex']) {
+  if (updateData.scheduledAt !== undefined) {\n    const scheduleDate = updateData.scheduledAt ? new Date(updateData.scheduledAt) : null;\n    if (scheduleDate && (!Number.isFinite(scheduleDate.getTime()) || scheduleDate <= new Date())) {\n      const error = new Error('Scheduled publishing time must be in the future');\n      error.statusCode = 400;\n      error.code = 'INVALID_SCHEDULE_TIME';\n      throw error;\n    }\n    post.scheduledAt = scheduleDate;\n    post.status = scheduleDate ? 'scheduled' : 'published';\n    post.publishedAt = scheduleDate ? null : new Date();\n  }\n\n  for (const field of ['seoTitle', 'seoDescription', 'canonicalUrl', 'noIndex']) {
     if (updateData[field] !== undefined) post[field] = updateData[field];
   }
 
