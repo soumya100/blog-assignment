@@ -162,6 +162,10 @@ const updatePost = async (postId, updateData, user, req) => {
     excerpt: post.excerpt,
     tags: post.tags,
     coverImage: post.coverImage,
+    seoTitle: post.seoTitle,
+    seoDescription: post.seoDescription,
+    canonicalUrl: post.canonicalUrl,
+    noIndex: post.noIndex,
     versionNumber: (latestVersion?.versionNumber || 0) + 1,
   });
 
