@@ -20,6 +20,9 @@ import {
   useDeleteComment,
   useDeletePost,
   useUpdateComment,
+  useSavedPostStatus,
+  useSavePost,
+  useRemoveSavedPost,
 } from '../hooks/useBlogApi';
 import CommentItem from '../components/CommentItem';
 import SEO from '../components/SEO';
@@ -39,6 +42,7 @@ import {
   Lock,
   MessageSquare,
   AlertCircle,
+  Bookmark,
 } from 'lucide-react';
 
 const getHeadingId = (value) => value.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-');
@@ -69,6 +73,14 @@ const PostDetails = () => {
   const deleteCommentMutation = useDeleteComment(post?._id);
   const updateCommentMutation = useUpdateComment(post?._id);
   const deletePostMutation = useDeletePost();
+  const { data: isSaved = false } = useSavedPostStatus(post?._id, isAuthenticated);
+  const savePostMutation = useSavePost();
+  const removeSavedPostMutation = useRemoveSavedPost();
+  const isSavingPost = savePostMutation.isPending || removeSavedPostMutation.isPending;
+  const handleSaveToggle = () => {
+    if (!post?._id || isSavingPost) return;
+    (isSaved ? removeSavedPostMutation : savePostMutation).mutate(post._id);
+  };
 
   // Edit Comment state
   const [editingCommentId, setEditingCommentId] = useState(null);
@@ -374,6 +386,12 @@ const PostDetails = () => {
 
           {/* Action buttons */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {isAuthenticated && (
+              <button onClick={handleSaveToggle} className="btn btn-secondary btn-sm" disabled={isSavingPost} aria-pressed={isSaved} title={isSaved ? 'Remove from saved articles' : 'Save article'}>
+                <Bookmark size={14} fill={isSaved ? 'currentColor' : 'none'} />
+                {isSavingPost ? 'Saving...' : isSaved ? 'Saved' : 'Save'}
+              </button>
+            )}
             <button
               onClick={handleShare}
               className="btn btn-secondary btn-sm"
