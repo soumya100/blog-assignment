@@ -249,7 +249,7 @@ const CreateEditPost = () => {
 
           <div className="form-group">
             <label className="form-label" htmlFor="article-scheduled-at">Publish date and time (optional)</label>
-            <input id="article-scheduled-at" type="datetime-local" className="form-input" min={new Date(Date.now() + 60000).toISOString().slice(0, 16)} {...register('scheduledAt')} />
+            <input id="article-scheduled-at" type="datetime-local" className="form-input" min={new Date(Date.now() + 60000 - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)} {...register('scheduledAt')} />
             <span className="field-hint">Leave empty to publish immediately. Scheduled articles remain private until their publication time.</span>
           </div>
 
