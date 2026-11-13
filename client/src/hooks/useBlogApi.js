@@ -51,6 +51,36 @@ export function useDeletePost(options = {}) {
   });
 }
 
+export function useSavedPostStatus(postId, enabled = true) {
+  return useApiQuery(queryKeys.savedPosts.status(postId), '/saved-posts/status/' + postId, {
+    enabled: Boolean(postId) && enabled,
+    select: (res) => Boolean(res.data?.isSaved),
+  });
+}
+
+export function useSavedPosts(options = {}) {
+  return useApiQuery(queryKeys.savedPosts.all, '/saved-posts', {
+    select: (res) => res.data || [],
+    ...options,
+  });
+}
+
+export function useSavePost(options = {}) {
+  return useApiMutation((postId) => apiClient.post('/saved-posts/' + postId), {
+    invalidateKeys: [queryKeys.savedPosts.all],
+    successToast: 'Article saved to your reading list',
+    ...options,
+  });
+}
+
+export function useRemoveSavedPost(options = {}) {
+  return useApiMutation((postId) => apiClient.delete('/saved-posts/' + postId), {
+    invalidateKeys: [queryKeys.savedPosts.all],
+    successToast: 'Article removed from your reading list',
+    ...options,
+  });
+}
+
 export function useRestorePost(options = {}) {
   return useApiMutation((postId) => apiClient.post(`/posts/${postId}/restore`), {
     invalidateKeys: [queryKeys.posts.all, queryKeys.admin.posts(), queryKeys.admin.stats()],
