@@ -220,7 +220,7 @@ const updatePost = async (postId, updateData, user, req) => {
     post.publishedAt = scheduleDate ? null : new Date();
   }
 
-\n  for (const field of ['seoTitle', 'seoDescription', 'canonicalUrl', 'noIndex']) {
+  for (const field of ['seoTitle', 'seoDescription', 'canonicalUrl', 'noIndex']) {
     if (updateData[field] !== undefined) post[field] = updateData[field];
   }
 
