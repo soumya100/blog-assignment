@@ -10,6 +10,7 @@ const env = {
   PORT: parseInt(process.env.PORT || '5000', 10),
   CLIENT_URL: process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:5173',
   BACKEND_URL: process.env.BACKEND_URL || process.env.RENDER_EXTERNAL_URL || '',
+  UPLOAD_DIR: process.env.UPLOAD_DIR || path.resolve(__dirname, '../../uploads'),
   MONGODB_URI: process.env.MONGODB_URI || '',
 
   // Optional Upstash Redis REST cache (fail-open when not configured/unavailable)
