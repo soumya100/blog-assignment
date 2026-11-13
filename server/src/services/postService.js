@@ -50,7 +50,7 @@ const createPost = async ({ title, content, excerpt, tags = [], coverImage = '',
 
     // Real-time notification if socket instance exists
     const io = req.app.get('io');
-    if (io) {
+    if (io && post.status === 'published') {
       io.emit('new_post', {
         id: post._id,
         title: post.title,
