@@ -72,6 +72,7 @@ const getPosts = async ({ page = 1, limit = 10, search, tag, author, includeDele
 
   if (!includeDeleted) {
     filter.isDeleted = false;
+    filter.status = 'published';
   }
 
   if (tag) {
@@ -124,6 +125,9 @@ const getPostBySlugOrId = async (identifier, includeDeleted = false, user = null
 
   if (!includeDeleted) {
     query.isDeleted = false;
+    query.$or = user
+      ? [{ status: 'published' }, { status: 'scheduled', author: user._id }]
+      : [{ status: 'published' }];
   }
 
   const post = await Post.findOne(query)
@@ -201,6 +205,19 @@ const updatePost = async (postId, updateData, user, req) => {
 
   if (updateData.coverImage !== undefined) {
     post.coverImage = updateData.coverImage;
+  }
+
+  if (updateData.scheduledAt !== undefined) {
+    const scheduleDate = updateData.scheduledAt ? new Date(updateData.scheduledAt) : null;
+    if (scheduleDate && (!Number.isFinite(scheduleDate.getTime()) || scheduleDate <= new Date())) {
+      const error = new Error('Scheduled publishing time must be in the future');
+      error.statusCode = 400;
+      error.code = 'INVALID_SCHEDULE_TIME';
+      throw error;
+    }
+    post.scheduledAt = scheduleDate;
+    post.status = scheduleDate ? 'scheduled' : 'published';
+    post.publishedAt = scheduleDate ? null : new Date();
   }
 
   if (updateData.scheduledAt !== undefined) {\n    const scheduleDate = updateData.scheduledAt ? new Date(updateData.scheduledAt) : null;\n    if (scheduleDate && (!Number.isFinite(scheduleDate.getTime()) || scheduleDate <= new Date())) {\n      const error = new Error('Scheduled publishing time must be in the future');\n      error.statusCode = 400;\n      error.code = 'INVALID_SCHEDULE_TIME';\n      throw error;\n    }\n    post.scheduledAt = scheduleDate;\n    post.status = scheduleDate ? 'scheduled' : 'published';\n    post.publishedAt = scheduleDate ? null : new Date();\n  }\n\n  for (const field of ['seoTitle', 'seoDescription', 'canonicalUrl', 'noIndex']) {
