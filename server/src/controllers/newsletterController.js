@@ -27,8 +27,9 @@ const subscribe = async (req, res, next) => {
     );
     const base = (env.CLIENT_URL || '').split(',')[0].trim().replace(/\/$/, '');
     const confirmUrl = `${base}/newsletter/confirm?token=${confirmationToken}`;
+    const unsubscribeUrl = `${base}/newsletter/unsubscribe?token=${unsubscribeToken}`;
     try {
-      await sendEmail({ to: email, subject: 'Confirm your DevLog newsletter subscription', text: `Confirm your subscription: ${confirmUrl}`, html: `<p>Confirm your DevLog newsletter subscription:</p><p><a href="${confirmUrl}">Confirm subscription</a></p><p>If you did not request this, ignore this email.</p>` });
+      await sendEmail({ to: email, subject: 'Confirm your DevLog newsletter subscription', text: `Confirm your subscription: ${confirmUrl}\n\nTo unsubscribe later: ${unsubscribeUrl}`, html: `<p>Confirm your DevLog newsletter subscription:</p><p><a href="${confirmUrl}">Confirm subscription</a></p><p>If you did not request this, ignore this email.</p><p><a href="${unsubscribeUrl}">Unsubscribe</a></p>` });
     } catch (error) {
       await NewsletterSubscriber.deleteOne({ email, confirmationTokenHash: hashToken(confirmationToken) });
       throw error;
