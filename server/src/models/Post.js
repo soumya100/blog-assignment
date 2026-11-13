@@ -44,6 +44,10 @@ const postSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    seoTitle: { type: String, trim: true, maxlength: 70, default: '' },
+    seoDescription: { type: String, trim: true, maxlength: 160, default: '' },
+    canonicalUrl: { type: String, trim: true, maxlength: 500, default: '' },
+    noIndex: { type: Boolean, default: false },
     isDeleted: {
       type: Boolean,
       default: false,
