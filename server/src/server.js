@@ -6,6 +6,7 @@ const { connectDB, disconnectDB } = require('./config/database');
 const logger = require('./utils/logger');
 const User = require('./models/User');
 const { ROLES, USER_STATUS } = require('./constants/roles');
+const { startScheduler, stopScheduler } = require('./services/scheduledPublishingService');
 
 const configuredOrigins = (env.CLIENT_URL || '')
   .split(',')
@@ -218,6 +219,7 @@ const startServer = async () => {
   try {
     await connectDB();
     await ensureInitialData();
+    startScheduler();
 
     server.listen(env.PORT, () => {
       logger.info(`DevLog API Server running in ${env.NODE_ENV} mode on port ${env.PORT}`);
@@ -238,6 +240,7 @@ const handleShutdown = async (signal) => {
     process.exit(1);
   }
   isShuttingDown = true;
+  stopScheduler();
   logger.info(`Received ${signal}. Starting graceful shutdown...`);
 
   // Failsafe: Force termination if teardown exceeds 10 seconds
