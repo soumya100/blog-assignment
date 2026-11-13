@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Draft = require('../models/Draft');
+const User = require('../models/User');
 const postService = require('../services/postService');
 const { successResponse } = require('../utils/apiResponse');
 
@@ -12,7 +13,7 @@ const invalidId = () => {
 
 const listDrafts = async (req, res, next) => {
   try {
-    const drafts = await Draft.find({ author: req.user._id }).sort({ updatedAt: -1 }).lean();
+    const drafts = await Draft.find({ $or: [{ author: req.user._id }, { collaborators: req.user._id }] }).sort({ updatedAt: -1 }).lean();
     return successResponse(res, 200, 'Drafts retrieved successfully', drafts);
   } catch (err) { next(err); }
 };
@@ -20,7 +21,7 @@ const listDrafts = async (req, res, next) => {
 const getDraft = async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) throw invalidId();
-    const draft = await Draft.findOne({ _id: req.params.id, author: req.user._id }).lean();
+    const draft = await Draft.findOne({ _id: req.params.id, $or: [{ author: req.user._id }, { collaborators: req.user._id }] }).populate('author', 'username avatar').populate('collaborators', 'username avatar').lean();
     if (!draft) {
       const error = new Error('Draft not found');
       error.statusCode = 404;
@@ -71,8 +72,8 @@ const updateDraft = async (req, res, next) => {
       }
     }
     const draft = await Draft.findOneAndUpdate(
-      { _id: req.params.id, author: req.user._id },
-      { $set: updates },
+      { _id: req.params.id, $or: [{ author: req.user._id }, { collaborators: req.user._id }] },
+      { $set: updates, $inc: { revision: 1 } },
       { new: true, runValidators: true }
     );
     if (!draft) {
@@ -129,4 +130,56 @@ const deleteDraft = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { listDrafts, getDraft, saveDraft, updateDraft, publishDraft, deleteDraft };
+
+const addCollaborator = async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) throw invalidId();
+    const username = String(req.body?.username || '').trim().toLowerCase();
+    if (!/^[a-zA-Z0-9_]{3,30}$/.test(username)) {
+      const error = new Error('Enter a valid username');
+      error.statusCode = 400;
+      throw error;
+    }
+    const draft = await Draft.findOne({ _id: req.params.id, author: req.user._id });
+    if (!draft) {
+      const error = new Error('Only the draft owner can manage collaborators');
+      error.statusCode = 404;
+      throw error;
+    }
+    const collaborator = await User.findOne({ username, status: 'active' }).select('_id username');
+    if (!collaborator) {
+      const error = new Error('Active user not found');
+      error.statusCode = 404;
+      throw error;
+    }
+    if (collaborator._id.equals(req.user._id)) {
+      const error = new Error('The owner is already a collaborator');
+      error.statusCode = 400;
+      throw error;
+    }
+    if (!draft.collaborators.some((id) => id.equals(collaborator._id))) {
+      draft.collaborators.push(collaborator._id);
+      await draft.save();
+    }
+    return successResponse(res, 200, 'Collaborator added', { username: collaborator.username, revision: draft.revision });
+  } catch (error) { next(error); }
+};
+
+const removeCollaborator = async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id) || !mongoose.isValidObjectId(req.params.userId)) throw invalidId();
+    const draft = await Draft.findOneAndUpdate(
+      { _id: req.params.id, author: req.user._id },
+      { $pull: { collaborators: req.params.userId }, $inc: { revision: 1 } },
+      { new: true }
+    );
+    if (!draft) {
+      const error = new Error('Draft not found or you are not its owner');
+      error.statusCode = 404;
+      throw error;
+    }
+    return successResponse(res, 200, 'Collaborator removed');
+  } catch (error) { next(error); }
+};
+
+module.exports = { listDrafts, getDraft, saveDraft, updateDraft, publishDraft, deleteDraft, addCollaborator, removeCollaborator };
