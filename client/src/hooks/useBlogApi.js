@@ -97,6 +97,22 @@ export function useDeleteDraft(options = {}) {
   });
 }
 
+export function useReadingHistory(options = {}) {
+  return useApiQuery(queryKeys.readingHistory.all, '/reading-history', {
+    params: { limit: 20 },
+    select: (res) => res.data || [],
+    ...options,
+  });
+}
+
+export function useClearReadingHistory(options = {}) {
+  return useApiMutation(() => apiClient.delete('/reading-history'), {
+    invalidateKeys: [queryKeys.readingHistory.all],
+    successToast: 'Reading history cleared',
+    ...options,
+  });
+}
+
 export function useSavedPostStatus(postId, enabled = true) {
   return useApiQuery(queryKeys.savedPosts.status(postId), '/saved-posts/status/' + postId, {
     enabled: Boolean(postId) && enabled,
