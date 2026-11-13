@@ -15,7 +15,7 @@ const toggleReaction = async (req, res, next) => {
     const { postId } = req.params;
     const type = req.body?.type === 'clap' ? 'clap' : 'like';
     if (!mongoose.isValidObjectId(postId)) throw fail(400, 'Invalid article identifier', 'INVALID_POST_ID');
-    const post = await Post.findOne({ _id: postId, isDeleted: false }).select('_id');
+    const post = await Post.findOne({ _id: postId, isDeleted: false, status: 'published' }).select('_id');
     if (!post) throw fail(404, 'Article not found', 'POST_NOT_FOUND');
     const existing = await PostReaction.findOne({ post: postId, user: req.user._id });
     let reacted = true;
@@ -57,7 +57,7 @@ const getFollowingFeed = async (req, res, next) => {
     const follows = await AuthorFollow.find({ follower: req.user._id }).select('author').lean();
     const authorIds = follows.map((item) => item.author);
     const limit = Math.min(30, Math.max(1, Number(req.query.limit) || 20));
-    const posts = authorIds.length ? await Post.find({ author: { $in: authorIds }, isDeleted: false })
+    const posts = authorIds.length ? await Post.find({ author: { $in: authorIds }, isDeleted: false, status: 'published' })
       .sort({ createdAt: -1 }).limit(limit)
       .populate('author', 'username avatar bio').lean() : [];
     return successResponse(res, 200, 'Following feed retrieved', posts);
@@ -87,7 +87,7 @@ const reportContent = async (req, res, next) => {
 const getTrending = async (req, res, next) => {
   try {
     const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const posts = await Post.find({ isDeleted: false, createdAt: { $gte: since } })
+    const posts = await Post.find({ isDeleted: false, status: 'published', createdAt: { $gte: since } })
       .sort({ createdAt: -1 }).limit(Math.min(20, Math.max(1, Number(req.query.limit) || 10)))
       .populate('author', 'username avatar').lean();
     const ids = posts.map((post) => post._id);
