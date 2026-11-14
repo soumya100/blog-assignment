@@ -8,6 +8,8 @@ const ReadingHistory = require('../../src/models/ReadingHistory');
 const { recordReading, getReadingHistory } = require('../../src/services/readingHistoryService');
 const savedPostController = require('../../src/controllers/savedPostController');
 const authService = require('../../src/services/authService');
+const env = require('../../src/config/env');
+const { uploadImage } = require('../../src/controllers/uploadController');
 
 const serverRoot = path.resolve(__dirname, '../..');
 
@@ -23,6 +25,9 @@ const runNode = (script, overrides = {}) => spawnSync(process.execPath, ['-e', s
     COOKIE_SECRET: 'production-cookie-secret-0123456789-ABCDEFG',
     MONGODB_URI: '',
     UPLOAD_DIR: '/var/data/uploads',
+    CLOUDINARY_CLOUD_NAME: 'test-cloud',
+    CLOUDINARY_API_KEY: 'test-api-key',
+    CLOUDINARY_API_SECRET: 'test-api-secret',
     ...overrides,
   },
 });
@@ -63,14 +68,14 @@ describe('production security regression guards', () => {
     expect(result.stderr).not.toContain('dev_secret_access_key');
   });
 
-  it('rejects production startup without an explicit absolute upload storage path', () => {
+  it('rejects production startup without Cloudinary persistent image storage credentials', () => {
     const result = runNode(
       "const env = require('./src/config/env'); env.validateProductionConfig();",
-      { UPLOAD_DIR: '' }
+      { CLOUDINARY_CLOUD_NAME: '', CLOUDINARY_API_KEY: '', CLOUDINARY_API_SECRET: '' }
     );
 
     expect(result.status).not.toBe(0);
-    expect(result.stderr).toContain('UPLOAD_DIR');
+    expect(result.stderr).toContain('CLOUDINARY_CLOUD_NAME');
   });
 
   it('requires explicit administrator credentials for the production provisioning command', () => {
@@ -126,6 +131,70 @@ describe('production security regression guards', () => {
 
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('MONGODB_URI is required in production');
+  });
+});
+
+
+describe('production image storage', () => {
+  const originalEnv = {
+    NODE_ENV: env.NODE_ENV,
+    CLOUDINARY_CLOUD_NAME: env.CLOUDINARY_CLOUD_NAME,
+    CLOUDINARY_API_KEY: env.CLOUDINARY_API_KEY,
+    CLOUDINARY_API_SECRET: env.CLOUDINARY_API_SECRET,
+  };
+
+  afterEach(() => {
+    Object.assign(env, originalEnv);
+    vi.unstubAllGlobals();
+  });
+
+  it('uploads validated image bytes to Cloudinary and returns its HTTPS CDN URL', async () => {
+    Object.assign(env, {
+      NODE_ENV: 'production',
+      CLOUDINARY_CLOUD_NAME: 'test-cloud',
+      CLOUDINARY_API_KEY: 'test-api-key',
+      CLOUDINARY_API_SECRET: 'test-api-secret',
+    });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ secure_url: 'https://res.cloudinary.com/test-cloud/image/upload/v1/blog-platform/test.png' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const png = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]).toString('base64');
+    const req = { body: { dataUrl: `data:image/png;base64,${png}` } };
+    const res = makeResponse();
+
+    await uploadImage(req, res, (error) => { throw error; });
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock.mock.calls[0][0]).toBe('https://api.cloudinary.com/v1_1/test-cloud/image/upload');
+    expect(fetchMock.mock.calls[0][1].headers.Authorization).toMatch(/^Basic /);
+    expect(res.statusCode).toBe(201);
+    expect(res.body.data.url).toBe('https://res.cloudinary.com/test-cloud/image/upload/v1/blog-platform/test.png');
+  });
+
+  it('fails closed when Cloudinary rejects an upload and never writes to local disk', async () => {
+    Object.assign(env, {
+      NODE_ENV: 'production',
+      CLOUDINARY_CLOUD_NAME: 'test-cloud',
+      CLOUDINARY_API_KEY: 'test-api-key',
+      CLOUDINARY_API_SECRET: 'test-api-secret',
+    });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      json: async () => ({ error: { message: 'provider internal detail' } }),
+    }));
+
+    const png = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]).toString('base64');
+    const req = { body: { dataUrl: `data:image/png;base64,${png}` } };
+    const res = makeResponse();
+
+    await uploadImage(req, res, (error) => { throw error; });
+
+    expect(res.statusCode).toBe(502);
+    expect(res.body.message).toBe('Image storage provider rejected the upload');
+    expect(JSON.stringify(res.body)).not.toContain('provider internal detail');
   });
 });
 
