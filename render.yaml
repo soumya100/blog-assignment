@@ -23,9 +23,11 @@ services:
       - key: JWT_REFRESH_EXPIRES_IN
         value: 7d
       # Set these in the Render Dashboard under Environment:
-      # UPLOAD_DIR: /var/data/uploads (requires a paid persistent disk or external persistent storage)
-      # Free web services cannot attach persistent disks; their local filesystem is ephemeral.
-      # Do not treat /var/data/uploads as persistent unless a disk is mounted there.
+      # Free persistent image storage is provided by Cloudinary; configure these backend secrets:
+      # CLOUDINARY_CLOUD_NAME: (Cloudinary product environment name)
+      # CLOUDINARY_API_KEY: (Cloudinary API key)
+      # CLOUDINARY_API_SECRET: (Cloudinary API secret; keep server-side only)
+      # Cloudinary free plan includes 25 monthly credits shared across storage, transformations and bandwidth.
       # MONGODB_URI: (MongoDB Atlas Connection URI)
       # JWT_ACCESS_SECRET: (Min 32 characters)
       # JWT_REFRESH_SECRET: (Min 32 characters)
