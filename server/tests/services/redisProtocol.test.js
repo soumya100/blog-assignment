@@ -1,4 +1,4 @@
-const { describe, expect, it } = require('vitest');
+import { describe, expect, it } from 'vitest';
 const { encodeCommand, parseReply } = require('../../src/services/redisProtocol');
 
 describe('Redis RESP protocol helpers', () => {
