@@ -35,6 +35,46 @@ const uploadImage = async (req, res, next) => {
     if (!signatures[mimeType]) return res.status(415).json({ success: false, message: 'Image content does not match its declared format' });
     const extension = MIME_EXTENSIONS[mimeType];
     const filename = `${crypto.randomBytes(18).toString('hex')}${extension}`;
+
+    if (env.NODE_ENV === 'production') {
+      if (!env.CLOUDINARY_CLOUD_NAME || !env.CLOUDINARY_API_KEY || !env.CLOUDINARY_API_SECRET) {
+        return res.status(503).json({ success: false, message: 'Image storage is not configured' });
+      }
+
+      const form = new FormData();
+      form.append('file', new Blob([buffer], { type: mimeType }), filename);
+      form.append('public_id', filename.replace(/\\.[^.]+$/, ''));
+      form.append('folder', 'blog-platform');
+      form.append('overwrite', 'false');
+
+      const credentials = Buffer.from(`${env.CLOUDINARY_API_KEY}:${env.CLOUDINARY_API_SECRET}`).toString('base64');
+      const uploadUrl = `https://api.cloudinary.com/v1_1/${env.CLOUDINARY_CLOUD_NAME}/image/upload`;
+      const response = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: { Authorization: `Basic ${credentials}` },
+        body: form,
+        signal: AbortSignal.timeout(15000),
+      });
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || typeof payload?.secure_url !== 'string') {
+        // Never return provider response details or credentials to the caller.
+        return res.status(502).json({ success: false, message: 'Image storage provider rejected the upload' });
+      }
+
+      const assetUrl = new URL(payload.secure_url);
+      if (assetUrl.protocol !== 'https:' || assetUrl.hostname !== 'res.cloudinary.com') {
+        return res.status(502).json({ success: false, message: 'Image storage returned an invalid asset URL' });
+      }
+
+      return res.status(201).json({
+        success: true,
+        message: 'Image uploaded',
+        data: { url: assetUrl.toString(), mimeType, size: buffer.length },
+      });
+    }
+
+    // Local filesystem storage is retained for development and automated tests only.
     const uploadDirectory = path.resolve(env.UPLOAD_DIR);
     await fs.mkdir(uploadDirectory, { recursive: true, mode: 0o750 });
     await fs.writeFile(path.join(uploadDirectory, filename), buffer, { flag: 'wx', mode: 0o640 });
