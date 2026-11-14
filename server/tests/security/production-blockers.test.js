@@ -150,6 +150,42 @@ describe('unpublished post visibility in reader features', () => {
     expect(res.body.data).toEqual([]);
   });
 
+  it('blocks linking an existing account using an unverified Facebook email', async () => {
+    const admin = await User.create({
+      username: `admin_${unique()}`,
+      email: `admin_${unique()}@example.test`,
+      password: 'TestPassword123!',
+      role: 'ADMIN',
+    });
+
+    await expect(authService.oauthLogin({
+      provider: 'facebook',
+      email: admin.email,
+      name: 'Untrusted Provider',
+      providerId: `facebook_${unique()}`,
+      emailVerified: false,
+    })).rejects.toMatchObject({ statusCode: 409, code: 'OAUTH_EMAIL_NOT_VERIFIED' });
+
+    const unchangedAdmin = await User.findById(admin._id);
+    expect(unchangedAdmin.role).toBe('ADMIN');
+    expect(unchangedAdmin.facebookId).toBeUndefined();
+  });
+
+  it('allows account linking only when Google explicitly verifies the email', async () => {
+    const user = await createUser(unique());
+    const result = await authService.oauthLogin({
+      provider: 'google',
+      email: user.email,
+      name: 'Verified Google User',
+      providerId: `google_${unique()}`,
+      emailVerified: true,
+    });
+
+    const linked = await User.findById(user._id);
+    expect(linked.googleId).toBeTruthy();
+    expect(result.user._id.toString()).toBe(user._id.toString());
+  });
+
   it('preserves access to an author\'s own scheduled article and to published articles', async () => {
     const author = await createUser(unique());
     const reader = await createUser(unique());
