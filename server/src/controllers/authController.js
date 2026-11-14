@@ -510,6 +510,7 @@ const googleCallback = async (req, res, next) => {
       name: profile.name || profile.given_name || 'Google User',
       avatar: profile.picture || '',
       providerId: profile.sub,
+      emailVerified: profile.email_verified === true,
       req,
     });
 
@@ -652,6 +653,8 @@ const facebookCallback = async (req, res, next) => {
       name: profile.name || 'Facebook User',
       avatar: avatarUrl,
       providerId: profile.id,
+      // Facebook does not return a separate email_verified claim; do not link by email alone.
+      emailVerified: false,
       req,
     });
 
