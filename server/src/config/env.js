@@ -56,7 +56,7 @@ const env = {
   // Admin bootstrap credentials are used only by explicit non-production seed workflows.
   ADMIN_EMAIL: process.env.ADMIN_EMAIL || (isProduction ? '' : 'admin@blogplatform.dev'),
   ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || (isProduction ? '' : 'AdminSecurePass123!'),
-  ADMIN_USERNAME: process.env.ADMIN_USERNAME || 'systemadmin',
+  ADMIN_USERNAME: process.env.ADMIN_USERNAME || (isProduction ? '' : 'systemadmin'),
 
   // SMTP / Gmail Email Configuration
   SMTP_HOST: process.env.SMTP_HOST || process.env.MAIL_HOST || process.env.EMAIL_HOST || '',
