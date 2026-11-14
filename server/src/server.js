@@ -344,4 +344,4 @@ if (require.main === module) {
   startServer();
 }
 
-module.exports = { server, app };
+module.exports = { server, app, ensureInitialData };
