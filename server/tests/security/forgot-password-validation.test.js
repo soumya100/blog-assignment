@@ -20,7 +20,7 @@ describe('POST /auth/forgot-password validation', () => {
     expect(response.status).toBe(400);
     expect(response.body).toMatchObject({
       success: false,
-      code: 'VALIDATION_ERROR',
+      error: { code: 'VALIDATION_ERROR' },
     });
   });
 });
