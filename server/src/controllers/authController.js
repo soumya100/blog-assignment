@@ -641,15 +641,17 @@ const facebookCallback = async (req, res, next) => {
       return res.redirect(`${targetClientUrl}/oauth/callback?error=FACEBOOK_PROFILE_FAILED`);
     }
 
-    if (!profile.email) {
-      profile.email = `facebook_${profile.id}@devlog-user.internal`;
-    }
+    // Meta's Graph profile exposes a primary email field but no email_verified claim.
+    // Do not use that address for account creation/linking without separate verification.
+    const facebookEmail = profile.email_verified === true && profile.email
+      ? profile.email
+      : `facebook_${profile.id}@devlog-user.internal`;
 
     const avatarUrl = profile.picture?.data?.url || '';
 
     const result = await authService.oauthLogin({
       provider: 'facebook',
-      email: profile.email,
+      email: facebookEmail,
       name: profile.name || 'Facebook User',
       avatar: avatarUrl,
       providerId: profile.id,
