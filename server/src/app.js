@@ -28,7 +28,9 @@ app.use(
 );
 
 // Serve user uploads with the same security headers as API responses.
-app.use('/uploads', express.static(env.UPLOAD_DIR, { fallthrough: false, index: false, maxAge: '7d', immutable: true }));
+if (env.NODE_ENV !== 'production') {
+  app.use('/uploads', express.static(env.UPLOAD_DIR, { fallthrough: false, index: false, maxAge: '7d', immutable: true }));
+}
 
 // CORS setup
 const configuredOrigins = (env.CLIENT_URL || '')
