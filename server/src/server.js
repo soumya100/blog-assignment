@@ -151,7 +151,7 @@ const ensureInitialData = async () => {
         status: USER_STATUS.ACTIVE,
         bio: 'Senior Platform Administrator & Security Operations Lead.',
       });
-      logger.info(`Default admin created: ${env.ADMIN_EMAIL} / ${env.ADMIN_PASSWORD}`);
+      logger.info(`Default admin created: ${env.ADMIN_EMAIL}`);
     }
 
     // Seed sample users and posts if empty
