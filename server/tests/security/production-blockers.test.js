@@ -23,6 +23,7 @@ const runNode = (script, overrides = {}) => spawnSync(process.execPath, ['-e', s
     JWT_REFRESH_SECRET: 'production-refresh-secret-0123456789-ABCDEFG',
     COOKIE_SECRET: 'production-cookie-secret-0123456789-ABCDEFG',
     MONGODB_URI: '',
+    UPLOAD_DIR: '/var/data/uploads',
     ...overrides,
   },
 });
@@ -61,6 +62,26 @@ describe('production security regression guards', () => {
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain('JWT_ACCESS_SECRET');
     expect(result.stderr).not.toContain('dev_secret_access_key');
+  });
+
+  it('rejects production startup without an explicit absolute upload storage path', () => {
+    const result = runNode(
+      "const env = require('./src/config/env'); env.validateProductionConfig();",
+      { UPLOAD_DIR: '' }
+    );
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('UPLOAD_DIR');
+  });
+
+  it('requires explicit administrator credentials for the production provisioning command', () => {
+    const result = runNode(
+      "require('./src/scripts/provisionAdmin')().then(() => process.exit(2)).catch((error) => { console.log(error.message); process.exit(error.message.includes('ADMIN_EMAIL') ? 0 : 3); });",
+      { ADMIN_EMAIL: '', ADMIN_USERNAME: '', ADMIN_PASSWORD: '' }
+    );
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('ADMIN_EMAIL');
   });
 
   it('does not register the development OAuth endpoint in production', () => {
