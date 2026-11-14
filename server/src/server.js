@@ -132,6 +132,9 @@ io.on('connection', (socket) => {
 
 // Seed default initial accounts and sample data if empty
 const ensureInitialData = async () => {
+  // Production accounts and content must be provisioned explicitly; never seed known credentials.
+  if (env.NODE_ENV === 'production') return;
+
   try {
     const Post = require('./models/Post');
     const Comment = require('./models/Comment');
@@ -148,7 +151,7 @@ const ensureInitialData = async () => {
         status: USER_STATUS.ACTIVE,
         bio: 'Senior Platform Administrator & Security Operations Lead.',
       });
-      logger.info(`Default admin created: ${env.ADMIN_EMAIL} / ${env.ADMIN_PASSWORD}`);
+      logger.info(`Default admin created: ${env.ADMIN_EMAIL}`);
     }
 
     // Seed sample users and posts if empty
@@ -341,4 +344,4 @@ if (require.main === module) {
   startServer();
 }
 
-module.exports = { server, app };
+module.exports = { server, app, ensureInitialData };

@@ -2,6 +2,11 @@ const mongoose = require('mongoose');
 const ReadingHistory = require('../models/ReadingHistory');
 const Post = require('../models/Post');
 
+const visiblePostFilter = (userId) => ({
+  isDeleted: false,
+  $or: [{ status: 'published' }, { author: userId }],
+});
+
 const recordReading = async (userId, postId, { progress, secondsRead = 0 } = {}) => {
   if (!mongoose.isValidObjectId(postId)) {
     const error = new Error('Invalid article identifier');
@@ -10,7 +15,7 @@ const recordReading = async (userId, postId, { progress, secondsRead = 0 } = {})
     throw error;
   }
 
-  const postExists = await Post.exists({ _id: postId, isDeleted: false });
+  const postExists = await Post.exists({ _id: postId, ...visiblePostFilter(userId) });
   if (!postExists) {
     const error = new Error('Article not found');
     error.statusCode = 404;
@@ -32,7 +37,12 @@ const recordReading = async (userId, postId, { progress, secondsRead = 0 } = {})
 const getReadingHistory = async (userId, limit = 10) => ReadingHistory.find({ user: userId })
   .sort({ lastReadAt: -1 })
   .limit(Math.min(50, Math.max(1, Number(limit) || 10)))
-  .populate({ path: 'post', match: { isDeleted: false }, select: 'title slug excerpt coverImage content tags author createdAt', populate: { path: 'author', select: 'username avatar' } })
+  .populate({
+    path: 'post',
+    match: visiblePostFilter(userId),
+    select: 'title slug excerpt coverImage content tags author createdAt status',
+    populate: { path: 'author', select: 'username avatar' },
+  })
   .lean();
 
 const clearReadingHistory = async (userId) => ReadingHistory.deleteMany({ user: userId });

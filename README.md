@@ -647,3 +647,51 @@ The publishing platform supports scheduled articles, server-backed image uploads
 - Series and collections: `/api/v1/library`
 - Import/export: `/api/v1/posts/import` and `GET /api/v1/posts/export`
 - AI assistant: `POST /api/v1/ai/assist`
+
+---
+
+## Production bootstrap and persistent uploads
+
+Production startup now requires explicitly configured, independent values for `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, and `COOKIE_SECRET`, plus `MONGODB_URI` and Cloudinary credentials (`CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`). Development fallback secrets and the in-memory database are not available in production.
+
+### Provision the first administrator
+
+The application no longer creates a default administrator or sample accounts during production startup. The destructive sample seed command is disabled in production.
+
+After configuring the production environment, provision the first administrator explicitly from the backend directory:
+
+```bash
+cd server
+npm run admin:provision
+```
+
+Set `ADMIN_EMAIL`, `ADMIN_USERNAME`, and `ADMIN_PASSWORD` only in the backend environment. The password must be at least 16 characters and include uppercase, lowercase, numeric, and special characters. The command refuses to run if an administrator already exists and never prints the password.
+
+### Free persistent image storage with Cloudinary
+
+Render Free web services have an ephemeral filesystem. The application therefore uses Cloudinary's free Image Upload API in production; it keeps image files outside the Render container and returns HTTPS CDN URLs. Local filesystem uploads remain available only for development and tests.
+
+1. Create a free Cloudinary account: https://cloudinary.com/users/register/free
+2. In the Cloudinary Console, open **Dashboard** and copy the Cloud name, API Key, and API Secret.
+3. Add these backend-only variables to the Render Web Service environment:
+
+```env
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+```
+
+4. Keep the API secret private. Never add these values to `client/.env`, `VITE_*` variables, source control, or frontend code.
+5. Redeploy the backend after configuring the variables.
+
+The backend continues to validate file signatures, restrict formats to JPEG/PNG/WebP/GIF, enforce the 5 MB limit, and use authenticated server-to-provider uploads. It does not fall back to local disk if Cloudinary is unavailable.
+
+**Free-tier limit:** Cloudinary currently includes 25 monthly credits shared across transformations, storage, and image bandwidth. Monitor usage in Cloudinary Console → Settings → Billing. This is free while usage stays within the included allowance; Cloudinary may restrict uploads/delivery if the allowance is exceeded. It is not unlimited storage or bandwidth.
+
+Previously uploaded files stored only on Render's ephemeral filesystem cannot be recovered by this change. If existing database records point to `/uploads/...` paths, re-upload those images or replace their URLs with durable hosted URLs before redeploying.
+
+References:
+- [Cloudinary Free plan and credits](https://cloudinary.com/pricing)
+- [Cloudinary authenticated uploads](https://cloudinary.com/documentation/upload_images)
+- [Render free instance filesystem behavior](https://render.com/docs/faq)
+
