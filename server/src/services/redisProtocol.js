@@ -92,4 +92,4 @@ const executeRedisCommand = (connectionUrl, command, timeoutMs = 1200) => new Pr
   socket.once('end', () => finish(new Error('Redis connection closed before a reply was received')));
 });
 
-module.exports = { executeRedisCommand };
+module.exports = { executeRedisCommand, encodeCommand, parseReply };
