@@ -25,7 +25,8 @@ const env = {
   // Development-only OAuth sandbox. Production never enables this by default.
   ENABLE_DEV_OAUTH: process.env.ENABLE_DEV_OAUTH === 'true',
 
-  // Optional Upstash Redis REST cache (fail-open when not configured/unavailable)
+  // Optional Redis cache: standard Redis/Redis Cloud URL takes precedence over Upstash REST.
+  REDIS_URL: process.env.REDIS_URL || '',
   REDIS_REST_URL: process.env.REDIS_REST_URL || '',
   REDIS_REST_TOKEN: process.env.REDIS_REST_TOKEN || '',
 
