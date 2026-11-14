@@ -1,4 +1,3 @@
-const { describe, it, expect } = require('vitest');
 const { spawnSync } = require('child_process');
 const path = require('path');
 const mongoose = require('mongoose');
@@ -86,7 +85,8 @@ describe('production security regression guards', () => {
 
   it('does not register the development OAuth endpoint in production', () => {
     const result = runNode(
-      "const router = require('./src/routes/authRoutes'); const enabled = router.stack.some((layer) => layer.route && layer.route.path === '/oauth/dev'); process.exit(enabled ? 2 : 0);"
+      "const router = require('./src/routes/authRoutes'); const enabled = router.stack.some((layer) => layer.route && layer.route.path === '/oauth/dev'); process.exit(enabled ? 2 : 0);",
+      { ENABLE_DEV_OAUTH: 'true' }
     );
 
     expect(result.status).toBe(0);
