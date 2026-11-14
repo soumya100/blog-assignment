@@ -200,6 +200,20 @@ describe('unpublished post visibility in reader features', () => {
     expect(unchangedAdmin.facebookId).toBeUndefined();
   });
 
+  it('allows a new Facebook identity without trusting an unverified email address', async () => {
+    const providerId = `facebook_${unique()}`;
+    const result = await authService.oauthLogin({
+      provider: 'facebook',
+      email: `${providerId}@devlog-user.internal`,
+      name: 'Facebook User',
+      providerId,
+      emailVerified: false,
+    });
+
+    expect(result.user.facebookId).toBe(providerId);
+    expect(result.user.email).toBe(`${providerId}@devlog-user.internal`);
+  });
+
   it('allows account linking only when Google explicitly verifies the email', async () => {
     const user = await createUser(unique());
     const result = await authService.oauthLogin({
