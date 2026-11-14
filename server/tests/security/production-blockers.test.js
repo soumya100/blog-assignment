@@ -8,6 +8,7 @@ const SavedPost = require('../../src/models/SavedPost');
 const ReadingHistory = require('../../src/models/ReadingHistory');
 const { recordReading, getReadingHistory } = require('../../src/services/readingHistoryService');
 const savedPostController = require('../../src/controllers/savedPostController');
+const authService = require('../../src/services/authService');
 
 const serverRoot = path.resolve(__dirname, '../..');
 
@@ -77,6 +78,16 @@ describe('production security regression guards', () => {
     );
 
     expect(result.status).toBe(0);
+  });
+
+
+  it('blocks the destructive sample seed script in production', () => {
+    const result = runNode(
+      "require('./src/scripts/seed')().then(() => process.exit(2)).catch((error) => { console.log(error.message); process.exit(error.message.includes('disabled in production') ? 0 : 3); });"
+    );
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('disabled in production');
   });
 
   it('refuses production startup without MONGODB_URI and does not start MongoMemoryServer', () => {
