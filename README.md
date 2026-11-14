@@ -652,7 +652,7 @@ The publishing platform supports scheduled articles, server-backed image uploads
 
 ## Production bootstrap and persistent uploads
 
-Production startup now requires explicitly configured, independent values for `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, and `COOKIE_SECRET`, plus `MONGODB_URI` and an absolute `UPLOAD_DIR`. Development fallback secrets and the in-memory database are not available in production.
+Production startup now requires explicitly configured, independent values for `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, and `COOKIE_SECRET`, plus `MONGODB_URI` and Cloudinary credentials (`CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`). Development fallback secrets and the in-memory database are not available in production.
 
 ### Provision the first administrator
 
@@ -667,17 +667,28 @@ npm run admin:provision
 
 Set `ADMIN_EMAIL`, `ADMIN_USERNAME`, and `ADMIN_PASSWORD` only in the backend environment. The password must be at least 16 characters and include uppercase, lowercase, numeric, and special characters. The command refuses to run if an administrator already exists and never prints the password.
 
-### Render upload persistence
+### Free persistent image storage with Cloudinary
 
-Render web services use an ephemeral filesystem by default. Files written there are lost on redeploys, restarts, and free-service spin-downs. Free web services cannot attach persistent disks.
+Render Free web services have an ephemeral filesystem. The application therefore uses Cloudinary's free Image Upload API in production; it keeps image files outside the Render container and returns HTTPS CDN URLs. Local filesystem uploads remain available only for development and tests.
 
-For a single-instance paid Render backend, attach a persistent disk mounted at `/var/data` and set:
+1. Create a free Cloudinary account: https://cloudinary.com/users/register/free
+2. In the Cloudinary Console, open **Dashboard** and copy the Cloud name, API Key, and API Secret.
+3. Add these backend-only variables to the Render Web Service environment:
 
 ```env
-UPLOAD_DIR=/var/data/uploads
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
 ```
 
-For multi-instance deployments, use shared external object storage instead; a Render persistent disk is accessible to only one service instance and prevents zero-downtime deploys. Do not set `UPLOAD_DIR=/var/data/uploads` on a free service and assume that it persists.
+4. Keep the API secret private. Never add these values to `client/.env`, `VITE_*` variables, source control, or frontend code.
+5. Redeploy the backend after configuring the variables.
+
+The backend continues to validate file signatures, restrict formats to JPEG/PNG/WebP/GIF, enforce the 5 MB limit, and use authenticated server-to-provider uploads. It does not fall back to local disk if Cloudinary is unavailable.
+
+**Free-tier limit:** Cloudinary currently includes 25 monthly credits shared across transformations, storage, and image bandwidth. Monitor usage in Cloudinary Console → Settings → Billing. This is free while usage stays within the included allowance; Cloudinary may restrict uploads/delivery if the allowance is exceeded. It is not unlimited storage or bandwidth.
+
+Previously uploaded files stored only on Render's ephemeral filesystem cannot be recovered by this change. If existing database records point to `/uploads/...` paths, re-upload those images or replace their URLs with durable hosted URLs before redeploying.
 
 References:
 - [Render persistent disks](https://render.com/docs/disks)
