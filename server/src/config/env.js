@@ -16,7 +16,7 @@ const env = {
   AI_API_KEY: process.env.AI_API_KEY || '',
   AI_BASE_URL: process.env.AI_BASE_URL || 'https://api.openai.com/v1',
   AI_MODEL: process.env.AI_MODEL || '',
-  UPLOAD_DIR: process.env.UPLOAD_DIR || path.resolve(__dirname, '../../uploads'),
+  UPLOAD_DIR: process.env.UPLOAD_DIR || (isProduction ? '' : path.resolve(__dirname, '../../uploads')),
   MONGODB_URI: process.env.MONGODB_URI || '',
 
   // Development-only OAuth sandbox. Production never enables this by default.
@@ -105,6 +105,10 @@ const validateProductionConfig = () => {
   const configuredValues = requiredSecrets.map(([, value]) => value).filter(Boolean);
   if (new Set(configuredValues).size !== configuredValues.length) {
     invalid.push('JWT_ACCESS_SECRET/JWT_REFRESH_SECRET/COOKIE_SECRET (must be independent)');
+  }
+
+  if (!env.UPLOAD_DIR || !path.isAbsolute(env.UPLOAD_DIR)) {
+    invalid.push('UPLOAD_DIR (an explicitly configured absolute storage path)');
   }
 
   if (invalid.length) {
