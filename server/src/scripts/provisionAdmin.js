@@ -25,6 +25,9 @@ const provisionAdmin = async () => {
     throw new Error('ADMIN_USERNAME must contain 3-30 lowercase letters, numbers, or underscores.');
   }
   if (
+    ['AdminSecurePass123!', 'UserPass123!'].includes(password) ||
+    email === 'admin@blogplatform.dev' ||
+    username === 'systemadmin' ||
     password.length < 16 ||
     !/[A-Z]/.test(password) ||
     !/[a-z]/.test(password) ||
