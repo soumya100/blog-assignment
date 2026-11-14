@@ -499,6 +499,11 @@ const googleCallback = async (req, res, next) => {
       return res.redirect(`${targetClientUrl}/oauth/callback?error=NO_EMAIL_FROM_GOOGLE`);
     }
 
+    if (profile.email_verified !== true) {
+      logger.warn('Google OAuth rejected because the provider did not verify the email address.');
+      return res.redirect(`${targetClientUrl}/oauth/callback?error=GOOGLE_EMAIL_NOT_VERIFIED`);
+    }
+
     const result = await authService.oauthLogin({
       provider: 'google',
       email: profile.email,
