@@ -647,3 +647,40 @@ The publishing platform supports scheduled articles, server-backed image uploads
 - Series and collections: `/api/v1/library`
 - Import/export: `/api/v1/posts/import` and `GET /api/v1/posts/export`
 - AI assistant: `POST /api/v1/ai/assist`
+
+---
+
+## Production bootstrap and persistent uploads
+
+Production startup now requires explicitly configured, independent values for `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, and `COOKIE_SECRET`, plus `MONGODB_URI` and an absolute `UPLOAD_DIR`. Development fallback secrets and the in-memory database are not available in production.
+
+### Provision the first administrator
+
+The application no longer creates a default administrator or sample accounts during production startup. The destructive sample seed command is disabled in production.
+
+After configuring the production environment, provision the first administrator explicitly from the backend directory:
+
+```bash
+cd server
+npm run admin:provision
+```
+
+Set `ADMIN_EMAIL`, `ADMIN_USERNAME`, and `ADMIN_PASSWORD` only in the backend environment. The password must be at least 16 characters and include uppercase, lowercase, numeric, and special characters. The command refuses to run if an administrator already exists and never prints the password.
+
+### Render upload persistence
+
+Render web services use an ephemeral filesystem by default. Files written there are lost on redeploys, restarts, and free-service spin-downs. Free web services cannot attach persistent disks.
+
+For a single-instance paid Render backend, attach a persistent disk mounted at `/var/data` and set:
+
+```env
+UPLOAD_DIR=/var/data/uploads
+```
+
+For multi-instance deployments, use shared external object storage instead; a Render persistent disk is accessible to only one service instance and prevents zero-downtime deploys. Do not set `UPLOAD_DIR=/var/data/uploads` on a free service and assume that it persists.
+
+References:
+- [Render persistent disks](https://render.com/docs/disks)
+- [Render free instance limitations](https://render.com/docs/free)
+- [Render Blueprint disk configuration](https://render.com/docs/blueprint-spec)
+
