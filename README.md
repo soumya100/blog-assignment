@@ -608,16 +608,31 @@ The discussion API now supports unlimited reply depth while retaining the existi
   after comment creation, edits, deletes, and likes. Redis is optional and fail-open: MongoDB remains
   the source of truth if Redis is unavailable.
 
-Configure an Upstash Redis REST database on the backend with:
+Redis is optional and fail-open. Configure **one** provider on the backend:
+
+**Redis Cloud or another standard Redis endpoint** (recommended for Redis Cloud):
+
+```env
+REDIS_URL=rediss://default:<url-encoded-password>@<your-host>:<your-port>
+```
+
+Use the TLS URL (`rediss://`) supplied by Redis Cloud. If the password contains URL-reserved
+characters, percent-encode it before placing it in the URL. Add this variable to the backend's
+local `server/.env` or root `.env`, and to the backend service's Render Environment settings.
+Never expose it through a `VITE_*` variable or commit real credentials.
+
+**Existing Upstash REST deployments remain supported**:
 
 ```env
 REDIS_REST_URL=https://<your-database>.upstash.io
 REDIS_REST_TOKEN=<your-rest-token>
 ```
 
-No Redis package is required; the backend uses the Node.js Fetch API. If these variables are omitted,
-the discussion endpoints continue to work without Redis caching. Existing comments without ancestry
-metadata remain supported; new replies persist their ancestor chain for indexed thread retrieval.
+When both configurations are present, `REDIS_URL` takes precedence. The standard Redis connection
+uses Node.js TCP/TLS and RESP; no additional Redis npm package is required. If Redis is omitted or
+unavailable, discussion endpoints continue working without caching and MongoDB remains the source
+of truth. Existing comments without ancestry metadata remain supported; new replies persist their
+ancestor chain for indexed thread retrieval.
 
 ## 📄 License
 
