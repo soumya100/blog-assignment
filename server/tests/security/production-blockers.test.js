@@ -102,6 +102,14 @@ describe('production security regression guards', () => {
   });
 
 
+  it('skips automatic administrator and sample-data seeding in production', () => {
+    const result = runNode(
+      "const mongoose = require('mongoose'); const { ensureInitialData } = require('./src/server'); ensureInitialData().then(() => process.exit(mongoose.connection.readyState === 0 ? 0 : 2));"
+    );
+
+    expect(result.status).toBe(0);
+  });
+
   it('blocks the destructive sample seed script in production', () => {
     const result = runNode(
       "require('./src/scripts/seed')().then(() => process.exit(2)).catch((error) => { console.log(error.message); process.exit(error.message.includes('disabled in production') ? 0 : 3); });"
