@@ -13,6 +13,7 @@ try {
 let mongoMemoryServer = null;
 
 const connectDB = async (uriOverride = null) => {
+  env.validateProductionConfig();
   const targetUri = uriOverride || env.MONGODB_URI;
 
   if (env.NODE_ENV === 'production' && !targetUri) {
