@@ -34,7 +34,7 @@ const makeResponse = () => ({
   json(body) { this.body = body; return this; },
 });
 
-const unique = () => mongoose.Types.ObjectId().toString();
+const unique = () => new mongoose.Types.ObjectId().toString();
 
 const createUser = (suffix) => User.create({
   username: `user_${suffix}`,
