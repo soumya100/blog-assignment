@@ -292,23 +292,30 @@ const revokeToken = async ({ incomingRefreshToken, req }) => {
 /**
  * OAuth Login / Account Linking (Google / Facebook)
  */
-const oauthLogin = async ({ provider, email, name, avatar, providerId, req }) => {
-  let user = await User.findOne({
-    $or: [
-      { email: email.toLowerCase() },
-      provider === 'google' ? { googleId: providerId } : { facebookId: providerId },
-    ],
-  });
+const oauthLogin = async ({ provider, email, name, avatar, providerId, emailVerified = false, req }) => {
+  const normalizedEmail = email.toLowerCase().trim();
+  const providerField = provider === 'google' ? 'googleId' : 'facebookId';
+
+  // A previously linked provider identity is authoritative. Email alone is not.
+  let user = await User.findOne({ [providerField]: providerId });
+
+  if (!user) {
+    const emailMatch = await User.findOne({ email: normalizedEmail });
+    if (emailMatch && emailVerified !== true) {
+      const error = new Error('This email is already associated with an account. Sign in using that account before linking this provider.');
+      error.statusCode = 409;
+      error.code = 'OAUTH_EMAIL_NOT_VERIFIED';
+      throw error;
+    }
+    user = emailMatch;
+  }
 
   if (user) {
-    // Link provider ID if not linked
-    if (provider === 'google' && !user.googleId) user.googleId = providerId;
-    if (provider === 'facebook' && !user.facebookId) user.facebookId = providerId;
+    if (!user[providerField]) user[providerField] = providerId;
     if (avatar && !user.avatar) user.avatar = avatar;
     user.lastLoginAt = new Date();
     await user.save();
   } else {
-    // Generate a unique base username
     let baseUsername = name.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 20);
     if (baseUsername.length < 3) baseUsername = `user_${Date.now().toString().slice(-4)}`;
     let username = baseUsername;
@@ -320,7 +327,7 @@ const oauthLogin = async ({ provider, email, name, avatar, providerId, req }) =>
 
     user = await User.create({
       username,
-      email: email.toLowerCase(),
+      email: normalizedEmail,
       avatar: avatar || '',
       role: ROLES.USER,
       status: USER_STATUS.ACTIVE,
@@ -329,7 +336,6 @@ const oauthLogin = async ({ provider, email, name, avatar, providerId, req }) =>
       lastLoginAt: new Date(),
     });
   }
-
   // Issue tokens
   const accessToken = generateAccessToken(user);
   const refreshTokenRaw = generateRefreshTokenString();
