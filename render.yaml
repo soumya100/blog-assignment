@@ -23,6 +23,9 @@ services:
       - key: JWT_REFRESH_EXPIRES_IN
         value: 7d
       # Set these in the Render Dashboard under Environment:
+      # UPLOAD_DIR: /var/data/uploads (requires a paid persistent disk or external persistent storage)
+      # Free web services cannot attach persistent disks; their local filesystem is ephemeral.
+      # Do not treat /var/data/uploads as persistent unless a disk is mounted there.
       # MONGODB_URI: (MongoDB Atlas Connection URI)
       # JWT_ACCESS_SECRET: (Min 32 characters)
       # JWT_REFRESH_SECRET: (Min 32 characters)
