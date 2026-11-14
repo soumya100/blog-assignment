@@ -16,7 +16,10 @@ const env = {
   AI_API_KEY: process.env.AI_API_KEY || '',
   AI_BASE_URL: process.env.AI_BASE_URL || 'https://api.openai.com/v1',
   AI_MODEL: process.env.AI_MODEL || '',
-  UPLOAD_DIR: process.env.UPLOAD_DIR || (isProduction ? '/var/data/uploads' : path.resolve(__dirname, '../../uploads')),
+  UPLOAD_DIR: process.env.UPLOAD_DIR || path.resolve(__dirname, '../../uploads'),
+  CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME || '',
+  CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY || '',
+  CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET || '',
   MONGODB_URI: process.env.MONGODB_URI || '',
 
   // Development-only OAuth sandbox. Production never enables this by default.
@@ -107,8 +110,12 @@ const validateProductionConfig = () => {
     invalid.push('JWT_ACCESS_SECRET/JWT_REFRESH_SECRET/COOKIE_SECRET (must be independent)');
   }
 
-  if (!process.env.UPLOAD_DIR || !path.isAbsolute(env.UPLOAD_DIR)) {
-    invalid.push('UPLOAD_DIR (an explicitly configured absolute storage path)');
+  const cloudinaryConfig = [env.CLOUDINARY_CLOUD_NAME, env.CLOUDINARY_API_KEY, env.CLOUDINARY_API_SECRET];
+  if (cloudinaryConfig.some((value) => !value)) {
+    invalid.push('CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET (persistent image storage)');
+  }
+  if (env.CLOUDINARY_CLOUD_NAME && !/^[a-zA-Z0-9_-]{1,128}$/.test(env.CLOUDINARY_CLOUD_NAME)) {
+    invalid.push('CLOUDINARY_CLOUD_NAME (invalid format)');
   }
 
   if (invalid.length) {
