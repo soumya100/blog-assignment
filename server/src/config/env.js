@@ -5,7 +5,18 @@ const dotenv = require('dotenv');
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
-const NODE_ENV = process.env.NODE_ENV || (process.env.RENDER === 'true' ? 'production' : 'development');
+const suppliedNodeEnv = process.env.NODE_ENV;
+const NODE_ENV = (suppliedNodeEnv || (process.env.RENDER === 'true' ? 'production' : 'development'))
+  .trim()
+  .toLowerCase();
+const supportedNodeEnvironments = new Set(['development', 'test', 'production']);
+
+if (!supportedNodeEnvironments.has(NODE_ENV)) {
+  throw new Error(
+    `Invalid NODE_ENV "${suppliedNodeEnv}". Use exactly development, test, or production.`
+  );
+}
+
 const isProduction = NODE_ENV === 'production';
 
 const env = {
@@ -91,6 +102,9 @@ const validateProductionConfig = () => {
     'password',
     'your-secret',
     'replace-me',
+    'super_secure_access_secret_change_in_production_key_123456789',
+    'super_secure_refresh_secret_change_in_production_key_987654321',
+    'super_cookie_secret_change_me_in_production_34982347',
   ]);
 
   const invalid = [];
@@ -100,7 +114,11 @@ const validateProductionConfig = () => {
       value.length < 32 ||
       invalidValues.has(value.toLowerCase()) ||
       value.toLowerCase().includes('dev_secret') ||
-      value.toLowerCase().includes('dev_cookie')
+      value.toLowerCase().includes('dev_cookie') ||
+      value.toLowerCase().includes('change_in_production') ||
+      value.toLowerCase().includes('change_me_in_production') ||
+      value.toLowerCase().includes('super_secure_') ||
+      value.toLowerCase().includes('super_cookie_')
     ) {
       invalid.push(name);
     }

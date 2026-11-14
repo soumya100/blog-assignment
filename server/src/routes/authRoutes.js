@@ -22,7 +22,7 @@ router.post('/login', authLimiter, validate(loginSchema), authController.login);
 router.post('/refresh', authLimiter, authController.refresh);
 router.post('/logout', authController.logout);
 router.post('/revoke', authLimiter, authController.revoke);
-router.post('/forgot-password', authLimiter, authController.forgotPassword);
+router.post('/forgot-password', authLimiter, validate(forgotPasswordSchema), authController.forgotPassword);
 router.post('/verify-otp', authLimiter, validate(verifyOtpSchema), authController.verifyOtp);
 router.post('/reset-password/:token', validate(resetPasswordSchema), authController.resetPassword);
 
