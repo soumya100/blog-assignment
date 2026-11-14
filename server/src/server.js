@@ -132,6 +132,9 @@ io.on('connection', (socket) => {
 
 // Seed default initial accounts and sample data if empty
 const ensureInitialData = async () => {
+  // Production accounts and content must be provisioned explicitly; never seed known credentials.
+  if (env.NODE_ENV === 'production') return;
+
   try {
     const Post = require('./models/Post');
     const Comment = require('./models/Comment');
