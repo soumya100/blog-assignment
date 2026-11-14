@@ -7,8 +7,7 @@ dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
 const suppliedNodeEnv = process.env.NODE_ENV;
 const NODE_ENV = (suppliedNodeEnv || (process.env.RENDER === 'true' ? 'production' : 'development'))
-  .trim()
-  .toLowerCase();
+  .trim();
 const supportedNodeEnvironments = new Set(['development', 'test', 'production']);
 
 if (!supportedNodeEnvironments.has(NODE_ENV)) {
