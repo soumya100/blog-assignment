@@ -691,7 +691,7 @@ The backend continues to validate file signatures, restrict formats to JPEG/PNG/
 Previously uploaded files stored only on Render's ephemeral filesystem cannot be recovered by this change. If existing database records point to `/uploads/...` paths, re-upload those images or replace their URLs with durable hosted URLs before redeploying.
 
 References:
-- [Render persistent disks](https://render.com/docs/disks)
-- [Render free instance limitations](https://render.com/docs/free)
-- [Render Blueprint disk configuration](https://render.com/docs/blueprint-spec)
+- [Cloudinary Free plan and credits](https://cloudinary.com/pricing)
+- [Cloudinary authenticated uploads](https://cloudinary.com/documentation/upload_images)
+- [Render free instance filesystem behavior](https://render.com/docs/faq)
 
