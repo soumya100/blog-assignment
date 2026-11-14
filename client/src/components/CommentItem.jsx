@@ -260,7 +260,7 @@ export default function CommentItem({
                     className="btn btn-secondary btn-sm"
                     style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}
                   >
-                    Cancel
+                    Cancel 
                   </button>
                   <button
                     type="button"

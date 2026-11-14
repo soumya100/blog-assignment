@@ -1,4 +1,5 @@
 const Post = require('../models/Post');
+const PostVersion = require('../models/PostVersion');
 const Comment = require('../models/Comment');
 const { createUniqueSlug } = require('../utils/slugify');
 const { ACTIVITY_TYPES } = require('../constants/activityTypes');
@@ -8,8 +9,16 @@ const { ROLES } = require('../constants/roles');
 /**
  * Create a new blog post
  */
-const createPost = async ({ title, content, excerpt, tags = [], coverImage = '', authorId, req }) => {
+const createPost = async ({ title, content, excerpt, tags = [], coverImage = '', seoTitle = '', seoDescription = '', canonicalUrl = '', noIndex = false, scheduledAt = null, authorId, req }) => {
   const slug = await createUniqueSlug(Post, title);
+
+  const scheduleDate = scheduledAt ? new Date(scheduledAt) : null;
+  if (scheduleDate && (!Number.isFinite(scheduleDate.getTime()) || scheduleDate <= new Date())) {
+    const error = new Error('Scheduled publishing time must be in the future');
+    error.statusCode = 400;
+    error.code = 'INVALID_SCHEDULE_TIME';
+    throw error;
+  }
 
   const post = await Post.create({
     title,
@@ -18,6 +27,13 @@ const createPost = async ({ title, content, excerpt, tags = [], coverImage = '',
     excerpt: excerpt || content.replace(/<[^>]*>?/gm, '').slice(0, 160) + '...',
     tags: tags.map((t) => t.toLowerCase().trim()),
     coverImage,
+    seoTitle,
+    seoDescription,
+    canonicalUrl,
+    noIndex,
+    status: scheduleDate ? 'scheduled' : 'published',
+    scheduledAt: scheduleDate,
+    publishedAt: scheduleDate ? null : new Date(),
     author: authorId,
   });
 
@@ -34,7 +50,7 @@ const createPost = async ({ title, content, excerpt, tags = [], coverImage = '',
 
     // Real-time notification if socket instance exists
     const io = req.app.get('io');
-    if (io) {
+    if (io && post.status === 'published') {
       io.emit('new_post', {
         id: post._id,
         title: post.title,
@@ -56,6 +72,7 @@ const getPosts = async ({ page = 1, limit = 10, search, tag, author, includeDele
 
   if (!includeDeleted) {
     filter.isDeleted = false;
+    filter.status = 'published';
   }
 
   if (tag) {
@@ -102,12 +119,15 @@ const getPosts = async ({ page = 1, limit = 10, search, tag, author, includeDele
 /**
  * Get post by slug or ID
  */
-const getPostBySlugOrId = async (identifier, includeDeleted = false) => {
+const getPostBySlugOrId = async (identifier, includeDeleted = false, user = null) => {
   const isObjectId = /^[0-9a-fA-F]{24}$/.test(identifier);
   const query = isObjectId ? { _id: identifier } : { slug: identifier };
 
   if (!includeDeleted) {
     query.isDeleted = false;
+    query.$or = user
+      ? [{ status: 'published' }, { status: 'scheduled', author: user._id }]
+      : [{ status: 'published' }];
   }
 
   const post = await Post.findOne(query)
@@ -147,6 +167,23 @@ const updatePost = async (postId, updateData, user, req) => {
     throw error;
   }
 
+  // Preserve the current published state before applying an edit.
+  const latestVersion = await PostVersion.findOne({ post: post._id }).sort({ versionNumber: -1 }).select('versionNumber').lean();
+  await PostVersion.create({
+    post: post._id,
+    author: post.author,
+    title: post.title,
+    content: post.content,
+    excerpt: post.excerpt,
+    tags: post.tags,
+    coverImage: post.coverImage,
+    seoTitle: post.seoTitle,
+    seoDescription: post.seoDescription,
+    canonicalUrl: post.canonicalUrl,
+    noIndex: post.noIndex,
+    versionNumber: (latestVersion?.versionNumber || 0) + 1,
+  });
+
   // Update slug if title was modified
   if (updateData.title && updateData.title !== post.title) {
     post.slug = await createUniqueSlug(Post, updateData.title, post._id);
@@ -168,6 +205,23 @@ const updatePost = async (postId, updateData, user, req) => {
 
   if (updateData.coverImage !== undefined) {
     post.coverImage = updateData.coverImage;
+  }
+
+  if (updateData.scheduledAt !== undefined) {
+    const scheduleDate = updateData.scheduledAt ? new Date(updateData.scheduledAt) : null;
+    if (scheduleDate && (!Number.isFinite(scheduleDate.getTime()) || scheduleDate <= new Date())) {
+      const error = new Error('Scheduled publishing time must be in the future');
+      error.statusCode = 400;
+      error.code = 'INVALID_SCHEDULE_TIME';
+      throw error;
+    }
+    post.scheduledAt = scheduleDate;
+    post.status = scheduleDate ? 'scheduled' : 'published';
+    post.publishedAt = scheduleDate ? null : new Date();
+  }
+
+  for (const field of ['seoTitle', 'seoDescription', 'canonicalUrl', 'noIndex']) {
+    if (updateData[field] !== undefined) post[field] = updateData[field];
   }
 
   await post.save();

@@ -92,6 +92,10 @@ const PostDetails = () => {
   const [deleteTarget, setDeleteTarget] = useState(null); // { type: 'post' | 'comment', id }
   const [copiedLink, setCopiedLink] = useState(false);
   const [readingProgress, setReadingProgress] = useState(0);
+  const [engagement, setEngagement] = useState({ likes: 0, claps: 0, myReaction: null });
+  const [followState, setFollowState] = useState({ following: false, followers: 0 });
+  const [fontScale, setFontScale] = useState(100);
+  const [relatedPosts, setRelatedPosts] = useState([]);
   const headings = (post?.content || '').split('\n').filter((line) => /^#{1,3}\s+/.test(line)).map((line) => ({ level: line.match(/^#+/)[0].length, title: line.replace(/^#{1,3}\s+/, '').trim() }));
 
   // React Hook Form for new comments
@@ -104,6 +108,28 @@ const PostDetails = () => {
     resolver: zodResolver(commentSchema),
     defaultValues: { content: '' },
   });
+
+  useEffect(() => {
+    if (!post?._id) return;
+    apiClient.post('/analytics/posts/' + post._id + '/view', {}).catch(() => {});
+  }, [post?._id]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !post?._id) return;
+    apiClient.post('/reading-history/' + post._id, { progress: 0, secondsRead: 0 }).catch(() => {});
+    let lastBucket = 0;
+    const trackProgress = () => {
+      const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+      const progress = scrollable > 0 ? Math.min(100, Math.max(0, (window.scrollY / scrollable) * 100)) : 100;
+      const bucket = Math.floor(progress / 10) * 10;
+      if (bucket >= 10 && bucket > lastBucket) {
+        lastBucket = bucket;
+        apiClient.post('/reading-history/' + post._id, { progress: bucket, secondsRead: 0 }).catch(() => {});
+      }
+    };
+    window.addEventListener('scroll', trackProgress, { passive: true });
+    return () => window.removeEventListener('scroll', trackProgress);
+  }, [isAuthenticated, post?._id]);
 
   useEffect(() => {
     const updateProgress = () => {
@@ -276,9 +302,12 @@ const PostDetails = () => {
     <div className="article-reading-progress" style={{ width: readingProgress + "%" }} aria-hidden="true" />
     <article className="container" style={{ paddingTop: '2.5rem', maxWidth: '820px' }}>
       <SEO
-        title={post.title}
-        description={post.content ? post.content.replace(/[#*`_~\[\]]/g, '').slice(0, 160).trim() + '...' : 'Technical article on DevLog'}
+        title={post.seoTitle || post.title}
+        description={post.seoDescription || (post.content ? post.content.replace(/[#*`_~\[\]]/g, '').slice(0, 160).trim() + '...' : 'Technical article on DevLog')}
+        canonicalUrl={post.canonicalUrl}
+        noIndex={post.noIndex}
         type="article"
+        image={post.coverImage || '/favicon.svg'}
         keywords={post.tags?.join(', ') || 'software engineering, DevLog'}
       />
       {/* Back button */}
@@ -424,6 +453,22 @@ const PostDetails = () => {
           </div>
         </div>
       </header>
+      <section aria-label="Reader and community controls" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', padding: '1rem', marginBottom: '1.5rem', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleReaction('like')} aria-pressed={engagement.myReaction === 'like'}>👍 Like ({engagement.likes})</button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleReaction('clap')} aria-pressed={engagement.myReaction === 'clap'}>👏 Clap ({engagement.claps})</button>
+          {post.author?._id && user?._id !== post.author._id && <button type="button" className="btn btn-secondary btn-sm" onClick={handleFollowAuthor}>{followState.following ? 'Following' : 'Follow author'} · {followState.followers}</button>}
+          <button type="button" className="btn btn-secondary btn-sm" onClick={handleReportPost}>Report</button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => window.open("https://www.linkedin.com/sharing/share-offsite/?url=" + encodeURIComponent(window.location.href), "_blank", "noopener,noreferrer")}>LinkedIn</button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => window.open("https://twitter.com/intent/tweet?url=" + encodeURIComponent(window.location.href) + "&text=" + encodeURIComponent(post.title), "_blank", "noopener,noreferrer")}>X</button>
+        </div>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
+          Text size <input aria-label="Article text size" type="range" min="85" max="125" step="5" value={fontScale} onChange={(event) => setFontScale(Number(event.target.value))} /> <span>{fontScale}%</span>
+        </label>
+      </section>
+
+
+      
 
       {post.coverImage && <img className="article-cover" src={post.coverImage} alt={post.title} loading="eager" />}
       {post.excerpt && <p className="article-excerpt">{post.excerpt}</p>}
@@ -441,7 +486,7 @@ const PostDetails = () => {
       {/* Post Body */}
       <section
         style={{
-          fontSize: '1.125rem',
+          fontSize: (1.125 * fontScale / 100) + 'rem',
           lineHeight: 1.8,
           color: 'var(--text-primary)',
           marginBottom: '4rem',
@@ -451,6 +496,15 @@ const PostDetails = () => {
       >
         <MarkdownContent content={post.content} />
       </section>
+      {relatedPosts.length > 0 && <section aria-label="Related articles" style={{ marginBottom: '3rem' }}>
+        <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>Related articles</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+          {relatedPosts.map((item) => <Link key={item._id} to={'/posts/' + (item.slug || item._id)} className="card" style={{ padding: '1rem', textDecoration: 'none' }}>
+            <strong>{item.title}</strong><p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '0.5rem' }}>{item.excerpt || 'Read this related article'}</p>
+          </Link>)}
+        </div>
+      </section>}
+
 
       {/* Author Bio Card */}
       {post.author && post.author.bio && (

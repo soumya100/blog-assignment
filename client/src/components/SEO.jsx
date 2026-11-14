@@ -12,6 +12,8 @@ export default function SEO({
   keywords = 'MERN blog, software engineering, web development, React, Node.js, MongoDB, DevLog, tech articles',
   image = '/favicon.svg',
   type = 'website',
+  canonicalUrl = '',
+  noIndex = false,
 }) {
   const location = useLocation();
 
@@ -34,6 +36,7 @@ export default function SEO({
 
     // Standard Meta Tags
     setMetaTag('description', description);
+    setMetaTag('robots', noIndex ? 'noindex, nofollow' : 'index, follow');
     setMetaTag('keywords', keywords);
 
     // Open Graph / Facebook / LinkedIn
@@ -63,9 +66,9 @@ export default function SEO({
         canonical.setAttribute('rel', 'canonical');
         document.head.appendChild(canonical);
       }
-      canonical.setAttribute('href', window.location.origin + location.pathname);
+      canonical.setAttribute('href', canonicalUrl || (window.location.origin + location.pathname));
     }
-  }, [title, description, keywords, image, type, location.pathname]);
+  }, [title, description, keywords, image, type, canonicalUrl, noIndex, location.pathname]);
 
   return null;
 }

@@ -11,6 +11,9 @@ const { ROLES } = require('../constants/roles');
 const router = express.Router();
 
 // Blog Post CRUD
+router.get('/export', requireAuth, postController.exportMyPosts);
+router.post('/import', requireAuth, contentCreationLimiter, postController.importMyPosts);
+router.get('/:id/versions', requireAuth, postController.listVersions);
 router.get('/', optionalAuth, validate(queryPostSchema, 'query'), postController.getPosts);
 router.get('/:id', optionalAuth, postController.getPostByIdOrSlug);
 router.post('/', requireAuth, contentCreationLimiter, validate(createPostSchema), postController.createPost);

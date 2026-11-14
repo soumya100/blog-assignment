@@ -44,6 +44,13 @@ const postSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    seoTitle: { type: String, trim: true, maxlength: 70, default: '' },
+    seoDescription: { type: String, trim: true, maxlength: 160, default: '' },
+    canonicalUrl: { type: String, trim: true, maxlength: 500, default: '' },
+    noIndex: { type: Boolean, default: false },
+    status: { type: String, enum: ['published', 'scheduled'], default: 'published', index: true },
+    scheduledAt: { type: Date, default: null, index: true },
+    publishedAt: { type: Date, default: Date.now },
     isDeleted: {
       type: Boolean,
       default: false,
@@ -71,7 +78,8 @@ postSchema.virtual('commentsCount', {
 });
 
 // Performance indexing
-postSchema.index({ isDeleted: 1, createdAt: -1 });
+postSchema.index({ isDeleted: 1, status: 1, createdAt: -1 });
+postSchema.index({ status: 1, scheduledAt: 1 });
 postSchema.index({ author: 1, isDeleted: 1, createdAt: -1 });
 postSchema.index({ tags: 1, isDeleted: 1 });
 postSchema.index({ title: 'text', content: 'text', tags: 'text' });

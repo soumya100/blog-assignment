@@ -3,8 +3,10 @@ const Comment = require('../models/Comment');
 const Post = require('../models/Post');
 const { ACTIVITY_TYPES } = require('../constants/activityTypes');
 const { recordActivity } = require('../middleware/activityLogger');
-const { ROLES } = require('../constants/roles');
+const { ROLES, USER_STATUS } = require('../constants/roles');
 const commentCache = require('./commentCache');
+const User = require('../models/User');
+const Mention = require('../models/Mention');
 
 const invalidatePostCache = async (postId) => {
   if (postId) await commentCache.bumpVersion(postId.toString());
@@ -59,7 +61,7 @@ const createComment = async ({ postId, authorId, content, parentCommentId, req }
     throw error;
   }
 
-  const post = await Post.findOne({ _id: postId, isDeleted: false });
+  const post = await Post.findOne({ _id: postId, isDeleted: false, status: 'published' });
   if (!post) {
     const error = new Error('Target post does not exist or has been deleted');
     error.statusCode = 404;
@@ -124,6 +126,21 @@ const createComment = async ({ postId, authorId, content, parentCommentId, req }
     );
   }
 
+
+  const mentionedNames = [...new Set((content.match(/@([a-zA-Z0-9_]{3,30})/g) || []).map((mention) => mention.slice(1).toLowerCase()))];
+  if (mentionedNames.length) {
+    const mentionedUsers = await User.find({
+      username: { $in: mentionedNames },
+      status: USER_STATUS.ACTIVE,
+      _id: { $ne: authorId },
+    }).select('_id').lean();
+    if (mentionedUsers.length) {
+      await Mention.insertMany(mentionedUsers.map((mentionedUser) => ({
+        recipient: mentionedUser._id, actor: authorId, comment: comment._id, post: post._id,
+      })), { ordered: false });
+    }
+  }
+
   await comment.populate('author', 'username email avatar role');
 
   if (req) {
@@ -162,7 +179,7 @@ const getCommentsByPost = async (postId, { page = 1, limit = 50, sort = 'newest'
     throw error;
   }
 
-  const post = await Post.findOne({ _id: postId, isDeleted: false });
+  const post = await Post.findOne({ _id: postId, isDeleted: false, status: 'published' });
   if (!post) {
     const error = new Error('Target post does not exist or has been deleted');
     error.statusCode = 404;

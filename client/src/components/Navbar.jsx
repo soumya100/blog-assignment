@@ -15,6 +15,7 @@ import {
   Compass,
   Bookmark,
   FileText,
+  LayoutDashboard,
 } from 'lucide-react';
 
 const Navbar = () => {
@@ -110,6 +111,28 @@ const Navbar = () => {
             >
               Explore
             </Link>
+
+            <Link to="/community" style={{ color: 'var(--text-secondary)', fontWeight: 500, fontSize: '0.925rem' }}>Community</Link>
+            <Link to="/newsletter" style={{ color: 'var(--text-secondary)', fontWeight: 500, fontSize: '0.925rem' }}>Newsletter</Link>
+
+            {isAuthenticated && (
+              <Link to="/analytics" style={{ color: 'var(--text-secondary)', fontWeight: 500, fontSize: '0.925rem' }}>Analytics</Link>
+            )}
+            {isAuthenticated && (
+              <Link to="/library" style={{ color: 'var(--text-secondary)', fontWeight: 500, fontSize: '0.925rem' }}>Series</Link>
+            )}
+            {isAuthenticated && (
+              <Link to="/mentions" style={{ color: 'var(--text-secondary)', fontWeight: 500, fontSize: '0.925rem' }}>Mentions</Link>
+            )}
+            {isAuthenticated && (
+              <Link to="/import-export" style={{ color: 'var(--text-secondary)', fontWeight: 500, fontSize: '0.925rem' }}>Import/Export</Link>
+            )}
+
+            {isAuthenticated && (
+              <Link to="/reader" style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', color: 'var(--text-secondary)', fontWeight: 500, fontSize: '0.925rem' }}>
+                <LayoutDashboard size={16} /> Reader dashboard
+              </Link>
+            )}
 
             {isAuthenticated && (
               <Link to="/drafts" style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', color: 'var(--text-secondary)', fontWeight: 500, fontSize: '0.925rem' }}>
@@ -230,6 +253,19 @@ const Navbar = () => {
           >
             Explore Articles
           </Link>
+
+          <Link to="/community" onClick={() => setMobileMenuOpen(false)} style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.95rem', padding: '0.35rem 0' }}>Community</Link>
+          <Link to="/newsletter" onClick={() => setMobileMenuOpen(false)} style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.95rem', padding: '0.35rem 0' }}>Newsletter</Link>
+          {isAuthenticated && <Link to="/analytics" onClick={() => setMobileMenuOpen(false)} style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.95rem', padding: '0.35rem 0' }}>Author analytics</Link>}
+          {isAuthenticated && <Link to="/library" onClick={() => setMobileMenuOpen(false)} style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.95rem', padding: '0.35rem 0' }}>Series & collections</Link>}
+          {isAuthenticated && <Link to="/mentions" onClick={() => setMobileMenuOpen(false)} style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.95rem', padding: '0.35rem 0' }}>Mentions</Link>}
+          {isAuthenticated && <Link to="/import-export" onClick={() => setMobileMenuOpen(false)} style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.95rem', padding: '0.35rem 0' }}>Import / Export</Link>}
+
+          {isAuthenticated && (
+            <Link to="/reader" onClick={() => setMobileMenuOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.95rem', padding: '0.35rem 0' }}>
+              <LayoutDashboard size={18} /> Reader dashboard
+            </Link>
+          )}
 
           {isAuthenticated && (
             <Link to="/drafts" onClick={() => setMobileMenuOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.95rem', padding: '0.35rem 0' }}>

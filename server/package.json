@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:security": "vitest run tests/security",
-    "test:email": "node src/scripts/testEmail.js"
+    "test:email": "node src/scripts/testEmail.js",
+    "admin:provision": "node src/scripts/provisionAdmin.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

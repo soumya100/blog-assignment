@@ -14,6 +14,13 @@ import { PageLoader } from './components/SkeletonLoader';
 
 // Lazy-loaded Public Pages
 const Home = lazy(() => import('./pages/Home'));
+const Community = lazy(() => import('./pages/Community'));
+const Newsletter = lazy(() => import('./pages/Newsletter'));
+const ImportExport = lazy(() => import('./pages/ImportExport'));
+const ContentLibrary = lazy(() => import('./pages/ContentLibrary'));
+const PublicContentGroup = lazy(() => import('./pages/PublicContentGroup'));
+const Mentions = lazy(() => import('./pages/Mentions'));
+const AuthorAnalytics = lazy(() => import('./pages/AuthorAnalytics'));
 const PostDetails = lazy(() => import('./pages/PostDetails'));
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
@@ -25,6 +32,7 @@ const OAuthCallback = lazy(() => import('./pages/OAuthCallback'));
 const CreateEditPost = lazy(() => import('./pages/CreateEditPost'));
 const Profile = lazy(() => import('./pages/Profile'));
 const SavedPosts = lazy(() => import('./pages/SavedPosts'));
+const ReaderDashboard = lazy(() => import('./pages/ReaderDashboard'));
 const Drafts = lazy(() => import('./pages/Drafts'));
 const DraftEditor = lazy(() => import('./pages/DraftEditor'));
 
@@ -35,6 +43,8 @@ const UserManagement = lazy(() => import('./pages/admin/UserManagement'));
 const PostManagement = lazy(() => import('./pages/admin/PostManagement'));
 const CommentManagement = lazy(() => import('./pages/admin/CommentManagement'));
 const ActivityLogs = lazy(() => import('./pages/admin/ActivityLogs'));
+const ModerationQueue = lazy(() => import('./pages/admin/ModerationQueue'));
+const NewsletterCampaign = lazy(() => import('./pages/admin/NewsletterCampaign'));
 
 // Route Guards
 import ProtectedRoute from './routes/ProtectedRoute';
@@ -74,6 +84,10 @@ function App() {
                     <Routes>
                       {/* Public Routes */}
                       <Route path="/" element={<Home />} />
+                      <Route path="/community" element={<Community />} />
+                      <Route path="/newsletter" element={<Newsletter />} />
+                      <Route path="/newsletter/confirm" element={<Newsletter />} />
+                      <Route path="/newsletter/unsubscribe" element={<Newsletter />} />
                       <Route path="/posts/:id" element={<PostDetails />} />
                       <Route path="/login" element={<Login />} />
                       <Route path="/register" element={<Register />} />
@@ -95,6 +109,12 @@ function App() {
                       <Route path="/drafts" element={<ProtectedRoute><Drafts /></ProtectedRoute>} />
                       <Route path="/drafts/new" element={<ProtectedRoute><DraftEditor /></ProtectedRoute>} />
                       <Route path="/drafts/:id/edit" element={<ProtectedRoute><DraftEditor /></ProtectedRoute>} />
+                      <Route path="/reader" element={<ProtectedRoute><ReaderDashboard /></ProtectedRoute>} />
+                      <Route path="/analytics" element={<ProtectedRoute><AuthorAnalytics /></ProtectedRoute>} />
+                      <Route path="/import-export" element={<ProtectedRoute><ImportExport /></ProtectedRoute>} />
+                      <Route path="/library" element={<ProtectedRoute><ContentLibrary /></ProtectedRoute>} />
+                      <Route path="/collections/:id" element={<PublicContentGroup />} />
+                      <Route path="/mentions" element={<ProtectedRoute><Mentions /></ProtectedRoute>} />
                       <Route
                         path="/saved"
                         element={
@@ -126,6 +146,8 @@ function App() {
                         <Route path="posts" element={<PostManagement />} />
                         <Route path="comments" element={<CommentManagement />} />
                         <Route path="activity" element={<ActivityLogs />} />
+                        <Route path="reports" element={<ModerationQueue />} />
+                        <Route path="newsletter" element={<NewsletterCampaign />} />
                       </Route>
 
                       {/* 404 Fallback */}
