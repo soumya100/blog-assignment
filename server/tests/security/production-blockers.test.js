@@ -1,0 +1,151 @@
+const { describe, it, expect } = require('vitest');
+const { spawnSync } = require('child_process');
+const path = require('path');
+const mongoose = require('mongoose');
+const User = require('../../src/models/User');
+const Post = require('../../src/models/Post');
+const SavedPost = require('../../src/models/SavedPost');
+const ReadingHistory = require('../../src/models/ReadingHistory');
+const { recordReading, getReadingHistory } = require('../../src/services/readingHistoryService');
+const savedPostController = require('../../src/controllers/savedPostController');
+
+const serverRoot = path.resolve(__dirname, '../..');
+
+const runNode = (script, overrides = {}) => spawnSync(process.execPath, ['-e', script], {
+  cwd: serverRoot,
+  encoding: 'utf8',
+  timeout: 10000,
+  env: {
+    ...process.env,
+    NODE_ENV: 'production',
+    JWT_ACCESS_SECRET: 'production-access-secret-0123456789-ABCDEFG',
+    JWT_REFRESH_SECRET: 'production-refresh-secret-0123456789-ABCDEFG',
+    COOKIE_SECRET: 'production-cookie-secret-0123456789-ABCDEFG',
+    MONGODB_URI: '',
+    ...overrides,
+  },
+});
+
+const makeResponse = () => ({
+  statusCode: 200,
+  status(code) { this.statusCode = code; return this; },
+  json(body) { this.body = body; return this; },
+});
+
+const unique = () => mongoose.Types.ObjectId().toString();
+
+const createUser = (suffix) => User.create({
+  username: `user_${suffix}`,
+  email: `${suffix}@example.test`,
+  password: 'TestPassword123!',
+});
+
+const createPost = (author, status = 'scheduled') => Post.create({
+  title: `Visibility test ${unique()}`,
+  slug: `visibility-test-${unique()}`,
+  content: 'This article body must never leak to an unrelated reader.',
+  excerpt: 'Visibility regression fixture',
+  author: author._id,
+  status,
+  publishedAt: status === 'published' ? new Date() : null,
+});
+
+describe('production security regression guards', () => {
+  it('rejects missing production signing secrets instead of using development defaults', () => {
+    const result = runNode(
+      "const env = require('./src/config/env'); env.validateProductionConfig();",
+      { JWT_ACCESS_SECRET: '', JWT_REFRESH_SECRET: '', COOKIE_SECRET: '' }
+    );
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('JWT_ACCESS_SECRET');
+    expect(result.stderr).not.toContain('dev_secret_access_key');
+  });
+
+  it('does not register the development OAuth endpoint in production', () => {
+    const result = runNode(
+      "const router = require('./src/routes/authRoutes'); const enabled = router.stack.some((layer) => layer.route && layer.route.path === '/oauth/dev'); process.exit(enabled ? 2 : 0);"
+    );
+
+    expect(result.status).toBe(0);
+  });
+
+  it('keeps the development OAuth endpoint opt-in outside production', () => {
+    const result = runNode(
+      "const router = require('./src/routes/authRoutes'); const enabled = router.stack.some((layer) => layer.route && layer.route.path === '/oauth/dev'); process.exit(enabled ? 0 : 2);",
+      { NODE_ENV: 'test', ENABLE_DEV_OAUTH: 'true' }
+    );
+
+    expect(result.status).toBe(0);
+  });
+
+  it('refuses production startup without MONGODB_URI and does not start MongoMemoryServer', () => {
+    const result = runNode(
+      "require('./src/config/database').connectDB().then(() => process.exit(2)).catch((error) => { console.log(error.message); process.exit(error.message.includes('MONGODB_URI is required') ? 0 : 3); });"
+    );
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('MONGODB_URI is required in production');
+  });
+});
+
+describe('unpublished post visibility in reader features', () => {
+  it('rejects another user recording a scheduled article in reading history', async () => {
+    const author = await createUser(unique());
+    const reader = await createUser(unique());
+    const scheduledPost = await createPost(author, 'scheduled');
+
+    await expect(recordReading(reader._id, scheduledPost._id))
+      .rejects.toMatchObject({ statusCode: 404, code: 'POST_NOT_FOUND' });
+  });
+
+  it('does not populate previously recorded scheduled posts in reading history', async () => {
+    const author = await createUser(unique());
+    const reader = await createUser(unique());
+    const scheduledPost = await createPost(author, 'scheduled');
+    await ReadingHistory.create({ user: reader._id, post: scheduledPost._id });
+
+    const history = await getReadingHistory(reader._id);
+
+    expect(history).toHaveLength(1);
+    expect(history[0].post).toBeNull();
+  });
+
+  it('does not allow another user to save a scheduled article', async () => {
+    const author = await createUser(unique());
+    const reader = await createUser(unique());
+    const scheduledPost = await createPost(author, 'scheduled');
+    const req = { params: { postId: scheduledPost._id.toString() }, user: { _id: reader._id } };
+    const res = makeResponse();
+    let forwardedError;
+
+    await savedPostController.savePost(req, res, (error) => { forwardedError = error; });
+
+    expect(forwardedError).toMatchObject({ statusCode: 404, code: 'POST_NOT_FOUND' });
+    expect(await SavedPost.countDocuments({ user: reader._id, post: scheduledPost._id })).toBe(0);
+  });
+
+  it('does not return previously saved scheduled articles or their content', async () => {
+    const author = await createUser(unique());
+    const reader = await createUser(unique());
+    const scheduledPost = await createPost(author, 'scheduled');
+    await SavedPost.create({ user: reader._id, post: scheduledPost._id });
+
+    const req = { user: { _id: reader._id } };
+    const res = makeResponse();
+    await savedPostController.listSavedPosts(req, res, (error) => { throw error; });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body.data).toEqual([]);
+  });
+
+  it('preserves access to an author\'s own scheduled article and to published articles', async () => {
+    const author = await createUser(unique());
+    const reader = await createUser(unique());
+    const scheduledPost = await createPost(author, 'scheduled');
+    const publishedPost = await createPost(author, 'published');
+
+    await expect(recordReading(author._id, scheduledPost._id)).resolves.toBeTruthy();
+    await expect(recordReading(reader._id, publishedPost._id)).resolves.toBeTruthy();
+  });
+});
