@@ -3,6 +3,7 @@ const Draft = require('../models/Draft');
 const User = require('../models/User');
 const postService = require('../services/postService');
 const { successResponse } = require('../utils/apiResponse');
+const { USER_STATUS } = require('../constants/roles');
 
 const invalidId = () => {
   const error = new Error('Invalid draft identifier');
@@ -149,7 +150,7 @@ const addCollaborator = async (req, res, next) => {
       error.statusCode = 404;
       throw error;
     }
-    const collaborator = await User.findOne({ username, status: 'active' }).select('_id username');
+    const collaborator = await User.findOne({ username, status: USER_STATUS.ACTIVE }).select('_id username');
     if (!collaborator) {
       const error = new Error('Active user not found');
       error.statusCode = 404;
