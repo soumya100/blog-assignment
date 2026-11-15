@@ -37,7 +37,7 @@ const createPost = async ({ title, content, excerpt, tags = [], coverImage = '',
     author: authorId,
   });
 
-  await post.populate('author', 'username email avatar role');
+  await post.populate('author', 'username avatar');
 
   if (req) {
     recordActivity({
@@ -97,10 +97,11 @@ const getPosts = async ({ page = 1, limit = 10, search, tag, author, includeDele
 
   const [posts, total] = await Promise.all([
     Post.find(filter)
+      .select('-content')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .populate('author', 'username email avatar role')
+      .populate('author', 'username avatar')
       .populate('commentsCount')
       .lean({ virtuals: true }),
     Post.countDocuments(filter),
@@ -131,7 +132,7 @@ const getPostBySlugOrId = async (identifier, includeDeleted = false, user = null
   }
 
   const post = await Post.findOne(query)
-    .populate('author', 'username email avatar role bio')
+    .populate('author', 'username avatar bio')
     .populate('commentsCount');
 
   if (!post) {
@@ -225,7 +226,7 @@ const updatePost = async (postId, updateData, user, req) => {
   }
 
   await post.save();
-  await post.populate('author', 'username email avatar role');
+  await post.populate('author', 'username avatar');
 
   if (req) {
     recordActivity({
