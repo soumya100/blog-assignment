@@ -7,6 +7,7 @@ const { ROLES, USER_STATUS } = require('../constants/roles');
 const commentCache = require('./commentCache');
 const User = require('../models/User');
 const Mention = require('../models/Mention');
+const { sanitizePublicUser } = require('../utils/publicUser');
 
 const invalidatePostCache = async (postId) => {
   if (postId) await commentCache.bumpVersion(postId.toString());
@@ -141,7 +142,7 @@ const createComment = async ({ postId, authorId, content, parentCommentId, req }
     }
   }
 
-  await comment.populate('author', 'username avatar');
+  await comment.populate({ path: 'author', select: 'username avatar', transform: sanitizePublicUser });
 
   if (req) {
     recordActivity({
@@ -221,7 +222,7 @@ const getCommentsByPost = async (postId, { page = 1, limit = 50, sort = 'newest'
       Comment.find(matchFilter)
         .sort({ engagementScore: -1, createdAt: -1, _id: -1 })
         .limit(safeLimit + 1)
-        .populate('author', 'username avatar')
+        .populate({ path: 'author', select: 'username avatar', transform: sanitizePublicUser })
         .lean({ virtuals: true }),
       Comment.countDocuments({ post: postObjectId, parentComment: null, isDeleted: false }),
     ]);
@@ -239,7 +240,7 @@ const getCommentsByPost = async (postId, { page = 1, limit = 50, sort = 'newest'
       Comment.find(filter)
         .sort({ createdAt: -1, _id: -1 })
         .limit(safeLimit + 1)
-        .populate('author', 'username avatar')
+        .populate({ path: 'author', select: 'username avatar', transform: sanitizePublicUser })
         .lean({ virtuals: true }),
       Comment.countDocuments({ post: postObjectId, parentComment: null, isDeleted: false }),
     ]);
@@ -266,7 +267,7 @@ const getCommentsByPost = async (postId, { page = 1, limit = 50, sort = 'newest'
 
     const fetched = await Comment.find(query)
       .sort({ createdAt: 1, _id: 1 })
-      .populate('author', 'username avatar')
+      .populate({ path: 'author', select: 'username avatar', transform: sanitizePublicUser })
       .lean({ virtuals: true });
 
     // Handle any deep legacy descendants that lack threadRoot
@@ -284,7 +285,7 @@ const getCommentsByPost = async (postId, { page = 1, limit = 50, sort = 'newest'
         _id: { $nin: Array.from(visited).map((id) => mongoose.Types.ObjectId.createFromHexString(id)) },
       })
         .sort({ createdAt: 1, _id: 1 })
-        .populate('author', 'username avatar')
+        .populate({ path: 'author', select: 'username avatar', transform: sanitizePublicUser })
         .lean({ virtuals: true });
 
       if (!deeper.length) break;
@@ -390,7 +391,7 @@ const getRepliesByComment = async (commentId, { after, limit = 20 } = {}) => {
     Comment.find(filter)
       .sort({ createdAt: 1, _id: 1 })
       .limit(safeLimit + 1)
-      .populate('author', 'username avatar')
+      .populate({ path: 'author', select: 'username avatar', transform: sanitizePublicUser })
       .lean({ virtuals: true }),
     Comment.countDocuments({ post: parent.post, parentComment: parent._id, isDeleted: false }),
   ]);
@@ -515,7 +516,7 @@ const updateComment = async (commentId, content, user, req) => {
 
   comment.content = content;
   await comment.save();
-  await comment.populate('author', 'username avatar');
+  await comment.populate({ path: 'author', select: 'username avatar', transform: sanitizePublicUser });
 
   if (req) {
     recordActivity({
