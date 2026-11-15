@@ -201,6 +201,10 @@ describe('Blog Posts CRUD & Authorization Tests', () => {
   });
 
   test('public post listings omit article bodies and private author fields', async () => {
+    // Simulate a legacy inline avatar already stored before the profile limit was added.
+    authorUser.avatar = 'data:image/png;base64,' + 'a'.repeat(2500000);
+    await authorUser.save({ validateBeforeSave: false });
+
     await Post.create({
       title: 'Public listing privacy check',
       slug: 'public-listing-privacy-check',
@@ -217,6 +221,8 @@ describe('Blog Posts CRUD & Authorization Tests', () => {
     expect(listed.excerpt).toBe('A short public excerpt');
     expect(listed.author).not.toHaveProperty('email');
     expect(listed.author).not.toHaveProperty('role');
+    expect(listed.author.avatar).toBe('');
+    expect(Buffer.byteLength(JSON.stringify(response.body))).toBeLessThan(10000);
   });
 
   test('rejects article bodies larger than 200,000 characters', async () => {
