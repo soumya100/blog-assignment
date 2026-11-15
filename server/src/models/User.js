@@ -56,7 +56,6 @@ const userSchema = new mongoose.Schema(
     },
     avatar: {
       type: String,
-      maxlength: [500, 'Avatar URL cannot exceed 500 characters'],
       default: '',
     },
     bio: {
