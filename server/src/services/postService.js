@@ -5,6 +5,7 @@ const { createUniqueSlug } = require('../utils/slugify');
 const { ACTIVITY_TYPES } = require('../constants/activityTypes');
 const { recordActivity } = require('../middleware/activityLogger');
 const { ROLES } = require('../constants/roles');
+const { sanitizePublicUser } = require('../utils/publicUser');
 
 /**
  * Create a new blog post
@@ -37,7 +38,7 @@ const createPost = async ({ title, content, excerpt, tags = [], coverImage = '',
     author: authorId,
   });
 
-  await post.populate('author', 'username avatar');
+  await post.populate({ path: 'author', select: 'username avatar', transform: sanitizePublicUser });
 
   if (req) {
     recordActivity({
@@ -101,7 +102,7 @@ const getPosts = async ({ page = 1, limit = 10, search, tag, author, includeDele
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .populate('author', 'username avatar')
+      .populate({ path: 'author', select: 'username avatar', transform: sanitizePublicUser })
       .populate('commentsCount')
       .lean({ virtuals: true }),
     Post.countDocuments(filter),
@@ -132,7 +133,7 @@ const getPostBySlugOrId = async (identifier, includeDeleted = false, user = null
   }
 
   const post = await Post.findOne(query)
-    .populate('author', 'username avatar bio')
+    .populate({ path: 'author', select: 'username avatar bio', transform: sanitizePublicUser })
     .populate('commentsCount');
 
   if (!post) {
@@ -226,7 +227,7 @@ const updatePost = async (postId, updateData, user, req) => {
   }
 
   await post.save();
-  await post.populate('author', 'username avatar');
+  await post.populate({ path: 'author', select: 'username avatar', transform: sanitizePublicUser });
 
   if (req) {
     recordActivity({
