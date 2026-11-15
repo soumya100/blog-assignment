@@ -1,5 +1,5 @@
-const { registerSchema, loginSchema } = require('../../src/validators/authValidator');
-const { createPostSchema } = require('../../src/validators/postValidator');
+const { registerSchema, loginSchema, updateProfileSchema } = require('../../src/validators/authValidator');
+const { createPostSchema, updatePostSchema } = require('../../src/validators/postValidator');
 const { createCommentSchema } = require('../../src/validators/commentValidator');
 
 describe('Zod Validation Schemas Unit Tests', () => {
@@ -63,4 +63,18 @@ describe('Zod Validation Schemas Unit Tests', () => {
       expect(createCommentSchema.safeParse(valid).success).toBe(true);
     });
   });
+  
+  describe('Payload size boundaries', () => {
+    test('rejects oversized article bodies on create and update', () => {
+      expect(createPostSchema.safeParse({ title: 'Large article', content: 'x'.repeat(200001) }).success).toBe(false);
+      expect(updatePostSchema.safeParse({ content: 'x'.repeat(200001) }).success).toBe(false);
+    });
+
+    test('rejects inline avatar data and accepts compact hosted avatar URLs', () => {
+      expect(updateProfileSchema.safeParse({ avatar: 'data:image/png;base64,' + 'a'.repeat(1000) }).success).toBe(false);
+      expect(updateProfileSchema.safeParse({ avatar: 'https://res.cloudinary.com/demo/image/upload/avatar.png' }).success).toBe(true);
+      expect(updateProfileSchema.safeParse({ avatar: '/uploads/avatar.png' }).success).toBe(true);
+    });
+  });
+
 });
