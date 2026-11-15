@@ -200,4 +200,32 @@ describe('Blog Posts CRUD & Authorization Tests', () => {
     expect(publicDetail.statusCode).toBe(200);
   });
 
+  test('public post listings omit article bodies and private author fields', async () => {
+    await Post.create({
+      title: 'Public listing privacy check',
+      slug: 'public-listing-privacy-check',
+      content: 'The full article body must not be included in public listing responses.',
+      excerpt: 'A short public excerpt',
+      author: authorUser._id,
+    });
+
+    const response = await request(app).get('/api/v1/posts');
+    expect(response.statusCode).toBe(200);
+    const listed = response.body.data.find((item) => item.slug === 'public-listing-privacy-check');
+    expect(listed).toBeDefined();
+    expect(listed.content).toBeUndefined();
+    expect(listed.excerpt).toBe('A short public excerpt');
+    expect(listed.author).not.toHaveProperty('email');
+    expect(listed.author).not.toHaveProperty('role');
+  });
+
+  test('rejects article bodies larger than 200,000 characters', async () => {
+    const response = await request(app)
+      .post('/api/v1/posts')
+      .set('Authorization', `Bearer ${authorToken}`)
+      .send({ title: 'Oversized article', content: 'x'.repeat(200001) });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body.error.code).toBe('VALIDATION_ERROR');
+  });
 });
