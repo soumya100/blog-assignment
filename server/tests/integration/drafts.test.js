@@ -104,4 +104,27 @@ describe('Account-owned drafts and publishing workflow', () => {
     expect(await Draft.findById(draft._id)).toBeNull();
     expect(await Post.countDocuments({ author: author._id, isDeleted: false })).toBe(1);
   });
+  
+  test('draft owner can add an active user as a collaborator', async () => {
+    const draft = await Draft.create({
+      title: 'Shared draft',
+      content: 'A draft that will be edited collaboratively.',
+      author: author._id,
+    });
+
+    const added = await request(app)
+      .post(`/api/v1/drafts/${draft._id}/collaborators`)
+      .set('Authorization', 'Bearer ' + authorToken)
+      .send({ username: anotherAuthor.username });
+
+    expect(added.statusCode).toBe(200);
+    expect(added.body.data.username).toBe(anotherAuthor.username);
+
+    const collaboratorView = await request(app)
+      .get('/api/v1/drafts/' + draft._id)
+      .set('Authorization', 'Bearer ' + anotherToken);
+    expect(collaboratorView.statusCode).toBe(200);
+    expect(collaboratorView.body.data._id).toBe(draft._id.toString());
+  });
+
 });
