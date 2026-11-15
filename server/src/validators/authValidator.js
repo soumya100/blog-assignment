@@ -75,7 +75,15 @@ const verifyOtpSchema = z.object({
 
 const updateProfileSchema = z.object({
   bio: z.string().max(250, 'Bio cannot exceed 250 characters').optional().nullable(),
-  avatar: z.string().max(3000000, 'Avatar payload exceeds limit').optional().nullable(),
+  avatar: z.string().max(500, 'Avatar URL cannot exceed 500 characters').refine((value) => {
+    if (!value) return true;
+    if (value.startsWith('/uploads/')) return true;
+    try {
+      return new URL(value).protocol === 'https:';
+    } catch (_) {
+      return false;
+    }
+  }, 'Avatar must be an HTTPS URL or local upload path').optional().nullable(),
 });
 
 module.exports = {
