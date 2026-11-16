@@ -14,7 +14,7 @@ const invalidId = () => {
 
 const listDrafts = async (req, res, next) => {
   try {
-    const drafts = await Draft.find({ $or: [{ author: req.user._id }, { collaborators: req.user._id }] }).sort({ updatedAt: -1 }).lean();
+    const drafts = await Draft.find({ $or: [{ author: req.user._id }, { collaborators: req.user._id }] }).select('-content').sort({ updatedAt: -1 }).lean();
     return successResponse(res, 200, 'Drafts retrieved successfully', drafts);
   } catch (err) { next(err); }
 };
@@ -36,6 +36,7 @@ const getDraft = async (req, res, next) => {
 const saveDraft = async (req, res, next) => {
   try {
     const payload = req.body || {};
+    if (typeof payload.content === 'string' && payload.content.length > 200000) { const error = new Error('Draft content cannot exceed 200,000 characters'); error.statusCode = 400; error.code = 'CONTENT_TOO_LARGE'; throw error; }
     const draft = await Draft.create({
       title: typeof payload.title === 'string' ? payload.title.trim() : '',
       content: typeof payload.content === 'string' ? payload.content : '',
@@ -72,6 +73,7 @@ const updateDraft = async (req, res, next) => {
         updates[key] = key === 'title' || key === 'excerpt' || key === 'coverImage' ? req.body[key].trim() : req.body[key];
       }
     }
+    if (typeof updates.content === 'string' && updates.content.length > 200000) { const error = new Error('Draft content cannot exceed 200,000 characters'); error.statusCode = 400; error.code = 'CONTENT_TOO_LARGE'; throw error; }
     const filter = { _id: req.params.id, $or: [{ author: req.user._id }, { collaborators: req.user._id }] };
     if (Number.isInteger(req.body.revision)) filter.revision = req.body.revision;
     const draft = await Draft.findOneAndUpdate(
@@ -181,6 +183,12 @@ const removeCollaborator = async (req, res, next) => {
       const error = new Error('Draft not found or you are not its owner');
       error.statusCode = 404;
       throw error;
+    }
+    const io = req.app.get('io');
+    if (io) {
+      const room = `draft_${req.params.id}`;
+      const sockets = await io.in(room).fetchSockets();
+      await Promise.all(sockets.filter((item) => item.data.userId === req.params.userId).map((item) => item.leave(room)));
     }
     return successResponse(res, 200, 'Collaborator removed');
   } catch (error) { next(error); }

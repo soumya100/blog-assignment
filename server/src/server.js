@@ -113,16 +113,19 @@ io.on('connection', (socket) => {
     if (mongoose.isValidObjectId(draftId)) socket.leave(`draft_${draftId}`);
   });
 
+  const draftEventWindow = { startedAt: Date.now(), count: 0 };
   socket.on('draft_change', async (payload) => {
+    const now = Date.now();
+    if (now - draftEventWindow.startedAt >= 1000) { draftEventWindow.startedAt = now; draftEventWindow.count = 0; }
+    if (++draftEventWindow.count > 20) return;
     const draftId = payload?.draftId;
     if (!mongoose.isValidObjectId(draftId) || !socket.rooms.has(`draft_${draftId}`)) return;
     if (typeof payload.content !== 'string' || payload.content.length > 200000) return;
-    socket.to(`draft_${draftId}`).emit('draft_remote_change', {
-      draftId,
-      content: payload.content,
-      editorId: socket.data.userId,
-      changedAt: new Date().toISOString(),
-    });
+    try {
+      const authorized = await Draft.exists({ _id: draftId, $or: [{ author: socket.data.userId }, { collaborators: socket.data.userId }] });
+      if (!authorized) { await socket.leave(`draft_${draftId}`); return; }
+      socket.to(`draft_${draftId}`).emit('draft_remote_change', { draftId, content: payload.content, editorId: socket.data.userId, changedAt: new Date().toISOString() });
+    } catch (error) { logger.warn('Draft socket authorization check failed', { socketId: socket.id }); }
   });
 
   socket.on('disconnect', () => {

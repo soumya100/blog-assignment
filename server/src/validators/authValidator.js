@@ -77,9 +77,10 @@ const updateProfileSchema = z.object({
   bio: z.string().max(250, 'Bio cannot exceed 250 characters').optional().nullable(),
   avatar: z.string().max(500, 'Avatar URL cannot exceed 500 characters').refine((value) => {
     if (!value) return true;
-    if (value.startsWith('/uploads/')) return true;
+    if (/^\/uploads\/[A-Za-z0-9_-]+\.(?:jpg|jpeg|png|webp|gif)$/i.test(value)) return true;
     try {
-      return new URL(value).protocol === 'https:';
+      const url = new URL(value);
+      return url.protocol === 'https:' && ['res.cloudinary.com', 'api.dicebear.com'].includes(url.hostname.toLowerCase()) && !url.username && !url.password;
     } catch (_) {
       return false;
     }
