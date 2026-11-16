@@ -310,8 +310,10 @@ const getMe = async (req, res) => {
     setAuthCookies(res, { accessToken: token }, req);
   }
 
+  const safeUser = req.user.toSafeObject();
+  if (typeof safeUser.avatar !== 'string' || safeUser.avatar.length > 500 || (!/^\/uploads\/[A-Za-z0-9_-]+\.(?:jpg|jpeg|png|webp|gif)$/i.test(safeUser.avatar) && (() => { try { const url = new URL(safeUser.avatar); return url.protocol !== 'https:' || !['res.cloudinary.com', 'api.dicebear.com'].includes(url.hostname.toLowerCase()) || Boolean(url.username || url.password); } catch (_) { return true; } })())) safeUser.avatar = '';
   return successResponse(res, 200, 'User profile retrieved', {
-    user: req.user.toSafeObject(),
+    user: safeUser,
     accessToken: token,
   });
 };

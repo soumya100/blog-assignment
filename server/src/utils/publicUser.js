@@ -12,7 +12,7 @@ const sanitizePublicUser = (user) => {
   if (
     typeof avatar !== 'string' ||
     avatar.length > 500 ||
-    (!avatar.startsWith('/uploads/') && !/^https:\/\//i.test(avatar))
+    (!/^\/uploads\/[A-Za-z0-9_-]+\.(?:jpg|jpeg|png|webp|gif)$/i.test(avatar) && (() => { try { const url = new URL(avatar); return url.protocol !== 'https:' || !['res.cloudinary.com', 'api.dicebear.com'].includes(url.hostname.toLowerCase()) || Boolean(url.username || url.password); } catch (_) { return true; } })())
   ) {
     value.avatar = '';
   }
