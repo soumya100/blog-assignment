@@ -109,14 +109,13 @@ const exportMyPosts = async (req, res, next) => {
 const importMyPosts = async (req, res, next) => {
   try {
     const payload = req.body || {};
-    if (payload.format !== 'devlog-post-export-v1' || !Array.isArray(payload.posts) || payload.posts.length < 1 || payload.posts.length > 20) {
-      return res.status(400).json({ success: false, message: 'Upload a DevLog export containing 1 to 20 articles.' });
-    }
+    if (payload.format !== 'devlog-post-export-v1' || !Array.isArray(payload.posts) || payload.posts.length < 1 || payload.posts.length > 5) return res.status(400).json({ success: false, message: 'Upload a DevLog export containing 1 to 5 articles.' });
+    const totalContentLength = payload.posts.reduce((total, item) => total + (typeof item?.content === 'string' ? item.content.length : 0), 0);
+    if (totalContentLength > 500000) return res.status(413).json({ success: false, message: 'The combined imported article content cannot exceed 500,000 characters.' });
+    const validItems = payload.posts.every((item) => item && typeof item.title === 'string' && item.title.trim().length >= 3 && typeof item.content === 'string' && item.content.trim().length >= 10 && item.content.length <= 200000);
+    if (!validItems) return res.status(400).json({ success: false, message: 'Each imported article must include a valid title and content.' });
     const imported = [];
     for (const item of payload.posts) {
-      if (!item || typeof item.title !== 'string' || item.title.trim().length < 3 || typeof item.content !== 'string' || item.content.trim().length < 10 || item.content.length > 200000) {
-        return res.status(400).json({ success: false, message: 'Each imported article must include a valid title and content.' });
-      }
       const post = await postService.createPost({
         title: item.title.trim(),
         content: item.content,
