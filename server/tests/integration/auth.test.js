@@ -249,6 +249,17 @@ describe('Authentication Integration Tests', () => {
     expect(dbUser.avatar).toBe('https://api.dicebear.com/7.x/bottts/svg?seed=CyberBot');
   });
 
+  test('GET /api/v1/auth/me - suppresses oversized legacy avatar payloads', async () => {
+    const regRes = await request(app).post('/api/v1/auth/register').send(validUser);
+    const user = await User.findById(regRes.body.data.user._id);
+    user.avatar = 'data:image/png;base64,' + 'a'.repeat(2500000);
+    await user.save({ validateBeforeSave: false });
+    const me = await request(app).get('/api/v1/auth/me').set('Authorization', 'Bearer ' + regRes.body.data.accessToken);
+    expect(me.statusCode).toBe(200);
+    expect(me.body.data.user.avatar).toBe('');
+    expect(Buffer.byteLength(JSON.stringify(me.body))).toBeLessThan(10000);
+  });
+
   test('PATCH /api/v1/auth/profile - rejects unauthenticated profile update with 401', async () => {
     const res = await request(app)
       .patch('/api/v1/auth/profile')

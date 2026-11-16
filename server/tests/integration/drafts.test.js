@@ -54,6 +54,18 @@ describe('Account-owned drafts and publishing workflow', () => {
     expect(otherList.body.data).toHaveLength(0);
   });
 
+  test('draft lists omit content and oversized drafts are rejected', async () => {
+    const oversized = await request(app).post('/api/v1/drafts').set('Authorization', 'Bearer ' + authorToken).send({ title: 'Too large', content: 'x'.repeat(200001) });
+    expect(oversized.statusCode).toBe(400);
+    const created = await request(app).post('/api/v1/drafts').set('Authorization', 'Bearer ' + authorToken).send({ title: 'List projection', content: 'Private draft body should not be returned in list responses.' });
+    expect(created.statusCode).toBe(201);
+    const listed = await request(app).get('/api/v1/drafts').set('Authorization', 'Bearer ' + authorToken);
+    expect(listed.statusCode).toBe(200);
+    expect(listed.body.data[0].content).toBeUndefined();
+    const detail = await request(app).get('/api/v1/drafts/' + created.body.data._id).set('Authorization', 'Bearer ' + authorToken);
+    expect(detail.body.data.content).toBe('Private draft body should not be returned in list responses.');
+  });
+
   test('another user cannot read or update someone else draft', async () => {
     const draft = await Draft.create({ title: 'Private notes', content: 'This is private.', author: author._id });
 

@@ -28,6 +28,28 @@ describe('Reader engagement, community, mentions and moderation', () => {
     post = await Post.create({ title: 'Community test article', slug: 'community-test-article', content: 'A published article for community feature integration tests.', author: author._id });
   });
 
+  test('trending response excludes article bodies and sanitizes legacy avatars', async () => {
+    author.avatar = 'data:image/png;base64,' + 'a'.repeat(2500000);
+    await author.save({ validateBeforeSave: false });
+    const response = await request(app).get('/api/v1/community/trending');
+    expect(response.statusCode).toBe(200);
+    const listed = response.body.data.find((item) => String(item._id) === String(post._id));
+    expect(listed).toBeDefined();
+    expect(listed.content).toBeUndefined();
+    expect(listed.author.avatar).toBe('');
+    expect(Buffer.byteLength(JSON.stringify(response.body))).toBeLessThan(10000);
+  });
+
+  test('deleted comment mentions are omitted from the inbox', async () => {
+    const response = await request(app).post('/api/v1/posts/' + post._id + '/comments').set('Authorization', 'Bearer ' + readerToken).send({ content: 'Hello @community_author, please review this.' });
+    expect(response.statusCode).toBe(201);
+    const Comment = require('../../src/models/Comment');
+    await Comment.findByIdAndUpdate(response.body.data._id, { isDeleted: true });
+    const inbox = await request(app).get('/api/v1/mentions').set('Authorization', 'Bearer ' + authorToken);
+    expect(inbox.statusCode).toBe(200);
+    expect(inbox.body.data).toHaveLength(0);
+  });
+
   test('reader can react and reaction counts are returned', async () => {
     const response = await request(app).post('/api/v1/community/posts/' + post._id + '/reactions')
       .set('Authorization', 'Bearer ' + readerToken).send({ type: 'clap' });
