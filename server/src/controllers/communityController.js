@@ -7,6 +7,7 @@ const AuthorFollow = require('../models/AuthorFollow');
 const ContentReport = require('../models/ContentReport');
 const { USER_STATUS } = require('../constants/roles');
 const { successResponse } = require('../utils/apiResponse');
+const { sanitizePublicUser } = require('../utils/publicUser');
 
 const fail = (statusCode, message, code) => Object.assign(new Error(message), { statusCode, code });
 
@@ -58,8 +59,10 @@ const getFollowingFeed = async (req, res, next) => {
     const authorIds = follows.map((item) => item.author);
     const limit = Math.min(30, Math.max(1, Number(req.query.limit) || 20));
     const posts = authorIds.length ? await Post.find({ author: { $in: authorIds }, isDeleted: false, status: 'published' })
-      .sort({ createdAt: -1 }).limit(limit)
+      .select('title slug excerpt coverImage tags author createdAt publishedAt status')
+      .sort({ publishedAt: -1, createdAt: -1 }).limit(limit)
       .populate('author', 'username avatar bio').lean() : [];
+    posts.forEach((post) => { post.author = sanitizePublicUser(post.author); });
     return successResponse(res, 200, 'Following feed retrieved', posts);
   } catch (error) { next(error); }
 };
@@ -89,9 +92,11 @@ const reportContent = async (req, res, next) => {
 const getTrending = async (req, res, next) => {
   try {
     const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const posts = await Post.find({ isDeleted: false, status: 'published', createdAt: { $gte: since } })
-      .sort({ createdAt: -1 }).limit(Math.min(20, Math.max(1, Number(req.query.limit) || 10)))
+    const posts = await Post.find({ isDeleted: false, status: 'published', publishedAt: { $gte: since } })
+      .select('title slug excerpt coverImage tags author createdAt publishedAt status')
+      .sort({ publishedAt: -1, createdAt: -1 }).limit(Math.min(20, Math.max(1, Number(req.query.limit) || 10)))
       .populate('author', 'username avatar').lean();
+    posts.forEach((post) => { post.author = sanitizePublicUser(post.author); });
     const ids = posts.map((post) => post._id);
     const counts = ids.length ? await PostReaction.aggregate([
       { $match: { post: { $in: ids } } }, { $group: { _id: '$post', reactions: { $sum: 1 } } },

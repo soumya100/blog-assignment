@@ -1,14 +1,17 @@
 const Mention = require('../models/Mention');
 const { successResponse } = require('../utils/apiResponse');
+const { sanitizePublicUser } = require('../utils/publicUser');
 
 const listMine = async (req, res, next) => {
   try {
     const items = await Mention.find({ recipient: req.user._id }).sort({ createdAt: -1 }).limit(50)
       .populate('actor', 'username avatar')
-      .populate('post', 'title slug')
-      .populate('comment', 'content')
+      .populate('post', 'title slug excerpt')
+      .populate({ path: 'comment', match: { isDeleted: false }, select: 'content isDeleted' })
       .lean();
-    return successResponse(res, 200, 'Mentions retrieved', items);
+    const visibleItems = items.filter((item) => item.comment && !item.comment.isDeleted);
+    visibleItems.forEach((item) => { item.actor = sanitizePublicUser(item.actor); });
+    return successResponse(res, 200, 'Mentions retrieved', visibleItems);
   } catch (error) { next(error); }
 };
 

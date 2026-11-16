@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const ContentCollection = require('../models/ContentCollection');
 const Post = require('../models/Post');
 const { successResponse } = require('../utils/apiResponse');
+const { sanitizePublicUser } = require('../utils/publicUser');
 
 const fail = (status, message) => Object.assign(new Error(message), { statusCode: status });
 const validatePosts = async (ids, userId) => {
@@ -64,6 +65,7 @@ const publicDetail = async (req, res, next) => {
       .populate({ path: 'posts', match: { isDeleted: false, status: 'published' }, select: 'title slug excerpt author', populate: { path: 'author', select: 'username avatar' } })
       .lean();
     if (!item) throw fail(404, 'Public series or collection not found');
+    item.posts = (item.posts || []).map((post) => { if (post?.author) post.author = sanitizePublicUser(post.author); return post; });
     return successResponse(res, 200, 'Content group retrieved', item);
   } catch (error) { next(error); }
 };

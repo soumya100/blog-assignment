@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const ReadingHistory = require('../models/ReadingHistory');
 const Post = require('../models/Post');
+const { sanitizePublicUser } = require('../utils/publicUser');
 
 const visiblePostFilter = (userId) => ({
   isDeleted: false,
@@ -40,10 +41,10 @@ const getReadingHistory = async (userId, limit = 10) => ReadingHistory.find({ us
   .populate({
     path: 'post',
     match: visiblePostFilter(userId),
-    select: 'title slug excerpt coverImage content tags author createdAt status',
+    select: 'title slug excerpt coverImage tags author createdAt publishedAt status',
     populate: { path: 'author', select: 'username avatar' },
   })
-  .lean();
+  .lean().then((items) => items.map((item) => { if (item.post?.author) item.post.author = sanitizePublicUser(item.post.author); return item; }));
 
 const clearReadingHistory = async (userId) => ReadingHistory.deleteMany({ user: userId });
 

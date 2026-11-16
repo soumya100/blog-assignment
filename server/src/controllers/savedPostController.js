@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const SavedPost = require('../models/SavedPost');
 const Post = require('../models/Post');
 const { successResponse } = require('../utils/apiResponse');
+const { sanitizePublicUser } = require('../utils/publicUser');
 
 const visiblePostFilter = (userId) => ({
   isDeleted: false,
@@ -15,11 +16,14 @@ const listSavedPosts = async (req, res, next) => {
       .populate({
         path: 'post',
         match: visiblePostFilter(req.user._id),
+        select: 'title slug excerpt coverImage tags author createdAt publishedAt status',
         populate: { path: 'author', select: 'username avatar bio' },
       })
       .lean();
 
-    return successResponse(res, 200, 'Saved articles retrieved successfully', saved.filter((item) => item.post));
+    const visible = saved.filter((item) => item.post);
+    visible.forEach((item) => { if (item.post.author) item.post.author = sanitizePublicUser(item.post.author); });
+    return successResponse(res, 200, 'Saved articles retrieved successfully', visible);
   } catch (err) {
     next(err);
   }

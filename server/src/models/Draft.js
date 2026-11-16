@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const draftSchema = new mongoose.Schema(
   {
     title: { type: String, trim: true, maxlength: [200, 'Title cannot exceed 200 characters'], default: '' },
-    content: { type: String, default: '' },
+    content: { type: String, maxlength: [200000, 'Draft content cannot exceed 200,000 characters'], default: '' },
     excerpt: { type: String, trim: true, maxlength: [300, 'Excerpt cannot exceed 300 characters'], default: '' },
     coverImage: { type: String, trim: true, default: '' },
     tags: [{ type: String, trim: true, lowercase: true }],
