@@ -22,7 +22,20 @@ app.set('trust proxy', 1);
 // Security Headers
 app.use(
   helmet({
-    contentSecurityPolicy: false, // Disabled for flexible client cross-origin dev
+    contentSecurityPolicy: env.NODE_ENV === 'production' ? {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+        fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com'],
+        imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
+        connectSrc: ["'self'", 'https:', 'wss:'],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        frameAncestors: ["'none'"],
+        formAction: ["'self'", 'https:'],
+      },
+    } : false,
     crossOriginEmbedderPolicy: false,
   })
 );
