@@ -124,13 +124,14 @@ const publishDraft = async (req, res, next) => {
     // Claim the draft atomically so parallel publish requests cannot create
     // multiple articles from the same draft. Expired claims are recoverable.
     const claimBefore = new Date(Date.now() - 5 * 60 * 1000);
+    const publishingAt = new Date();
     const claimedDraft = await Draft.findOneAndUpdate(
       {
         _id: draft._id,
         author: req.user._id,
         $or: [{ publishingAt: null }, { publishingAt: { $exists: false } }, { publishingAt: { $lt: claimBefore } }],
       },
-      { $set: { publishingAt: new Date() } },
+      { $set: { publishingAt } },
       { new: true }
     );
     if (!claimedDraft) {
@@ -149,7 +150,7 @@ const publishDraft = async (req, res, next) => {
         authorId: req.user._id,
         req,
       });
-      await Draft.deleteOne({ _id: claimedDraft._id, author: req.user._id, publishingAt: claimedDraft.publishingAt });
+      await Draft.deleteOne({ _id: claimedDraft._id, author: req.user._id, publishingAt });
       return successResponse(res, 201, 'Draft published successfully', post);
     } catch (publishError) {
       await Draft.updateOne(
