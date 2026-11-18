@@ -14,6 +14,7 @@ const draftSchema = new mongoose.Schema(
     author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     collaborators: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     revision: { type: Number, default: 0 },
+    publishingAt: { type: Date, default: null, select: false },
   },
   { timestamps: true }
 );
