@@ -121,17 +121,43 @@ const publishDraft = async (req, res, next) => {
       error.code = 'DRAFT_INCOMPLETE';
       throw error;
     }
-    const post = await postService.createPost({
-      title: draft.title.trim(),
-      content: draft.content.trim(),
-      excerpt: draft.excerpt,
-      tags: draft.tags,
-      coverImage: draft.coverImage,
-      authorId: req.user._id,
-      req,
-    });
-    await Draft.deleteOne({ _id: draft._id, author: req.user._id });
-    return successResponse(res, 201, 'Draft published successfully', post);
+    // Claim the draft atomically so parallel publish requests cannot create
+    // multiple articles from the same draft. Expired claims are recoverable.
+    const claimBefore = new Date(Date.now() - 5 * 60 * 1000);
+    const claimedDraft = await Draft.findOneAndUpdate(
+      {
+        _id: draft._id,
+        author: req.user._id,
+        $or: [{ publishingAt: null }, { publishingAt: { $exists: false } }, { publishingAt: { $lt: claimBefore } }],
+      },
+      { $set: { publishingAt: new Date() } },
+      { new: true }
+    );
+    if (!claimedDraft) {
+      const error = new Error('This draft is already being published. Please wait and refresh your drafts.');
+      error.statusCode = 409;
+      error.code = 'DRAFT_PUBLISH_IN_PROGRESS';
+      throw error;
+    }
+    try {
+      const post = await postService.createPost({
+        title: claimedDraft.title.trim(),
+        content: claimedDraft.content.trim(),
+        excerpt: claimedDraft.excerpt,
+        tags: claimedDraft.tags,
+        coverImage: claimedDraft.coverImage,
+        authorId: req.user._id,
+        req,
+      });
+      await Draft.deleteOne({ _id: claimedDraft._id, author: req.user._id, publishingAt: claimedDraft.publishingAt });
+      return successResponse(res, 201, 'Draft published successfully', post);
+    } catch (publishError) {
+      await Draft.updateOne(
+        { _id: claimedDraft._id, author: req.user._id, publishingAt: claimedDraft.publishingAt },
+        { $set: { publishingAt: null } }
+      );
+      throw publishError;
+    }
   } catch (err) { next(err); }
 };
 
