@@ -14,7 +14,7 @@ const DraftEditor = () => {
   const { socket, isConnected } = useSocket();
   const { user } = useAuth();
   const isEditing = Boolean(id);
-  const { data: draft, isLoading, isError } = useDraft(id, isEditing);
+  const { data: draft, isLoading, isError, refetch: retryDraft } = useDraft(id, isEditing);
   const createDraft = useCreateDraft();
   const updateDraft = useUpdateDraft();
   const publishDraft = usePublishDraft();
@@ -33,6 +33,8 @@ const DraftEditor = () => {
   const [collaboratorUsername, setCollaboratorUsername] = useState('');
   const [collaborationStatus, setCollaborationStatus] = useState('');
   const [autosaveStatus, setAutosaveStatus] = useState('Private draft');
+  const [saveError, setSaveError] = useState('');
+  const [isInviting, setIsInviting] = useState(false);
 
   useEffect(() => {
     if (draft && !loaded) {
@@ -77,11 +79,16 @@ const DraftEditor = () => {
 
   const inviteCollaborator = async () => {
     if (!id || !collaboratorUsername.trim()) return;
+    setIsInviting(true);
     try {
       await apiClient.post('/drafts/' + id + '/collaborators', { username: collaboratorUsername.trim() });
       setCollaboratorUsername('');
       toast.success('Collaborator added');
-    } catch (error) { toast.error(error.message || 'Could not add collaborator'); }
+    } catch (error) {
+      toast.error(error.response?.data?.message || error.message || 'Could not add collaborator');
+    } finally {
+      setIsInviting(false);
+    }
   };
 
   const payload = () => ({
@@ -103,8 +110,18 @@ const DraftEditor = () => {
   };
 
   const handleSave = async () => {
-    const saved = await save();
-    if (!isEditing && saved?._id) navigate('/drafts/' + saved._id + '/edit', { replace: true });
+    setSaveError('');
+    try {
+      const saved = await save();
+      lastSaved.current = JSON.stringify(payload());
+      setAutosaveStatus('Saved to your account');
+      if (!isEditing && saved?._id) navigate('/drafts/' + saved._id + '/edit', { replace: true });
+    } catch (error) {
+      const message = error.response?.data?.message || error.message || 'Could not save your draft. Please try again.';
+      setSaveError(message);
+      setAutosaveStatus('Save failed — your changes are still on this page');
+      toast.error(message);
+    }
   };
 
   const persistDraft = useCallback(async () => {
@@ -135,21 +152,36 @@ const DraftEditor = () => {
     return () => { if (autosaveTimer.current) window.clearTimeout(autosaveTimer.current); };
   }, [loaded, title, content, excerpt, coverImage, tagsInput, persistDraft]);
   const handlePublish = async () => {
-    const saved = await save();
-    const draftId = id || saved?._id;
-    if (!draftId) return;
-    const result = await publishDraft.mutateAsync(draftId);
-    const post = result.data;
-    navigate('/posts/' + (post?.slug || post?._id || ''));
+    setSaveError('');
+    let savedDraftId = id || null;
+    try {
+      const saved = await save();
+      savedDraftId = savedDraftId || saved?._id || null;
+      if (!savedDraftId) throw new Error('The draft could not be saved. Please try again.');
+      lastSaved.current = JSON.stringify(payload());
+      const result = await publishDraft.mutateAsync(savedDraftId);
+      const post = result.data;
+      navigate('/posts/' + (post?.slug || post?._id || ''));
+    } catch (error) {
+      const message = error.response?.data?.message || error.message || 'Could not publish this article. Your draft has been kept.';
+      setSaveError(message);
+      toast.error(message);
+      // A newly-created draft must be opened by its ID after publish fails;
+      // otherwise the next autosave could create a duplicate draft.
+      if (!isEditing && savedDraftId) {
+        navigate('/drafts/' + savedDraftId + '/edit', { replace: true });
+      }
+    }
   };
 
   if (isEditing && isLoading) return <main className="container-narrow" style={{ paddingTop: '4rem' }}><div className="skeleton" style={{ height: '18rem' }} /></main>;
-  if (isEditing && (isError || !draft)) return <main className="container-narrow" style={{ paddingTop: '4rem' }}><p>Draft not found or you don't have permission to access it.</p><Link to="/drafts">Back to drafts</Link></main>;
+  if (isEditing && isError) return <main className="container-narrow page-error-state" role="alert" style={{ paddingTop: '4rem' }}><div className="card"><h2>Could not load this draft</h2><p style={{ color: 'var(--text-secondary)' }}>Check your connection or access permissions, then try again.</p><div className="app-error-actions"><button type="button" className="btn btn-primary" onClick={() => retryDraft()}>Try again</button><Link to="/drafts" className="btn btn-secondary">Back to drafts</Link></div></div></main>;
+  if (isEditing && !draft) return <main className="container-narrow" style={{ paddingTop: '4rem' }}><p>Draft not found or you don't have permission to access it.</p><Link to="/drafts">Back to drafts</Link></main>;
 
   return (
     <main className="container-narrow publishing-page" style={{ paddingTop: '3rem', paddingBottom: '4rem' }}>
       <Link to="/drafts" className="btn btn-secondary btn-sm" style={{ marginBottom: '1.5rem' }}><ArrowLeft size={15} /> My drafts</Link>
-      <section className="card publishing-card">
+      <section className="card publishing-card" aria-busy={busy}>
         <header className="publishing-heading">
           <div className="publishing-icon"><FileText size={20} /></div>
           <div><h1>{isEditing ? 'Continue your draft' : 'Start a draft'}</h1><p>{isEditing ? 'Collaborators can edit this draft in real time.' : 'Only you can see this article until you publish it.'}</p>{isEditing && <small role="status">{collaborationStatus || (isConnected ? 'Connecting collaboration…' : 'Live collaboration offline')}</small>}</div>
@@ -157,31 +189,32 @@ const DraftEditor = () => {
         </header>
         <div className="form-group">
           <label className="form-label" htmlFor="draft-title">Article title</label>
-          <input id="draft-title" className="form-input" maxLength={200} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Give your article a working title" />
+          <input id="draft-title" className="form-input" maxLength={200} value={title} onChange={(event) => { setTitle(event.target.value); setSaveError(''); }} placeholder="Give your article a working title" />
         </div>
         <div className="form-group">
           <label className="form-label" htmlFor="draft-excerpt">Excerpt (optional)</label>
-          <textarea id="draft-excerpt" className="form-input" rows={2} maxLength={300} value={excerpt} onChange={(event) => setExcerpt(event.target.value)} placeholder="A short introduction for readers" />
+          <textarea id="draft-excerpt" className="form-input" rows={2} maxLength={300} value={excerpt} onChange={(event) => { setExcerpt(event.target.value); setSaveError(''); }} placeholder="A short introduction for readers" />
         </div>
         <div className="form-group">
           <label className="form-label" htmlFor="draft-cover">Cover image URL (optional)</label>
-          <input id="draft-cover" className="form-input" type="url" value={coverImage} onChange={(event) => setCoverImage(event.target.value)} placeholder="https://example.com/cover.jpg" />
+          <input id="draft-cover" className="form-input" type="url" value={coverImage} onChange={(event) => { setCoverImage(event.target.value); setSaveError(''); }} placeholder="https://example.com/cover.jpg" />
         </div>
         <div className="form-group">
           <label className="form-label" htmlFor="draft-tags">Tags (comma separated)</label>
-          <input id="draft-tags" className="form-input" value={tagsInput} onChange={(event) => setTagsInput(event.target.value)} placeholder="react, engineering, tutorials" />
+          <input id="draft-tags" className="form-input" value={tagsInput} onChange={(event) => { setTagsInput(event.target.value); setSaveError(''); }} placeholder="react, engineering, tutorials" />
         </div>
         {isEditing && draft?.author && user?._id === String(draft.author._id || draft.author) && <section className="form-group card" style={{ padding: '1rem' }}>
           <label className="form-label" htmlFor="draft-collaborator">Invite a collaborator by username</label>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <input id="draft-collaborator" className="form-input" value={collaboratorUsername} onChange={(event) => setCollaboratorUsername(event.target.value)} placeholder="username" maxLength={30} />
-            <button type="button" className="btn btn-secondary" onClick={inviteCollaborator} disabled={!collaboratorUsername.trim()}>Invite</button>
+            <button type="button" className="btn btn-secondary" onClick={inviteCollaborator} disabled={!collaboratorUsername.trim() || isInviting}>{isInviting ? 'Inviting…' : 'Invite'}</button>
           </div>
           <small>Only the draft owner can invite collaborators. Changes sync live while both editors are connected.</small>
         </section>}
+        {saveError && <div className="publishing-error" role="alert"><strong>Unable to complete this action</strong><span>{saveError}</span></div>}
         <div className="form-group">
-          <label className="form-label">Article content</label>
-          <MarkdownEditor value={content} onChange={setContent} />
+          <label className="form-label" htmlFor="draft-content">Article content</label>
+          <MarkdownEditor value={content} onChange={(value) => { setContent(value); setSaveError(''); }} error={Boolean(saveError)} />
         </div>
         <footer style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap', marginTop: '1.5rem' }}>
           <button type="button" className="btn btn-secondary" onClick={handleSave} disabled={busy}><Save size={16} /> {busy ? 'Saving...' : 'Save draft'}</button>

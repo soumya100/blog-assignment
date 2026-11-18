@@ -16,6 +16,7 @@ import {
   Minimize2,
 } from 'lucide-react';
 import MarkdownContent from './MarkdownContent';
+import { toast } from 'react-toastify';
 
 const toolbar = [
   { label: 'Bold', icon: Bold, before: '**', after: '**', placeholder: 'bold text', shortcut: 'B' },
@@ -62,16 +63,17 @@ const MarkdownEditor = ({ value = '', onChange, error, onImageUpload }) => {
       if (input) {
         const start = input.selectionStart;
         const end = input.selectionEnd;
-        const markdown = '![' + file.name.split('.').slice(0, -1).join('.') || file.name + '](' + url + ')';
+        const altText = file.name.replace(/\.[^/.]+$/, '').replace(/[\[\]]/g, '');
+        const markdown = '![' + altText + '](' + url + ')';
         onChange(value.slice(0, start) + markdown + value.slice(end));
         requestAnimationFrame(() => { input.focus(); input.setSelectionRange(start + markdown.length, start + markdown.length); });
       }
-    } catch (error) { window.alert(error.message || 'Image upload failed'); }
+    } catch (error) { toast.error(error.response?.data?.message || error.message || 'Image upload failed. Please try again.'); }
     finally { setUploadingImage(false); }
   };
 
   return (
-    <section className={`markdown-editor ${error ? 'markdown-editor-error' : ''}`} aria-label="Article editor" style={fullscreen ? { position: 'fixed', inset: 12, zIndex: 1000, background: 'var(--bg-primary)', display: 'flex', flexDirection: 'column', overflow: 'auto' } : undefined}>
+    <section className={`markdown-editor ${error ? 'markdown-editor-error' : ''}`} aria-label="Article editor" style={fullscreen ? { position: 'fixed', inset: 12, zIndex: 1000, background: 'var(--bg-main)', display: 'flex', flexDirection: 'column', overflow: 'auto' } : undefined}>
       <div className="markdown-editor-chrome">
         <div className="markdown-editor-toolbar-row">
           <div className="markdown-editor-toolbar-label">
