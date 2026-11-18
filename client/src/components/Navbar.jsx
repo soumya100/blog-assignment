@@ -4,18 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import ConfirmModal from './ConfirmModal';
 import {
-  PenSquare,
-  ShieldCheck,
-  Sun,
-  Moon,
-  LogOut,
-  User as UserIcon,
-  Menu,
-  X,
-  Compass,
-  Bookmark,
-  FileText,
-  LayoutDashboard,
+  PenSquare, ShieldCheck, Sun, Moon, LogOut, User as UserIcon,
+  Menu, X, Compass, LayoutDashboard, ChevronDown,
 } from 'lucide-react';
 
 const Navbar = () => {
@@ -23,356 +13,130 @@ const Navbar = () => {
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [logoutModalOpen, setLogoutModalOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const closeMenus = () => {
+    setMobileMenuOpen(false);
+    setMoreMenuOpen(false);
+  };
 
   const handleLogoutConfirm = async () => {
     setIsLoggingOut(true);
     try {
       await logout();
       setLogoutModalOpen(false);
+      closeMenus();
       navigate('/login');
     } finally {
       setIsLoggingOut(false);
     }
   };
 
+  const secondaryLinks = [
+    { to: '/newsletter', label: 'Newsletter' },
+    ...(isAuthenticated ? [
+      { to: '/analytics', label: 'Analytics' },
+      { to: '/library', label: 'Series & collections' },
+      { to: '/mentions', label: 'Mentions' },
+      { to: '/import-export', label: 'Import / Export' },
+      { to: '/drafts', label: 'My drafts' },
+      { to: '/saved', label: 'Saved articles' },
+    ] : []),
+    ...(isAdmin ? [{ to: '/admin', label: 'Admin panel', admin: true }] : []),
+  ];
+
   return (
     <>
-      <header
-        style={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 50,
-          backgroundColor: 'var(--bg-card)',
-          backdropFilter: 'blur(12px)',
-          borderBottom: '1px solid var(--border-subtle)',
-        }}
-      >
-        <div
-          className="container"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            height: '4.25rem',
-          }}
-        >
-          {/* Brand Logo */}
-          <Link
-            to="/"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.625rem',
-              color: 'var(--text-primary)',
-              fontWeight: 800,
-              fontSize: '1.25rem',
-              fontFamily: 'var(--font-display)',
-              textDecoration: 'none',
-            }}
-          >
-            <div
-              style={{
-                width: '2.25rem',
-                height: '2.25rem',
-                borderRadius: 'var(--radius-sm)',
-                background: 'linear-gradient(135deg, var(--accent-primary), #6366f1)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#ffffff',
-              }}
-            >
-              <Compass size={20} />
-            </div>
+      <header className="app-navbar">
+        <div className="container navbar-inner">
+          <Link to="/" onClick={closeMenus} className="navbar-brand" aria-label="DevLog home">
+            <span className="navbar-brand-mark"><Compass size={20} /></span>
             <span>DevLog</span>
-            <span className="badge badge-primary" style={{ fontSize: '0.65rem', padding: '0.1rem 0.4rem' }}>
-              v1.0
-            </span>
+            <span className="badge badge-primary navbar-version">v1.0</span>
           </Link>
 
-          {/* Desktop Navigation */}
-          <nav
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '1.25rem',
-            }}
-            className="desktop-nav"
-          >
-            <Link
-              to="/"
-              style={{
-                color: 'var(--text-secondary)',
-                fontWeight: 500,
-                fontSize: '0.925rem',
-              }}
-            >
-              Explore
-            </Link>
-
-            <Link to="/community" style={{ color: 'var(--text-secondary)', fontWeight: 500, fontSize: '0.925rem' }}>Community</Link>
-            <Link to="/newsletter" style={{ color: 'var(--text-secondary)', fontWeight: 500, fontSize: '0.925rem' }}>Newsletter</Link>
-
-            {isAuthenticated && (
-              <Link to="/analytics" style={{ color: 'var(--text-secondary)', fontWeight: 500, fontSize: '0.925rem' }}>Analytics</Link>
-            )}
-            {isAuthenticated && (
-              <Link to="/library" style={{ color: 'var(--text-secondary)', fontWeight: 500, fontSize: '0.925rem' }}>Series</Link>
-            )}
-            {isAuthenticated && (
-              <Link to="/mentions" style={{ color: 'var(--text-secondary)', fontWeight: 500, fontSize: '0.925rem' }}>Mentions</Link>
-            )}
-            {isAuthenticated && (
-              <Link to="/import-export" style={{ color: 'var(--text-secondary)', fontWeight: 500, fontSize: '0.925rem' }}>Import/Export</Link>
-            )}
-
-            {isAuthenticated && (
-              <Link to="/reader" style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', color: 'var(--text-secondary)', fontWeight: 500, fontSize: '0.925rem' }}>
-                <LayoutDashboard size={16} /> Reader dashboard
-              </Link>
-            )}
-
-            {isAuthenticated && (
-              <Link to="/drafts" style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', color: 'var(--text-secondary)', fontWeight: 500, fontSize: '0.925rem' }}>
-                <FileText size={16} /> My drafts
-              </Link>
-            )}
-
-            {isAuthenticated && (
-              <Link to="/saved" style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', color: 'var(--text-secondary)', fontWeight: 500, fontSize: '0.925rem' }}>
-                <Bookmark size={16} /> Saved articles
-              </Link>
-            )}
-
-{isAdmin && (
-              <Link
-                to="/admin"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.375rem',
-                  color: 'var(--accent-primary)',
-                  fontWeight: 600,
-                  fontSize: '0.925rem',
-                }}
-              >
-                <ShieldCheck size={18} />
-                Admin Panel
-              </Link>
-            )}
-
-            {/* Theme Toggle Button */}
-            <button
-              onClick={toggleTheme}
-              className="btn btn-secondary btn-sm"
-              title="Toggle light/dark mode"
-              style={{ padding: '0.5rem', borderRadius: 'var(--radius-full)' }}
-            >
-              {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
-
-            {isAuthenticated ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <Link to="/posts/new" className="btn btn-primary btn-sm">
-                  <PenSquare size={16} />
-                  Write Post
-                </Link>
-
-                <Link
-                  to="/profile"
-                  className="btn btn-secondary btn-sm"
-                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                >
-                  {user?.avatar ? (
-                    <img
-                      src={user.avatar}
-                      alt=""
-                      style={{
-                        width: '1.25rem',
-                        height: '1.25rem',
-                        borderRadius: '50%',
-                        objectFit: 'cover',
-                      }}
-                    />
-                  ) : (
-                    <UserIcon size={16} />
-                  )}
-                  <span>{user?.username}</span>
-                </Link>
-
-                <button
-                  onClick={() => setLogoutModalOpen(true)}
-                  className="btn btn-secondary btn-sm"
-                  title="Log out"
-                  style={{ padding: '0.5rem' }}
-                >
-                  <LogOut size={16} />
-                </button>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <Link to="/login" className="btn btn-secondary btn-sm">
-                  Log In
-                </Link>
-                <Link to="/register" className="btn btn-primary btn-sm">
-                  Sign Up
-                </Link>
-              </div>
-            )}
+          <nav className="desktop-nav" aria-label="Primary navigation">
+            <Link to="/" className="navbar-primary-link">Explore</Link>
+            <Link to="/community" className="navbar-primary-link">Community</Link>
+            {isAuthenticated && <Link to="/reader" className="navbar-primary-link">Reader</Link>}
+            <div className="navbar-more">
+              <button type="button" className="navbar-more-trigger" aria-haspopup="menu" aria-expanded={moreMenuOpen} onClick={() => setMoreMenuOpen((open) => !open)}>
+                More <ChevronDown size={15} />
+              </button>
+              {moreMenuOpen && (
+                <div className="navbar-more-menu" role="menu">
+                  {secondaryLinks.map((item) => (
+                    <Link key={item.to} to={item.to} role="menuitem" onClick={closeMenus} className={item.admin ? 'navbar-menu-link navbar-menu-admin' : 'navbar-menu-link'}>
+                      {item.admin && <ShieldCheck size={15} />}{item.label}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
           </nav>
 
-          {/* Mobile Navigation Controls */}
-          <div style={{ display: 'none', alignItems: 'center', gap: '0.5rem' }} className="mobile-nav-toggle">
-            <button
-              onClick={toggleTheme}
-              className="btn btn-secondary btn-sm"
-              title="Toggle light/dark mode"
-              style={{ padding: '0.45rem', borderRadius: 'var(--radius-full)', border: 'none', background: 'transparent' }}
-            >
+          <div className="navbar-actions">
+            <button type="button" onClick={toggleTheme} className="btn btn-secondary btn-sm navbar-icon-button" title="Toggle light/dark mode" aria-label="Toggle light/dark mode">
+              {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
+            </button>
+            {isAuthenticated ? (
+              <>
+                <Link to="/posts/new" className="btn btn-primary btn-sm navbar-write"><PenSquare size={16} /><span>Write</span></Link>
+                <Link to="/profile" className="btn btn-secondary btn-sm navbar-profile">
+                  {user?.avatar ? <img src={user.avatar} alt="" className="navbar-avatar" /> : <UserIcon size={16} />}
+                  <span>{user?.username || 'Profile'}</span>
+                </Link>
+                <button type="button" onClick={() => setLogoutModalOpen(true)} className="btn btn-secondary btn-sm navbar-icon-button" title="Log out" aria-label="Log out"><LogOut size={16} /></button>
+              </>
+            ) : (
+              <>
+                <Link to="/login" className="btn btn-secondary btn-sm">Log In</Link>
+                <Link to="/register" className="btn btn-primary btn-sm">Sign Up</Link>
+              </>
+            )}
+          </div>
+
+          <div className="mobile-nav-toggle">
+            <button type="button" onClick={toggleTheme} className="btn btn-secondary btn-sm navbar-icon-button" title="Toggle light/dark mode" aria-label="Toggle light/dark mode">
               {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
             </button>
-
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-              aria-label="Toggle navigation menu"
-            >
+            <button type="button" className="navbar-menu-toggle" onClick={() => setMobileMenuOpen((open) => !open)} aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'} aria-expanded={mobileMenuOpen} aria-controls="mobile-navigation">
               {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
             </button>
           </div>
         </div>
 
-        {/* Mobile Dropdown Drawer */}
-        <div className={`mobile-nav-drawer ${mobileMenuOpen ? 'open' : ''}`}>
-          <Link
-            to="/"
-            onClick={() => setMobileMenuOpen(false)}
-            style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.95rem', padding: '0.35rem 0' }}
-          >
-            Explore Articles
-          </Link>
-
-          <Link to="/community" onClick={() => setMobileMenuOpen(false)} style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.95rem', padding: '0.35rem 0' }}>Community</Link>
-          <Link to="/newsletter" onClick={() => setMobileMenuOpen(false)} style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.95rem', padding: '0.35rem 0' }}>Newsletter</Link>
-          {isAuthenticated && <Link to="/analytics" onClick={() => setMobileMenuOpen(false)} style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.95rem', padding: '0.35rem 0' }}>Author analytics</Link>}
-          {isAuthenticated && <Link to="/library" onClick={() => setMobileMenuOpen(false)} style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.95rem', padding: '0.35rem 0' }}>Series & collections</Link>}
-          {isAuthenticated && <Link to="/mentions" onClick={() => setMobileMenuOpen(false)} style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.95rem', padding: '0.35rem 0' }}>Mentions</Link>}
-          {isAuthenticated && <Link to="/import-export" onClick={() => setMobileMenuOpen(false)} style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.95rem', padding: '0.35rem 0' }}>Import / Export</Link>}
-
-          {isAuthenticated && (
-            <Link to="/reader" onClick={() => setMobileMenuOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.95rem', padding: '0.35rem 0' }}>
-              <LayoutDashboard size={18} /> Reader dashboard
+        <nav id="mobile-navigation" className={mobileMenuOpen ? 'mobile-nav-drawer open' : 'mobile-nav-drawer'} aria-label="Mobile navigation" aria-hidden={!mobileMenuOpen}>
+          <Link to="/" onClick={closeMenus}>Explore articles</Link>
+          <Link to="/community" onClick={closeMenus}>Community</Link>
+          {isAuthenticated && <Link to="/reader" onClick={closeMenus}><LayoutDashboard size={17} /> Reader dashboard</Link>}
+          {secondaryLinks.map((item) => (
+            <Link key={item.to} to={item.to} onClick={closeMenus} className={item.admin ? 'navbar-menu-admin' : ''}>
+              {item.admin && <ShieldCheck size={17} />}{item.label}
             </Link>
-          )}
-
-          {isAuthenticated && (
-            <Link to="/drafts" onClick={() => setMobileMenuOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.95rem', padding: '0.35rem 0' }}>
-              <FileText size={18} /> My drafts
-            </Link>
-          )}
-
-          {isAuthenticated && (
-            <Link to="/saved" onClick={() => setMobileMenuOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.95rem', padding: '0.35rem 0' }}>
-              <Bookmark size={18} /> Saved articles
-            </Link>
-          )}
-
-          {isAdmin && (
-            <Link
-              to="/admin"
-              onClick={() => setMobileMenuOpen(false)}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--accent-primary)', fontWeight: 600, fontSize: '0.95rem', padding: '0.35rem 0' }}
-            >
-              <ShieldCheck size={18} />
-              Admin Panel
-            </Link>
-          )}
-
-          <div style={{ height: '1px', background: 'var(--border-subtle)', margin: '0.25rem 0' }} />
-
+          ))}
+          <div className="navbar-mobile-divider" />
           {isAuthenticated ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-              <Link
-                to="/posts/new"
-                onClick={() => setMobileMenuOpen(false)}
-                className="btn btn-primary btn-sm"
-                style={{ width: '100%', justifyContent: 'center' }}
-              >
-                <PenSquare size={16} />
-                Write New Article
+            <>
+              <Link to="/posts/new" onClick={closeMenus} className="btn btn-primary btn-sm navbar-mobile-action"><PenSquare size={16} /> Write new article</Link>
+              <Link to="/profile" onClick={closeMenus} className="btn btn-secondary btn-sm navbar-mobile-action">
+                {user?.avatar ? <img src={user.avatar} alt="" className="navbar-avatar" /> : <UserIcon size={16} />}
+                Signed in as @{user?.username || 'user'}
               </Link>
-
-              <Link
-                to="/profile"
-                onClick={() => setMobileMenuOpen(false)}
-                className="btn btn-secondary btn-sm"
-                style={{ width: '100%', justifyContent: 'center', gap: '0.5rem' }}
-              >
-                {user?.avatar ? (
-                  <img
-                    src={user.avatar}
-                    alt=""
-                    style={{
-                      width: '1.25rem',
-                      height: '1.25rem',
-                      borderRadius: '50%',
-                      objectFit: 'cover',
-                    }}
-                  />
-                ) : (
-                  <UserIcon size={16} />
-                )}
-                <span>Signed in as @{user?.username}</span>
-              </Link>
-
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  setLogoutModalOpen(true);
-                }}
-                className="btn btn-secondary btn-sm"
-                style={{ width: '100%', justifyContent: 'center', gap: '0.5rem', color: 'var(--danger)' }}
-              >
-                <LogOut size={16} />
-                <span>Log Out</span>
-              </button>
-            </div>
+              <button type="button" onClick={() => { closeMenus(); setLogoutModalOpen(true); }} className="btn btn-secondary btn-sm navbar-mobile-action navbar-logout"><LogOut size={16} /> Log out</button>
+            </>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.625rem' }}>
-              <Link
-                to="/login"
-                onClick={() => setMobileMenuOpen(false)}
-                className="btn btn-secondary btn-sm"
-                style={{ justifyContent: 'center' }}
-              >
-                Log In
-              </Link>
-              <Link
-                to="/register"
-                onClick={() => setMobileMenuOpen(false)}
-                className="btn btn-primary btn-sm"
-                style={{ justifyContent: 'center' }}
-              >
-                Sign Up
-              </Link>
+            <div className="navbar-mobile-auth">
+              <Link to="/login" onClick={closeMenus} className="btn btn-secondary btn-sm">Log In</Link>
+              <Link to="/register" onClick={closeMenus} className="btn btn-primary btn-sm">Sign Up</Link>
             </div>
           )}
-        </div>
+        </nav>
       </header>
 
-      {/* Logout Confirmation Modal */}
-      <ConfirmModal
-        isOpen={logoutModalOpen}
-        title="Sign Out"
-        message="Are you sure you want to sign out? You'll need to log in again to access your account."
-        onConfirm={handleLogoutConfirm}
-        onCancel={() => setLogoutModalOpen(false)}
-        confirmText="Sign Out"
-        isDanger
-        isLoading={isLoggingOut}
-      />
+      <ConfirmModal isOpen={logoutModalOpen} title="Sign Out" message="Are you sure you want to sign out? You'll need to log in again to access your account." onConfirm={handleLogoutConfirm} onCancel={() => setLogoutModalOpen(false)} confirmText="Sign Out" isDanger isLoading={isLoggingOut} />
     </>
   );
 };
