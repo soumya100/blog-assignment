@@ -16,14 +16,16 @@ const configuredOrigins = (env.CLIENT_URL || '')
   .map((url) => url.trim().replace(/\/$/, ''))
   .filter(Boolean);
 
-const allowedOrigins = [
-  ...configuredOrigins,
+// Development origins must never be implicitly trusted in production.
+// Production browser origins come only from the explicitly configured CLIENT_URL list.
+const developmentOrigins = env.NODE_ENV === 'production' ? [] : [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'http://localhost:3000',
   'http://localhost:5174',
   'http://127.0.0.1:5174',
-]
+];
+const allowedOrigins = [...configuredOrigins, ...developmentOrigins]
   .filter(Boolean)
   .map((url) => url.replace(/\/$/, ''));
 
