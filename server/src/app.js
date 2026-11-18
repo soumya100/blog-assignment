@@ -54,10 +54,6 @@ const isOriginAllowed = (origin) => {
   const normalized = origin.replace(/\/$/, '');
   if (allowedOrigins.includes(normalized)) return true;
 
-  // Permit Render and Vercel cloud deployments for the platform
-  if (/^https:\/\/[a-zA-Z0-9-_]+\.onrender\.com$/.test(normalized)) return true;
-  if (/^https:\/\/[a-zA-Z0-9-_]+\.vercel\.app$/.test(normalized)) return true;
-
   // In development, permit local dev servers on any port (localhost, 127.0.0.1, LAN)
   if (env.NODE_ENV !== 'production') {
     if (
