@@ -153,17 +153,24 @@ const DraftEditor = () => {
   }, [loaded, title, content, excerpt, coverImage, tagsInput, persistDraft]);
   const handlePublish = async () => {
     setSaveError('');
+    let savedDraftId = id || null;
     try {
       const saved = await save();
-      const draftId = id || saved?._id;
-      if (!draftId) throw new Error('The draft could not be saved. Please try again.');
-      const result = await publishDraft.mutateAsync(draftId);
+      savedDraftId = savedDraftId || saved?._id || null;
+      if (!savedDraftId) throw new Error('The draft could not be saved. Please try again.');
+      lastSaved.current = JSON.stringify(payload());
+      const result = await publishDraft.mutateAsync(savedDraftId);
       const post = result.data;
       navigate('/posts/' + (post?.slug || post?._id || ''));
     } catch (error) {
       const message = error.response?.data?.message || error.message || 'Could not publish this article. Your draft has been kept.';
       setSaveError(message);
       toast.error(message);
+      // A newly-created draft must be opened by its ID after publish fails;
+      // otherwise the next autosave could create a duplicate draft.
+      if (!isEditing && savedDraftId) {
+        navigate('/drafts/' + savedDraftId + '/edit', { replace: true });
+      }
     }
   };
 
