@@ -134,6 +134,35 @@ describe('production security regression guards', () => {
   });
 });
 
+  it('does not trust localhost development origins when NODE_ENV is production', () => {
+    const origin = 'http://localhost:5173';
+    const script = `
+      const http = require('http');
+      const app = require('./src/app');
+      const server = app.listen(0, () => {
+        const request = http.request({
+          port: server.address().port,
+          method: 'OPTIONS',
+          path: '/api/v1/health',
+          headers: {
+            Origin: ${JSON.stringify(origin)},
+            'Access-Control-Request-Method': 'GET',
+            'Access-Control-Request-Headers': 'content-type'
+          }
+        }, (response) => {
+          const allowedOrigin = response.headers['access-control-allow-origin'];
+          server.close(() => process.exit(allowedOrigin ? 2 : 0));
+        });
+        request.on('error', () => server.close(() => process.exit(3)));
+        request.end();
+      });
+    `;
+    const result = runNode(script, { CLIENT_URL: 'https://devlog.example.com' });
+
+    expect(result.status).toBe(0);
+  });
+
+
 
 describe('production image storage', () => {
   const originalEnv = {
