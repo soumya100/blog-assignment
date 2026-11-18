@@ -76,6 +76,7 @@ function App() {
         <AuthProvider>
           <SocketProvider>
             <BrowserRouter>
+              <ErrorBoundary>
               <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
                 <Navbar />
                 <ThemedToastContainer />
@@ -161,6 +162,7 @@ function App() {
 
                 <Footer />
               </div>
+              </ErrorBoundary>
             </BrowserRouter>
           </SocketProvider>
         </AuthProvider>
