@@ -11,6 +11,7 @@ import { SocketProvider } from './context/SocketContext';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import { PageLoader } from './components/SkeletonLoader';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Lazy-loaded Public Pages
 const Home = lazy(() => import('./pages/Home'));
@@ -80,6 +81,7 @@ function App() {
                 <ThemedToastContainer />
 
                 <main id="main-content" style={{ flex: 1 }}>
+                  <ErrorBoundary>
                   <Suspense fallback={<PageLoader />}>
                     <Routes>
                       {/* Public Routes */}
@@ -154,6 +156,7 @@ function App() {
                       <Route path="*" element={<Navigate to="/" replace />} />
                     </Routes>
                   </Suspense>
+                  </ErrorBoundary>
                 </main>
 
                 <Footer />
