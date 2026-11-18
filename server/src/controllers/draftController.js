@@ -154,7 +154,7 @@ const publishDraft = async (req, res, next) => {
       return successResponse(res, 201, 'Draft published successfully', post);
     } catch (publishError) {
       await Draft.updateOne(
-        { _id: claimedDraft._id, author: req.user._id, publishingAt: claimedDraft.publishingAt },
+        { _id: claimedDraft._id, author: req.user._id, publishingAt },
         { $set: { publishingAt: null } }
       );
       throw publishError;
