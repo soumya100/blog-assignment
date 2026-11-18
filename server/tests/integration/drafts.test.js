@@ -97,6 +97,35 @@ describe('Account-owned drafts and publishing workflow', () => {
     expect(await Post.countDocuments({ author: author._id })).toBe(0);
   });
 
+  test('draft metadata limits prevent oversized list responses', async () => {
+    const oversizedCover = await request(app)
+      .post('/api/v1/drafts')
+      .set('Authorization', 'Bearer ' + authorToken)
+      .send({ title: 'Cover limit', content: 'This draft has enough content.', coverImage: 'x'.repeat(501) });
+    expect(oversizedCover.statusCode).toBe(400);
+
+    const tooManyTags = await request(app)
+      .post('/api/v1/drafts')
+      .set('Authorization', 'Bearer ' + authorToken)
+      .send({ title: 'Tag limit', content: 'This draft has enough content.', tags: Array.from({ length: 11 }, (_, i) => 'tag' + i) });
+    expect(tooManyTags.statusCode).toBe(400);
+  });
+
+  test('parallel publish requests create only one post', async () => {
+    const draft = await Draft.create({
+      title: 'Publish exactly once',
+      content: 'This article has enough content to pass the publication requirements.',
+      author: author._id,
+    });
+    const publish = () => request(app)
+      .post('/api/v1/drafts/' + draft._id + '/publish')
+      .set('Authorization', 'Bearer ' + authorToken);
+
+    const responses = await Promise.all([publish(), publish()]);
+    expect(responses.map((response) => response.statusCode).sort()).toEqual([201, 409]);
+    expect(await Post.countDocuments({ author: author._id, title: 'Publish exactly once' })).toBe(1);
+  });
+
   test('author can publish a complete draft and the draft is removed', async () => {
     const draft = await Draft.create({
       title: 'A finished article from a draft',
