@@ -64,7 +64,7 @@ const PostDetails = () => {
   // Server state with TanStack Query
   const { data: post, isLoading: postLoading, isError: postError, refetch: retryPost } = usePost(id);
   const [commentSort, setCommentSort] = useState('newest');
-  const { data: comments = [], isLoading: commentsLoading } = useComments(post?._id, commentSort);
+  const { data: comments = [], isLoading: commentsLoading, isError: commentsError, refetch: retryComments } = useComments(post?._id, commentSort);
 
   // TanStack Query Mutations
   const createCommentMutation = useCreateComment(post?._id);
@@ -741,6 +741,11 @@ const PostDetails = () => {
             <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '1rem 0' }}>
               Loading discussion...
             </p>
+          ) : commentsError ? (
+            <div className="page-error-state" role="alert" style={{ textAlign: 'center', padding: '1.5rem' }}>
+              <p style={{ color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>Could not load the discussion.</p>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => retryComments()}>Retry discussion</button>
+            </div>
           ) : comments.length === 0 ? (
             <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem 0' }}>
               No comments yet. Be the first to start the discussion!
