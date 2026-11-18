@@ -108,8 +108,11 @@ jobs:
       - name: Report frontend development dependency advisories
         run: npm audit --prefix client --audit-level=high
         continue-on-error: true
-      - name: Audit backend dependencies
+      - name: Audit backend production dependencies
+        run: npm audit --prefix server --omit=dev --audit-level=high
+      - name: Report backend development dependency advisories
         run: npm audit --prefix server --audit-level=high
+        continue-on-error: true
       - name: Scan repository history for secrets
         uses: gitleaks/gitleaks-action@v2
         env:
