@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import ConfirmModal from './ConfirmModal';
+import { toast } from 'react-toastify';
 import {
   PenSquare, ShieldCheck, Sun, Moon, LogOut, User as UserIcon,
   Menu, X, Compass, LayoutDashboard, ChevronDown,
@@ -46,6 +47,8 @@ const Navbar = () => {
       setLogoutModalOpen(false);
       closeMenus();
       navigate('/login');
+    } catch (error) {
+      toast.error(error.response?.data?.message || error.message || 'Could not sign out. Please try again.');
     } finally {
       setIsLoggingOut(false);
     }
