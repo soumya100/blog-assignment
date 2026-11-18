@@ -262,7 +262,7 @@ describe('unpublished post visibility in reader features', () => {
       name: 'Untrusted Provider',
       providerId: `facebook_${unique()}`,
       emailVerified: false,
-    })).rejects.toMatchObject({ statusCode: 409, code: 'OAUTH_EMAIL_NOT_VERIFIED' });
+    })).rejects.toMatchObject({ statusCode: 409, code: 'OAUTH_ACCOUNT_LINK_REQUIRED' });
 
     const unchangedAdmin = await User.findById(admin._id);
     expect(unchangedAdmin.role).toBe('ADMIN');
@@ -283,19 +283,20 @@ describe('unpublished post visibility in reader features', () => {
     expect(result.user.email).toBe(`${providerId}@devlog-user.internal`);
   });
 
-  it('allows account linking only when Google explicitly verifies the email', async () => {
+  it('blocks automatic account linking even when Google verifies an email already used by a password account', async () => {
     const user = await createUser(unique());
-    const result = await authService.oauthLogin({
+    const providerId = `google_${unique()}`;
+
+    await expect(authService.oauthLogin({
       provider: 'google',
       email: user.email,
       name: 'Verified Google User',
-      providerId: `google_${unique()}`,
+      providerId,
       emailVerified: true,
-    });
+    })).rejects.toMatchObject({ statusCode: 409, code: 'OAUTH_ACCOUNT_LINK_REQUIRED' });
 
-    const linked = await User.findById(user._id);
-    expect(linked.googleId).toBeTruthy();
-    expect(result.user._id.toString()).toBe(user._id.toString());
+    const unchanged = await User.findById(user._id);
+    expect(unchanged.googleId).toBeUndefined();
   });
 
   it('preserves access to an author\'s own scheduled article and to published articles', async () => {
