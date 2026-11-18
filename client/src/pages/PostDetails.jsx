@@ -135,7 +135,7 @@ const PostDetails = () => {
     };
     loadCommunityState().catch(() => {});
     return () => { active = false; };
-  }, [post?._id, authorId]);
+  }, [post?._id, authorId, isAuthenticated]);
 
   const handleReaction = async (type) => {
     if (!isAuthenticated) {
