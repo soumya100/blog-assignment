@@ -46,7 +46,7 @@ const getReadingHistory = async (userId, limit = 10) => ReadingHistory.find({ us
   })
   .lean().then((items) => items.map((item) => {
     if (item.post) {
-      const wordCount = typeof item.post.content === 'string' ? item.post.content.trim().split(/\\s+/).filter(Boolean).length : 0;
+      const wordCount = typeof item.post.content === 'string' ? item.post.content.trim().split(/\s+/).filter(Boolean).length : 0;
       item.post.readingTime = Math.max(1, Math.ceil(wordCount / 200));
       delete item.post.content;
       if (item.post.author) item.post.author = sanitizePublicUser(item.post.author);
