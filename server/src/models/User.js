@@ -122,6 +122,17 @@ userSchema.methods.toSafeObject = function () {
   const obj = this.toObject();
   delete obj.password;
   delete obj.__v;
+  if (typeof obj.avatar !== 'string' || obj.avatar.length > 500) {
+    obj.avatar = '';
+  } else if (obj.avatar) {
+    try {
+      const avatarUrl = new URL(obj.avatar);
+      const allowedHosts = ['res.cloudinary.com', 'api.dicebear.com', 'lh3.googleusercontent.com', 'platform-lookaside.fbsbx.com', 'graph.facebook.com'];
+      if (avatarUrl.protocol !== 'https:' || !allowedHosts.includes(avatarUrl.hostname.toLowerCase()) || avatarUrl.username || avatarUrl.password) obj.avatar = '';
+    } catch (_) {
+      if (!/^\/uploads\/[A-Za-z0-9_-]+\.(?:jpg|jpeg|png|webp|gif)$/i.test(obj.avatar)) obj.avatar = '';
+    }
+  }
   return obj;
 };
 
