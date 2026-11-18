@@ -62,7 +62,7 @@ const PostDetails = () => {
   const queryClient = useQueryClient();
 
   // Server state with TanStack Query
-  const { data: post, isLoading: postLoading } = usePost(id);
+  const { data: post, isLoading: postLoading, isError: postError, refetch: retryPost } = usePost(id);
   const [commentSort, setCommentSort] = useState('newest');
   const { data: comments = [], isLoading: commentsLoading } = useComments(post?._id, commentSort);
 
@@ -97,6 +97,117 @@ const PostDetails = () => {
   const [fontScale, setFontScale] = useState(100);
   const [relatedPosts, setRelatedPosts] = useState([]);
   const headings = (post?.content || '').split('\n').filter((line) => /^#{1,3}\s+/.test(line)).map((line) => ({ level: line.match(/^#+/)[0].length, title: line.replace(/^#{1,3}\s+/, '').trim() }));
+
+
+  const [isFollowingPending, setIsFollowingPending] = useState(false);
+  const [isReactionPending, setIsReactionPending] = useState(false);
+  const authorId = post?.author?._id || post?.author;
+
+  // Load the server's canonical reaction and follow state instead of assuming
+  // a local default, so the controls remain correct after refresh/navigation.
+  useEffect(() => {
+    if (!post?._id) return undefined;
+    let active = true;
+    const loadCommunityState = async () => {
+      const requests = [
+        apiClient.get('/community/posts/' + post._id + '/reactions'),
+        authorId
+          ? apiClient.get('/community/authors/' + authorId + '/follow-status')
+          : Promise.resolve(null),
+      ];
+      const [reactionResult, followResult] = await Promise.allSettled(requests);
+      if (!active) return;
+      if (reactionResult.status === 'fulfilled') {
+        const data = reactionResult.value?.data?.data || {};
+        setEngagement({
+          likes: Number(data.likes) || 0,
+          claps: Number(data.claps) || 0,
+          myReaction: data.myReaction || null,
+        });
+      }
+      if (followResult.status === 'fulfilled' && followResult.value) {
+        const data = followResult.value.data?.data || {};
+        setFollowState({
+          following: Boolean(data.following),
+          followers: Number(data.followers) || 0,
+        });
+      }
+    };
+    loadCommunityState().catch(() => {});
+    return () => { active = false; };
+  }, [post?._id, authorId]);
+
+  const handleReaction = async (type) => {
+    if (!isAuthenticated) {
+      toast.info('Please log in to react to articles.');
+      navigate('/login');
+      return;
+    }
+    if (!post?._id || isReactionPending) return;
+    setIsReactionPending(true);
+    try {
+      const response = await apiClient.post('/community/posts/' + post._id + '/reactions', { type });
+      const data = response.data?.data || {};
+      setEngagement({
+        likes: Number(data.likes) || 0,
+        claps: Number(data.claps) || 0,
+        myReaction: data.type || null,
+      });
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Could not update your reaction. Please try again.');
+    } finally {
+      setIsReactionPending(false);
+    }
+  };
+
+  const handleFollowAuthor = async () => {
+    if (!isAuthenticated) {
+      toast.info('Please log in to follow this author.');
+      navigate('/login');
+      return;
+    }
+    if (!authorId || !post?._id || isFollowingPending || String(authorId) === String(user?._id)) return;
+    setIsFollowingPending(true);
+    try {
+      const response = await apiClient.post('/community/authors/' + authorId + '/follow');
+      const data = response.data?.data || {};
+      setFollowState({
+        following: Boolean(data.following),
+        followers: Number(data.followers) || 0,
+      });
+      toast.success(data.following ? 'You are now following this author.' : 'You unfollowed this author.');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Could not update author follow status. Please try again.');
+    } finally {
+      setIsFollowingPending(false);
+    }
+  };
+
+  const handleReportPost = async () => {
+    if (!isAuthenticated) {
+      toast.info('Please log in to report an article.');
+      navigate('/login');
+      return;
+    }
+    const reason = window.prompt('Choose a reason: spam, harassment, hate, misinformation, copyright, or other');
+    if (!reason) return;
+    const normalizedReason = reason.trim().toLowerCase();
+    const allowedReasons = ['spam', 'harassment', 'hate', 'misinformation', 'copyright', 'other'];
+    if (!allowedReasons.includes(normalizedReason)) {
+      toast.error('Please enter one of the listed report reasons.');
+      return;
+    }
+    try {
+      await apiClient.post('/community/reports', {
+        targetType: 'post',
+        targetId: post._id,
+        reason: normalizedReason,
+      });
+      toast.success('Your report has been submitted for review.');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Could not submit your report. Please try again.');
+    }
+  };
 
   // React Hook Form for new comments
   const {
@@ -279,6 +390,17 @@ const PostDetails = () => {
     );
   }
 
+  if (postError) {
+    return (
+      <div className="container-narrow page-error-state" role="alert" style={{ paddingTop: '5rem', textAlign: 'center' }}>
+        <h2>We couldn’t load this article</h2>
+        <p style={{ color: 'var(--text-secondary)', margin: '1rem 0 2rem' }}>Check your connection and try again.</p>
+        <button type="button" className="btn btn-primary" onClick={() => retryPost()}>Try again</button>
+        <Link to="/" className="btn btn-secondary" style={{ marginLeft: '0.5rem' }}>Back to articles</Link>
+      </div>
+    );
+  }
+
   if (!post) {
     return (
       <div className="container-narrow" style={{ paddingTop: '5rem', textAlign: 'center' }}>
@@ -455,9 +577,9 @@ const PostDetails = () => {
       </header>
       <section aria-label="Reader and community controls" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', padding: '1rem', marginBottom: '1.5rem', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)' }}>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleReaction('like')} aria-pressed={engagement.myReaction === 'like'}>👍 Like ({engagement.likes})</button>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleReaction('clap')} aria-pressed={engagement.myReaction === 'clap'}>👏 Clap ({engagement.claps})</button>
-          {post.author?._id && user?._id !== post.author._id && <button type="button" className="btn btn-secondary btn-sm" onClick={handleFollowAuthor}>{followState.following ? 'Following' : 'Follow author'} · {followState.followers}</button>}
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleReaction('like')} disabled={isReactionPending} aria-pressed={engagement.myReaction === 'like'}>👍 Like ({engagement.likes})</button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleReaction('clap')} disabled={isReactionPending} aria-pressed={engagement.myReaction === 'clap'}>👏 Clap ({engagement.claps})</button>
+          {post.author?._id && user?._id !== post.author._id && <button type="button" className="btn btn-secondary btn-sm" onClick={handleFollowAuthor} disabled={isFollowingPending}>{isFollowingPending ? 'Updating…' : followState.following ? 'Following' : 'Follow author'} · {followState.followers}</button>}
           <button type="button" className="btn btn-secondary btn-sm" onClick={handleReportPost}>Report</button>
           <button type="button" className="btn btn-secondary btn-sm" onClick={() => window.open("https://www.linkedin.com/sharing/share-offsite/?url=" + encodeURIComponent(window.location.href), "_blank", "noopener,noreferrer")}>LinkedIn</button>
           <button type="button" className="btn btn-secondary btn-sm" onClick={() => window.open("https://twitter.com/intent/tweet?url=" + encodeURIComponent(window.location.href) + "&text=" + encodeURIComponent(post.title), "_blank", "noopener,noreferrer")}>X</button>
