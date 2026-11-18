@@ -94,6 +94,15 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      # gitleaks-action scans BASE^..HEAD for pull requests. The checkout's
+      # PR ref may not contain the target branch's parent commit, even with
+      # fetch-depth: 0, so explicitly fetch the target branch history first.
+      - name: Fetch pull request base history
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --no-tags origin "${{ github.event.pull_request.base.ref }}"
+          git fetch --no-tags origin "${{ github.event.pull_request.base.sha }}"
+          git cat-file -e "${{ github.event.pull_request.base.sha }}^"
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
