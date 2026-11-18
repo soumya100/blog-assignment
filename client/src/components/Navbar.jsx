@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -16,6 +16,23 @@ const Navbar = () => {
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [logoutModalOpen, setLogoutModalOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const moreMenuRef = useRef(null);
+
+  useEffect(() => {
+    if (!moreMenuOpen) return undefined;
+    const closeOnOutsideClick = (event) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(event.target)) setMoreMenuOpen(false);
+    };
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setMoreMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [moreMenuOpen]);
 
   const closeMenus = () => {
     setMobileMenuOpen(false);
@@ -61,7 +78,7 @@ const Navbar = () => {
             <Link to="/" className="navbar-primary-link">Explore</Link>
             <Link to="/community" className="navbar-primary-link">Community</Link>
             {isAuthenticated && <Link to="/reader" className="navbar-primary-link">Reader</Link>}
-            <div className="navbar-more">
+            <div className="navbar-more" ref={moreMenuRef}>
               <button type="button" className="navbar-more-trigger" aria-haspopup="menu" aria-expanded={moreMenuOpen} onClick={() => setMoreMenuOpen((open) => !open)}>
                 More <ChevronDown size={15} />
               </button>
