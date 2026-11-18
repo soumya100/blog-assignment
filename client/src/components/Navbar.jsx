@@ -191,7 +191,8 @@ const Navbar = () => {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const mobileTriggerRef = useRef(null);
   const mobilePanelRef = useRef(null);
-  const searchTriggerRef = useRef(null);
+  const desktopSearchTriggerRef = useRef(null);
+  const mobileSearchTriggerRef = useRef(null);
 
   const closeMobile = useCallback(() => {
     setMobileMenuOpen(false);
@@ -200,7 +201,10 @@ const Navbar = () => {
 
   const closeSearch = useCallback(() => {
     setSearchOpen(false);
-    searchTriggerRef.current?.focus();
+    const trigger = window.matchMedia('(min-width: 1101px)').matches
+      ? desktopSearchTriggerRef.current
+      : mobileSearchTriggerRef.current;
+    trigger?.focus();
   }, []);
 
   useEffect(() => {
@@ -277,7 +281,7 @@ const Navbar = () => {
           </nav>
 
           <div className="navbar-search-area">
-            <button ref={searchTriggerRef} type="button" className="navbar-search-trigger" onClick={() => setSearchOpen(true)} aria-label="Search or jump to, keyboard shortcut Control K">
+            <button ref={desktopSearchTriggerRef} type="button" className="navbar-search-trigger" onClick={() => setSearchOpen(true)} aria-label="Search or jump to, keyboard shortcut Control K">
               <Search size={15} />
               <span>Search or jump to...</span>
               <kbd><Command size={10} /> K</kbd>
@@ -337,7 +341,7 @@ const Navbar = () => {
           </div>
 
           <div className="mobile-nav-toggle">
-            <button ref={searchTriggerRef} type="button" onClick={() => setSearchOpen(true)} className="navbar-mobile-search" aria-label="Search DevLog"><Search size={18} /></button>
+            <button ref={mobileSearchTriggerRef} type="button" onClick={() => setSearchOpen(true)} className="navbar-mobile-search" aria-label="Search DevLog"><Search size={18} /></button>
             <button ref={mobileTriggerRef} type="button" className="navbar-menu-toggle" onClick={() => setMobileMenuOpen(true)} aria-label="Open navigation menu" aria-expanded={mobileMenuOpen} aria-controls="mobile-navigation">
               <Menu size={21} />
             </button>
