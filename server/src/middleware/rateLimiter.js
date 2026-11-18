@@ -29,6 +29,7 @@ const refreshLimiter = createLimiter({ windowMs: env.AUTH_RATE_LIMIT_WINDOW_MS, 
 const recoveryLimiter = createLimiter({ windowMs: env.AUTH_RATE_LIMIT_WINDOW_MS, max: env.AUTH_RATE_LIMIT_MAX_REQUESTS, message: 'Too many password recovery attempts. Please try again later.', code: 'RECOVERY_RATE_LIMIT_EXCEEDED' });
 const oauthLimiter = createLimiter({ windowMs: env.AUTH_RATE_LIMIT_WINDOW_MS, max: env.AUTH_RATE_LIMIT_MAX_REQUESTS, message: 'Too many OAuth attempts. Please try again later.', code: 'OAUTH_RATE_LIMIT_EXCEEDED' });
 
+const draftCreationLimiter = createLimiter({ windowMs: 5 * 60 * 1000, max: 30, message: 'Draft creation rate limit reached. Please wait before saving or publishing drafts.', code: 'DRAFT_RATE_LIMIT_EXCEEDED' });
 const viewTrackingLimiter = createLimiter({ windowMs: 60 * 1000, max: 60, message: 'View tracking rate limit reached.', code: 'VIEW_RATE_LIMIT_EXCEEDED' });
 const postCreationLimiter = createLimiter({ windowMs: 5 * 60 * 1000, max: 30, message: 'Post creation rate limit reached. Please wait before posting again.', code: 'POST_RATE_LIMIT_EXCEEDED' });
 const commentCreationLimiter = createLimiter({ windowMs: 5 * 60 * 1000, max: 30, message: 'Comment creation rate limit reached. Please wait before commenting again.', code: 'COMMENT_RATE_LIMIT_EXCEEDED' });
@@ -36,5 +37,5 @@ const importCreationLimiter = createLimiter({ windowMs: 5 * 60 * 1000, max: 5, m
 
 module.exports = {
   apiLimiter, authLimiter, registerLimiter, loginLimiter, refreshLimiter, recoveryLimiter, oauthLimiter,
-  viewTrackingLimiter, postCreationLimiter, commentCreationLimiter, importCreationLimiter,
+  viewTrackingLimiter, draftCreationLimiter, postCreationLimiter, commentCreationLimiter, importCreationLimiter,
 };
