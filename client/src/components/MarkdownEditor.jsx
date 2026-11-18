@@ -63,7 +63,7 @@ const MarkdownEditor = ({ value = '', onChange, error, onImageUpload }) => {
       if (input) {
         const start = input.selectionStart;
         const end = input.selectionEnd;
-        const altText = file.name.replace(/\\.[^.]+$/, '').replace(/[\\[\\]]/g, '');
+        const altText = file.name.replace(/\.[^/.]+$/, '').replace(/[\[\]]/g, '');
         const markdown = '![' + altText + '](' + url + ')';
         onChange(value.slice(0, start) + markdown + value.slice(end));
         requestAnimationFrame(() => { input.focus(); input.setSelectionRange(start + markdown.length, start + markdown.length); });
