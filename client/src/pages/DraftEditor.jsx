@@ -174,7 +174,7 @@ const DraftEditor = () => {
   return (
     <main className="container-narrow publishing-page" style={{ paddingTop: '3rem', paddingBottom: '4rem' }}>
       <Link to="/drafts" className="btn btn-secondary btn-sm" style={{ marginBottom: '1.5rem' }}><ArrowLeft size={15} /> My drafts</Link>
-      <section className="card publishing-card">
+      <section className="card publishing-card" aria-busy={busy}>
         <header className="publishing-heading">
           <div className="publishing-icon"><FileText size={20} /></div>
           <div><h1>{isEditing ? 'Continue your draft' : 'Start a draft'}</h1><p>{isEditing ? 'Collaborators can edit this draft in real time.' : 'Only you can see this article until you publish it.'}</p>{isEditing && <small role="status">{collaborationStatus || (isConnected ? 'Connecting collaboration…' : 'Live collaboration offline')}</small>}</div>
@@ -182,19 +182,19 @@ const DraftEditor = () => {
         </header>
         <div className="form-group">
           <label className="form-label" htmlFor="draft-title">Article title</label>
-          <input id="draft-title" className="form-input" maxLength={200} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Give your article a working title" />
+          <input id="draft-title" className="form-input" maxLength={200} value={title} onChange={(event) => { setTitle(event.target.value); setSaveError(''); }} placeholder="Give your article a working title" />
         </div>
         <div className="form-group">
           <label className="form-label" htmlFor="draft-excerpt">Excerpt (optional)</label>
-          <textarea id="draft-excerpt" className="form-input" rows={2} maxLength={300} value={excerpt} onChange={(event) => setExcerpt(event.target.value)} placeholder="A short introduction for readers" />
+          <textarea id="draft-excerpt" className="form-input" rows={2} maxLength={300} value={excerpt} onChange={(event) => { setExcerpt(event.target.value); setSaveError(''); }} placeholder="A short introduction for readers" />
         </div>
         <div className="form-group">
           <label className="form-label" htmlFor="draft-cover">Cover image URL (optional)</label>
-          <input id="draft-cover" className="form-input" type="url" value={coverImage} onChange={(event) => setCoverImage(event.target.value)} placeholder="https://example.com/cover.jpg" />
+          <input id="draft-cover" className="form-input" type="url" value={coverImage} onChange={(event) => { setCoverImage(event.target.value); setSaveError(''); }} placeholder="https://example.com/cover.jpg" />
         </div>
         <div className="form-group">
           <label className="form-label" htmlFor="draft-tags">Tags (comma separated)</label>
-          <input id="draft-tags" className="form-input" value={tagsInput} onChange={(event) => setTagsInput(event.target.value)} placeholder="react, engineering, tutorials" />
+          <input id="draft-tags" className="form-input" value={tagsInput} onChange={(event) => { setTagsInput(event.target.value); setSaveError(''); }} placeholder="react, engineering, tutorials" />
         </div>
         {isEditing && draft?.author && user?._id === String(draft.author._id || draft.author) && <section className="form-group card" style={{ padding: '1rem' }}>
           <label className="form-label" htmlFor="draft-collaborator">Invite a collaborator by username</label>
@@ -207,7 +207,7 @@ const DraftEditor = () => {
         {saveError && <div className="publishing-error" role="alert"><strong>Unable to complete this action</strong><span>{saveError}</span></div>}
         <div className="form-group">
           <label className="form-label" htmlFor="draft-content">Article content</label>
-          <MarkdownEditor value={content} onChange={setContent} error={Boolean(saveError)} />
+          <MarkdownEditor value={content} onChange={(value) => { setContent(value); setSaveError(''); }} error={Boolean(saveError)} />
         </div>
         <footer style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap', marginTop: '1.5rem' }}>
           <button type="button" className="btn btn-secondary" onClick={handleSave} disabled={busy}><Save size={16} /> {busy ? 'Saving...' : 'Save draft'}</button>
