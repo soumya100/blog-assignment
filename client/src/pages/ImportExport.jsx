@@ -46,7 +46,7 @@ export default function ImportExport() {
     </section>
     <section className="card" style={{ padding: '1.5rem' }}>
       <h2 style={{ fontSize: '1.15rem' }}>Import articles</h2>
-      <p style={{ color: 'var(--text-secondary)', margin: '0.5rem 0 1rem' }}>Select a DevLog export JSON file (up to 5 MB; maximum 20 articles per import).</p>
+      <p style={{ color: 'var(--text-secondary)', margin: '0.5rem 0 1rem' }}>Select a DevLog export JSON file (up to 5 MB; maximum 5 articles per import).</p>
       <input type="file" accept="application/json,.json" onChange={importArticles} disabled={busy} />
       {result && <p role="status" style={{ marginTop: '1rem' }}>{result}</p>}
     </section>

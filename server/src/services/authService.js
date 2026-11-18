@@ -301,13 +301,13 @@ const oauthLogin = async ({ provider, email, name, avatar, providerId, emailVeri
 
   if (!user) {
     const emailMatch = await User.findOne({ email: normalizedEmail });
-    if (emailMatch && emailVerified !== true) {
-      const error = new Error('This email is already associated with an account. Sign in using that account before linking this provider.');
+    if (emailMatch) {
+      const error = new Error('An account already exists for this email. Sign in with that account and link the provider from account settings.');
       error.statusCode = 409;
-      error.code = 'OAUTH_EMAIL_NOT_VERIFIED';
+      error.code = 'OAUTH_ACCOUNT_LINK_REQUIRED';
       throw error;
     }
-    user = emailMatch;
+    user = null;
   }
 
   if (user) {

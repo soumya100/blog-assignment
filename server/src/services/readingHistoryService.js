@@ -41,10 +41,18 @@ const getReadingHistory = async (userId, limit = 10) => ReadingHistory.find({ us
   .populate({
     path: 'post',
     match: visiblePostFilter(userId),
-    select: 'title slug excerpt coverImage tags author createdAt publishedAt status',
+    select: 'title slug excerpt coverImage tags author createdAt publishedAt status content',
     populate: { path: 'author', select: 'username avatar' },
   })
-  .lean().then((items) => items.map((item) => { if (item.post?.author) item.post.author = sanitizePublicUser(item.post.author); return item; }));
+  .lean().then((items) => items.map((item) => {
+    if (item.post) {
+      const wordCount = typeof item.post.content === 'string' ? item.post.content.trim().split(/\s+/).filter(Boolean).length : 0;
+      item.post.readingTime = Math.max(1, Math.ceil(wordCount / 200));
+      delete item.post.content;
+      if (item.post.author) item.post.author = sanitizePublicUser(item.post.author);
+    }
+    return item;
+  }));
 
 const clearReadingHistory = async (userId) => ReadingHistory.deleteMany({ user: userId });
 

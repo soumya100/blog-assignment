@@ -37,6 +37,10 @@ const saveDraft = async (req, res, next) => {
   try {
     const payload = req.body || {};
     if (typeof payload.content === 'string' && payload.content.length > 200000) { const error = new Error('Draft content cannot exceed 200,000 characters'); error.statusCode = 400; error.code = 'CONTENT_TOO_LARGE'; throw error; }
+    if (typeof payload.title === 'string' && payload.title.length > 200) { const error = new Error('Title cannot exceed 200 characters'); error.statusCode = 400; error.code = 'VALIDATION_ERROR'; throw error; }
+    if (typeof payload.excerpt === 'string' && payload.excerpt.length > 300) { const error = new Error('Excerpt cannot exceed 300 characters'); error.statusCode = 400; error.code = 'VALIDATION_ERROR'; throw error; }
+    if (typeof payload.coverImage === 'string' && payload.coverImage.length > 500) { const error = new Error('Cover image reference cannot exceed 500 characters'); error.statusCode = 400; error.code = 'VALIDATION_ERROR'; throw error; }
+    if (Array.isArray(payload.tags) && (payload.tags.length > 10 || payload.tags.some((tag) => typeof tag !== 'string' || tag.length > 30))) { const error = new Error('Drafts support up to 10 tags, each no longer than 30 characters'); error.statusCode = 400; error.code = 'VALIDATION_ERROR'; throw error; }
     const draft = await Draft.create({
       title: typeof payload.title === 'string' ? payload.title.trim() : '',
       content: typeof payload.content === 'string' ? payload.content : '',
@@ -63,6 +67,12 @@ const updateDraft = async (req, res, next) => {
           error.code = 'VALIDATION_ERROR';
           throw error;
         }
+        if (req.body.tags.length > 10 || req.body.tags.some((tag) => tag.length > 30)) {
+          const error = new Error('Drafts support up to 10 tags, each no longer than 30 characters');
+          error.statusCode = 400;
+          error.code = 'VALIDATION_ERROR';
+          throw error;
+        }
         updates.tags = req.body.tags.map((tag) => tag.trim().toLowerCase()).filter(Boolean);
       } else if (typeof req.body[key] !== 'string') {
         const error = new Error(key + ' must be a string');
@@ -74,6 +84,9 @@ const updateDraft = async (req, res, next) => {
       }
     }
     if (typeof updates.content === 'string' && updates.content.length > 200000) { const error = new Error('Draft content cannot exceed 200,000 characters'); error.statusCode = 400; error.code = 'CONTENT_TOO_LARGE'; throw error; }
+    if (typeof updates.title === 'string' && updates.title.length > 200) { const error = new Error('Title cannot exceed 200 characters'); error.statusCode = 400; error.code = 'VALIDATION_ERROR'; throw error; }
+    if (typeof updates.excerpt === 'string' && updates.excerpt.length > 300) { const error = new Error('Excerpt cannot exceed 300 characters'); error.statusCode = 400; error.code = 'VALIDATION_ERROR'; throw error; }
+    if (typeof updates.coverImage === 'string' && updates.coverImage.length > 500) { const error = new Error('Cover image reference cannot exceed 500 characters'); error.statusCode = 400; error.code = 'VALIDATION_ERROR'; throw error; }
     const filter = { _id: req.params.id, $or: [{ author: req.user._id }, { collaborators: req.user._id }] };
     if (Number.isInteger(req.body.revision)) filter.revision = req.body.revision;
     const draft = await Draft.findOneAndUpdate(
@@ -108,17 +121,44 @@ const publishDraft = async (req, res, next) => {
       error.code = 'DRAFT_INCOMPLETE';
       throw error;
     }
-    const post = await postService.createPost({
-      title: draft.title.trim(),
-      content: draft.content.trim(),
-      excerpt: draft.excerpt,
-      tags: draft.tags,
-      coverImage: draft.coverImage,
-      authorId: req.user._id,
-      req,
-    });
-    await Draft.deleteOne({ _id: draft._id, author: req.user._id });
-    return successResponse(res, 201, 'Draft published successfully', post);
+    // Claim the draft atomically so parallel publish requests cannot create
+    // multiple articles from the same draft. Expired claims are recoverable.
+    const claimBefore = new Date(Date.now() - 5 * 60 * 1000);
+    const publishingAt = new Date();
+    const claimedDraft = await Draft.findOneAndUpdate(
+      {
+        _id: draft._id,
+        author: req.user._id,
+        $or: [{ publishingAt: null }, { publishingAt: { $exists: false } }, { publishingAt: { $lt: claimBefore } }],
+      },
+      { $set: { publishingAt } },
+      { new: true }
+    );
+    if (!claimedDraft) {
+      const error = new Error('This draft is already being published. Please wait and refresh your drafts.');
+      error.statusCode = 409;
+      error.code = 'DRAFT_PUBLISH_IN_PROGRESS';
+      throw error;
+    }
+    try {
+      const post = await postService.createPost({
+        title: claimedDraft.title.trim(),
+        content: claimedDraft.content.trim(),
+        excerpt: claimedDraft.excerpt,
+        tags: claimedDraft.tags,
+        coverImage: claimedDraft.coverImage,
+        authorId: req.user._id,
+        req,
+      });
+      await Draft.deleteOne({ _id: claimedDraft._id, author: req.user._id, publishingAt });
+      return successResponse(res, 201, 'Draft published successfully', post);
+    } catch (publishError) {
+      await Draft.updateOne(
+        { _id: claimedDraft._id, author: req.user._id, publishingAt },
+        { $set: { publishingAt: null } }
+      );
+      throw publishError;
+    }
   } catch (err) { next(err); }
 };
 
@@ -188,7 +228,8 @@ const removeCollaborator = async (req, res, next) => {
     if (io) {
       const room = `draft_${req.params.id}`;
       const sockets = await io.in(room).fetchSockets();
-      await Promise.all(sockets.filter((item) => item.data.userId === req.params.userId).map((item) => item.leave(room)));
+      const removedUserId = String(req.params.userId).toLowerCase();
+      await Promise.all(sockets.filter((item) => String(item.data.userId || '').toLowerCase() === removedUserId).map((item) => item.leave(room)));
     }
     return successResponse(res, 200, 'Collaborator removed');
   } catch (error) { next(error); }

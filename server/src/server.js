@@ -16,14 +16,16 @@ const configuredOrigins = (env.CLIENT_URL || '')
   .map((url) => url.trim().replace(/\/$/, ''))
   .filter(Boolean);
 
-const allowedOrigins = [
-  ...configuredOrigins,
+// Development origins must never be implicitly trusted in production.
+// Production browser origins come only from the explicitly configured CLIENT_URL list.
+const developmentOrigins = env.NODE_ENV === 'production' ? [] : [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'http://localhost:3000',
   'http://localhost:5174',
   'http://127.0.0.1:5174',
-]
+];
+const allowedOrigins = [...configuredOrigins, ...developmentOrigins]
   .filter(Boolean)
   .map((url) => url.replace(/\/$/, ''));
 
@@ -31,10 +33,6 @@ const isOriginAllowed = (origin) => {
   if (!origin) return true;
   const normalized = origin.replace(/\/$/, '');
   if (allowedOrigins.includes(normalized)) return true;
-
-  // Permit Render and Vercel cloud deployments for the platform
-  if (/^https:\/\/[a-zA-Z0-9-_]+\.onrender\.com$/.test(normalized)) return true;
-  if (/^https:\/\/[a-zA-Z0-9-_]+\.vercel\.app$/.test(normalized)) return true;
 
   if (env.NODE_ENV !== 'production') {
     if (
@@ -122,7 +120,8 @@ io.on('connection', (socket) => {
     if (!mongoose.isValidObjectId(draftId) || !socket.rooms.has(`draft_${draftId}`)) return;
     if (typeof payload.content !== 'string' || payload.content.length > 200000) return;
     try {
-      const authorized = await Draft.exists({ _id: draftId, $or: [{ author: socket.data.userId }, { collaborators: socket.data.userId }] });
+      const activeUser = await User.exists({ _id: socket.data.userId, status: USER_STATUS.ACTIVE });
+      const authorized = activeUser && await Draft.exists({ _id: draftId, $or: [{ author: socket.data.userId }, { collaborators: socket.data.userId }] });
       if (!authorized) { await socket.leave(`draft_${draftId}`); return; }
       socket.to(`draft_${draftId}`).emit('draft_remote_change', { draftId, content: payload.content, editorId: socket.data.userId, changedAt: new Date().toISOString() });
     } catch (error) { logger.warn('Draft socket authorization check failed', { socketId: socket.id }); }

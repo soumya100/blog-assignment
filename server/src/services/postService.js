@@ -99,7 +99,7 @@ const getPosts = async ({ page = 1, limit = 10, search, tag, author, includeDele
   const [posts, total] = await Promise.all([
     Post.find(filter)
       .select('-content')
-      .sort({ createdAt: -1 })
+      .sort({ publishedAt: -1, createdAt: -1 })
       .skip(skip)
       .limit(limit)
       .populate({ path: 'author', select: 'username avatar', transform: sanitizePublicUser })
@@ -217,9 +217,11 @@ const updatePost = async (postId, updateData, user, req) => {
       error.code = 'INVALID_SCHEDULE_TIME';
       throw error;
     }
+    const wasPublished = post.status === 'published' && Boolean(post.publishedAt);
     post.scheduledAt = scheduleDate;
     post.status = scheduleDate ? 'scheduled' : 'published';
-    post.publishedAt = scheduleDate ? null : new Date();
+    if (scheduleDate) post.publishedAt = null;
+    else if (!wasPublished) post.publishedAt = new Date();
   }
 
   for (const field of ['seoTitle', 'seoDescription', 'canonicalUrl', 'noIndex']) {

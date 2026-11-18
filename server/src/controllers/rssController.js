@@ -13,7 +13,7 @@ const cdata = (value = '') => String(value).replace(/]]>/g, ']]]]><![CDATA[>');
 const getFeed = async (req, res, next) => {
   try {
     const posts = await Post.find({ isDeleted: false, status: 'published', noIndex: { $ne: true } })
-      .sort({ createdAt: -1 })
+      .sort({ publishedAt: -1, createdAt: -1 })
       .limit(50)
       .populate('author', 'username')
       .select('title slug content excerpt seoDescription author createdAt updatedAt')
@@ -24,7 +24,7 @@ const getFeed = async (req, res, next) => {
     const items = posts.map((post) => {
       const link = `${origin}/posts/${encodeURIComponent(post.slug)}`;
       const description = post.seoDescription || post.excerpt || post.content.replace(/<[^>]*>/g, '').slice(0, 500);
-      return `<item><title>${escapeXml(post.title)}</title><link>${escapeXml(link)}</link><guid isPermaLink="true">${escapeXml(link)}</guid><description><![CDATA[${cdata(description)}]]></description><author>${escapeXml(post.author?.username || 'Unknown')}</author><pubDate>${new Date(post.createdAt).toUTCString()}</pubDate></item>`;
+      return `<item><title>${escapeXml(post.title)}</title><link>${escapeXml(link)}</link><guid isPermaLink="true">${escapeXml(link)}</guid><description><![CDATA[${cdata(description)}]]></description><author>${escapeXml(post.author?.username || 'Unknown')}</author><pubDate>${new Date(post.publishedAt || post.createdAt).toUTCString()}</pubDate></item>`;
     }).join('');
 
     res.set('Content-Type', 'application/rss+xml; charset=utf-8');

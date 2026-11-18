@@ -134,6 +134,35 @@ describe('production security regression guards', () => {
   });
 });
 
+  it('does not trust localhost development origins when NODE_ENV is production', () => {
+    const origin = 'http://localhost:5173';
+    const script = `
+      const http = require('http');
+      const app = require('./src/app');
+      const server = app.listen(0, () => {
+        const request = http.request({
+          port: server.address().port,
+          method: 'OPTIONS',
+          path: '/api/v1/health',
+          headers: {
+            Origin: ${JSON.stringify(origin)},
+            'Access-Control-Request-Method': 'GET',
+            'Access-Control-Request-Headers': 'content-type'
+          }
+        }, (response) => {
+          const allowedOrigin = response.headers['access-control-allow-origin'];
+          server.close(() => process.exit(allowedOrigin ? 2 : 0));
+        });
+        request.on('error', () => server.close(() => process.exit(3)));
+        request.end();
+      });
+    `;
+    const result = runNode(script, { CLIENT_URL: 'https://devlog.example.com' });
+
+    expect(result.status).toBe(0);
+  });
+
+
 
 describe('production image storage', () => {
   const originalEnv = {
@@ -262,7 +291,7 @@ describe('unpublished post visibility in reader features', () => {
       name: 'Untrusted Provider',
       providerId: `facebook_${unique()}`,
       emailVerified: false,
-    })).rejects.toMatchObject({ statusCode: 409, code: 'OAUTH_EMAIL_NOT_VERIFIED' });
+    })).rejects.toMatchObject({ statusCode: 409, code: 'OAUTH_ACCOUNT_LINK_REQUIRED' });
 
     const unchangedAdmin = await User.findById(admin._id);
     expect(unchangedAdmin.role).toBe('ADMIN');
@@ -283,19 +312,20 @@ describe('unpublished post visibility in reader features', () => {
     expect(result.user.email).toBe(`${providerId}@devlog-user.internal`);
   });
 
-  it('allows account linking only when Google explicitly verifies the email', async () => {
+  it('blocks automatic account linking even when Google verifies an email already used by a password account', async () => {
     const user = await createUser(unique());
-    const result = await authService.oauthLogin({
+    const providerId = `google_${unique()}`;
+
+    await expect(authService.oauthLogin({
       provider: 'google',
       email: user.email,
       name: 'Verified Google User',
-      providerId: `google_${unique()}`,
+      providerId,
       emailVerified: true,
-    });
+    })).rejects.toMatchObject({ statusCode: 409, code: 'OAUTH_ACCOUNT_LINK_REQUIRED' });
 
-    const linked = await User.findById(user._id);
-    expect(linked.googleId).toBeTruthy();
-    expect(result.user._id.toString()).toBe(user._id.toString());
+    const unchanged = await User.findById(user._id);
+    expect(unchanged.googleId).toBeUndefined();
   });
 
   it('preserves access to an author\'s own scheduled article and to published articles', async () => {

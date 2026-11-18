@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { isAllowedAvatar } = require('../utils/publicUser');
 const bcrypt = require('bcryptjs');
 const { ROLES, USER_STATUS } = require('../constants/roles');
 
@@ -122,6 +123,7 @@ userSchema.methods.toSafeObject = function () {
   const obj = this.toObject();
   delete obj.password;
   delete obj.__v;
+  if (!isAllowedAvatar(obj.avatar)) obj.avatar = '';
   return obj;
 };
 

@@ -5,18 +5,18 @@ const validate = require('../middleware/validate');
 const { createPostSchema, updatePostSchema, queryPostSchema } = require('../validators/postValidator');
 const { createCommentSchema } = require('../validators/commentValidator');
 const { requireAuth, requireRole, optionalAuth } = require('../middleware/auth');
-const { contentCreationLimiter } = require('../middleware/rateLimiter');
+const { postCreationLimiter, commentCreationLimiter, importCreationLimiter } = require('../middleware/rateLimiter');
 const { ROLES } = require('../constants/roles');
 
 const router = express.Router();
 
 // Blog Post CRUD
 router.get('/export', requireAuth, postController.exportMyPosts);
-router.post('/import', requireAuth, contentCreationLimiter, postController.importMyPosts);
+router.post('/import', requireAuth, importCreationLimiter, postController.importMyPosts);
 router.get('/:id/versions', requireAuth, postController.listVersions);
 router.get('/', optionalAuth, validate(queryPostSchema, 'query'), postController.getPosts);
 router.get('/:id', optionalAuth, postController.getPostByIdOrSlug);
-router.post('/', requireAuth, contentCreationLimiter, validate(createPostSchema), postController.createPost);
+router.post('/', requireAuth, postCreationLimiter, validate(createPostSchema), postController.createPost);
 router.patch('/:id', requireAuth, validate(updatePostSchema), postController.updatePost);
 router.delete('/:id', requireAuth, postController.deletePost);
 
@@ -27,7 +27,7 @@ router.post('/:id/restore', requireAuth, requireRole(ROLES.ADMIN), postControlle
 router.post(
   '/:postId/comments',
   requireAuth,
-  contentCreationLimiter,
+  commentCreationLimiter,
   validate(createCommentSchema),
   commentController.createComment
 );

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { BookOpen, Bookmark, Clock3, History, ArrowRight, Trash2, Compass } from 'lucide-react';
 import { usePosts, useSavedPosts, useDrafts, useReadingHistory, useClearReadingHistory } from '../hooks/useBlogApi';
 
-const minutes = (content = '') => Math.max(1, Math.ceil(content.trim().split(/\s+/).filter(Boolean).length / 200));
+const minutes = (post = {}) => Number.isFinite(post.readingTime) ? post.readingTime : Math.max(1, Math.ceil((post.content || '').trim().split(/\s+/).filter(Boolean).length / 200));
 const articleHref = (post) => '/posts/' + (post.slug || post._id);
 
 const ReaderDashboard = () => {
@@ -15,7 +15,7 @@ const ReaderDashboard = () => {
   const latest = latestData?.posts || [];
   const readIds = new Set(history.map((item) => item.post?._id).filter(Boolean));
   const recommendations = latest.filter((post) => !readIds.has(post._id)).slice(0, 4);
-  const totalMinutes = history.reduce((sum, item) => sum + minutes(item.post?.content), 0);
+  const totalMinutes = history.reduce((sum, item) => sum + minutes(item.post || {}), 0);
 
   const panel = { background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '1.25rem' };
   const muted = { color: 'var(--text-secondary)' };
@@ -62,7 +62,7 @@ const ReaderDashboard = () => {
                 {item.post.coverImage ? <img src={item.post.coverImage} alt="" loading="lazy" style={{ width: '112px', height: '76px', objectFit: 'cover', borderRadius: 'var(--radius-md)' }} /> : <div style={{ width: '112px', height: '76px', display: 'grid', placeItems: 'center', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)' }}><BookOpen color="var(--text-muted)" /></div>}
                 <div style={{ flex: '1 1 220px', minWidth: 0 }}>
                   <Link to={articleHref(item.post)} style={{ color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 700 }}>{item.post.title}</Link>
-                  <p style={{ ...muted, fontSize: '.82rem', marginTop: '.35rem' }}>By {item.post.author?.username || 'Unknown author'} · {minutes(item.post.content)} min read · {Math.round(item.progress || 0)}% progress</p>
+                  <p style={{ ...muted, fontSize: '.82rem', marginTop: '.35rem' }}>By {item.post.author?.username || 'Unknown author'} · {minutes(item.post)} min read · {Math.round(item.progress || 0)}% progress</p>
                   <div role="progressbar" aria-label={'Reading progress for ' + item.post.title} aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(item.progress || 0)} style={{ height: '5px', background: 'var(--bg-elevated)', borderRadius: '99px', overflow: 'hidden', marginTop: '.55rem' }}><div style={{ width: (item.progress || 0) + '%', height: '100%', background: 'var(--accent-primary)' }} /></div>
                 </div>
                 <Link to={articleHref(item.post)} className="btn btn-secondary btn-sm">Continue <ArrowRight size={14} /></Link>
