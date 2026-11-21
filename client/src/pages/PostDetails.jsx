@@ -228,24 +228,57 @@ const PostDetails = () => {
 
   useEffect(() => {
     if (!isAuthenticated || !post?._id) return undefined;
-    const recordProgress = (secondsRead = 0) => {
+
+    // Scroll events can fire dozens of times per second. Debounce them and
+    // enforce a minimum write interval so reading progress cannot exhaust the
+    // API's shared rate limit (or create a request for every scroll tick).
+    let scrollTimer = null;
+    let lastSentAt = 0;
+    let lastSentProgress = -1;
+    let requestInFlight = false;
+
+    const recordProgress = async (secondsRead = 0, force = false) => {
       const body = articleBodyRef.current;
-      if (!body) return;
+      if (!body || requestInFlight || document.visibilityState !== 'visible') return;
+
       const top = body.getBoundingClientRect().top + window.scrollY;
       const scrollable = Math.max(0, body.offsetHeight - window.innerHeight);
-      const progress = scrollable === 0
+      const progress = Math.round(scrollable === 0
         ? (window.scrollY + window.innerHeight >= top ? 100 : 0)
-        : Math.min(100, Math.max(0, ((window.scrollY - top) / scrollable) * 100));
-      apiClient.post('/reading-history/' + post._id, { progress: Math.round(progress), secondsRead }).catch(() => {});
+        : Math.min(100, Math.max(0, ((window.scrollY - top) / scrollable) * 100)));
+      const now = Date.now();
+
+      // Scroll-only updates are limited to one write per 5 seconds and are
+      // skipped unless progress moved by at least one percentage point.
+      if (!force && (now - lastSentAt < 5000 || Math.abs(progress - lastSentProgress) < 1)) return;
+
+      requestInFlight = true;
+      lastSentAt = now;
+      lastSentProgress = progress;
+      try {
+        await apiClient.post('/reading-history/' + post._id, { progress, secondsRead });
+      } catch (error) {
+        // Do not retry 429s automatically; the next scheduled checkpoint can
+        // safely update the monotonic progress record.
+      } finally {
+        requestInFlight = false;
+      }
     };
-    recordProgress(0);
-    const onScroll = () => recordProgress(0);
+
+    // One initial checkpoint, then periodic active-reading time checkpoints.
+    recordProgress(0, true);
+    const onScroll = () => {
+      if (scrollTimer) window.clearTimeout(scrollTimer);
+      scrollTimer = window.setTimeout(() => recordProgress(0), 1200);
+    };
     const interval = window.setInterval(() => {
-      if (document.visibilityState === 'visible') recordProgress(15);
+      if (document.visibilityState === 'visible') recordProgress(15, true);
     }, 15000);
+
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => {
       window.clearInterval(interval);
+      if (scrollTimer) window.clearTimeout(scrollTimer);
       window.removeEventListener('scroll', onScroll);
     };
   }, [isAuthenticated, post?._id]);
