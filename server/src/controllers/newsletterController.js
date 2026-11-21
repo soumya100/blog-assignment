@@ -28,13 +28,17 @@ const subscribe = async (req, res, next) => {
     const base = (env.CLIENT_URL || '').split(',')[0].trim().replace(/\/$/, '');
     const confirmUrl = `${base}/newsletter/confirm?token=${confirmationToken}`;
     const unsubscribeUrl = `${base}/newsletter/unsubscribe?token=${unsubscribeToken}`;
-    try {
-      await sendEmail({ to: email, subject: 'Confirm your DevLog newsletter subscription', text: `Confirm your subscription: ${confirmUrl}\n\nTo unsubscribe later: ${unsubscribeUrl}`, html: `<p>Confirm your DevLog newsletter subscription:</p><p><a href="${confirmUrl}">Confirm subscription</a></p><p>If you did not request this, ignore this email.</p><p><a href="${unsubscribeUrl}">Unsubscribe</a></p>` });
-    } catch (error) {
-      await NewsletterSubscriber.deleteOne({ email, confirmationTokenHash: hashToken(confirmationToken) });
-      throw error;
-    }
-    return successResponse(res, 202, 'If email delivery is configured, a confirmation message has been sent.');
+    // SMTP connection attempts can exceed the browser request timeout on hosted platforms.
+    // Persist the pending subscription and dispatch confirmation asynchronously.
+    sendEmail({
+      to: email,
+      subject: 'Confirm your DevLog newsletter subscription',
+      text: `Confirm your subscription: ${confirmUrl}\n\nTo unsubscribe later: ${unsubscribeUrl}`,
+      html: `<p>Confirm your DevLog newsletter subscription:</p><p><a href="${confirmUrl}">Confirm subscription</a></p><p>If you did not request this, ignore this email.</p><p><a href="${unsubscribeUrl}">Unsubscribe</a></p>`,
+    }).catch((error) => {
+      require('../utils/logger').error(`[Newsletter] Confirmation email delivery failed for ${email}: ${error.message}`);
+    });
+    return successResponse(res, 202, 'Your subscription request was saved. If email delivery is configured, a confirmation link will arrive shortly.');
   } catch (error) { next(error); }
 };
 
