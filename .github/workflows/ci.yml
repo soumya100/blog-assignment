@@ -3,117 +3,107 @@ name: CI
 on:
   push:
     branches:
-      - feat/publishing-experience
-      - feat/seo-rss-publishing-controls
-      - feat/platform-feature-completion
+      - "**"
   pull_request:
     branches:
       - main
-      - feat/platform-reader-dashboard
-      - feat/platform-completion-publishing-community
-      - feat/seo-rss-publishing-controls
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   frontend:
-    name: Frontend regression tests and production build
+    name: Frontend unit and regression tests
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: client
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
           cache-dependency-path: client/package-lock.json
-      - name: Install dependencies
-        run: npm ci
-      - name: Run frontend regression tests
-        run: npm test
-      - name: Build frontend
-        run: npm run build
+      - run: npm ci
+        name: Install locked dependencies
+      - run: npm test
+        name: Run Vitest component and regression suite
+      - run: npm run build
+        name: Build production bundle
 
   backend:
-    name: Backend regression and security tests
+    name: Backend unit, integration, API and security tests
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: server
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
           cache-dependency-path: server/package-lock.json
-      - name: Install dependencies
-        run: npm ci
-      - name: Run backend unit, integration, smoke and security tests
-        run: npm test
+      - run: npm ci
+      - run: npm test
 
   browser-quality:
-    name: Browser smoke and WCAG accessibility
+    name: Browser E2E smoke and accessibility
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: client
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
           cache-dependency-path: client/package-lock.json
-      - name: Install locked application dependencies
-        run: npm ci
-      - name: Install browser test tooling without changing project manifests
+      - run: npm ci
+      - name: Install browser test tooling without changing manifests
         run: npm install --no-save --no-package-lock @playwright/test @axe-core/playwright
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
-      - name: Build frontend for production smoke tests
+      - name: Build frontend for production-browser tests
         run: npm run build
-      - name: Run browser smoke and accessibility tests
+      - name: Run Playwright smoke and axe accessibility suite
         run: npx playwright test --config=playwright.config.js
+      - name: Upload browser diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-test-results
+          path: |
+            client/test-results
+            client/playwright-report
+          if-no-files-found: ignore
+          retention-days: 14
 
   security:
-    name: Dependency and secret scanning
+    name: Dependency and secret security checks
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout full history
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      # gitleaks-action scans BASE^..HEAD for pull requests. The checkout's
-      # PR ref may not contain the target branch's parent commit, even with
-      # fetch-depth: 0, so explicitly fetch the target branch history first.
-      - name: Fetch pull request base history
+      - name: Fetch pull request base history for secret scanning
         if: github.event_name == 'pull_request'
         run: |
           git fetch --no-tags origin "${{ github.event.pull_request.base.ref }}"
           git fetch --no-tags origin "${{ github.event.pull_request.base.sha }}"
           git cat-file -e "${{ github.event.pull_request.base.sha }}^"
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
       - name: Audit frontend production dependencies
         run: npm audit --prefix client --omit=dev --audit-level=high
-      # Vite/Vitest currently resolve picomatch 4.0.7, which is flagged by
-      # GHSA-fc5q-39xc-vjpf. No upstream fixed npm release is available yet;
-      # keep the full dev-tooling audit visible without blocking production
-      # dependency verification. Re-enable as a required check once upstream
-      # publishes a patched release and the lockfile can be updated.
       - name: Report frontend development dependency advisories
         run: npm audit --prefix client --audit-level=high
         continue-on-error: true
@@ -122,7 +112,28 @@ jobs:
       - name: Report backend development dependency advisories
         run: npm audit --prefix server --audit-level=high
         continue-on-error: true
-      - name: Scan repository history for secrets
+      - name: Scan repository history for exposed secrets
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  dependency-review:
+    name: Dependency review and lockfile integrity
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+        if: github.event_name != 'pull_request'
+      - name: Review pull request dependency changes
+        if: github.event_name == 'pull_request'
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+      - name: Validate frontend and backend lockfiles on branch pushes
+        if: github.event_name != 'pull_request'
+        run: |
+          (cd client && npm ci --ignore-scripts)
+          (cd server && npm ci --ignore-scripts)
+          echo "Both committed lockfiles install cleanly. Pull-request dependency comparison runs in the PR event."

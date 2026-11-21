@@ -1,11 +1,30 @@
-# DevLog | Full-Stack MERN Blog Platform
+# DevLog | Full-Stack MERN Publishing Platform
 
-[![Security](https://img.shields.io/badge/Security-OWASP%20Top%2010%20Hardened-emerald?style=for-the-badge&logo=shield)](docs/security/VAPT-REPORT.md)
-[![Tests](https://img.shields.io/badge/Tests-Jest%20%7C%20Vitest%20Passed-blue?style=for-the-badge&logo=jest)](server/tests)
-[![Architecture](https://img.shields.io/badge/Architecture-Clean%20%2F%20Layered%20Services-indigo?style=for-the-badge)](server/src/services)
-[![License: MIT](https://img.shields.io/badge/License-MIT-gray?style=for-the-badge)](LICENSE)
+[![CI](https://github.com/soumya100/blog-assignment/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/soumya100/blog-assignment/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/soumya100/blog-assignment/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/soumya100/blog-assignment/actions/workflows/codeql.yml)
+[![Deployed smoke and DAST](https://github.com/soumya100/blog-assignment/actions/workflows/deployed-checks.yml/badge.svg)](https://github.com/soumya100/blog-assignment/actions/workflows/deployed-checks.yml)
 
-> A production-grade, security-hardened full-stack MERN blogging platform built as a personal project. Features robust JWT multi-tier authentication with cryptographic token rotation, fine-grained Role-Based Access Control (RBAC), URL slugification, soft-delete restoration, threaded discussions with optimistic UI updates, room-scoped Socket.io real-time synchronization, a dedicated React administrative portal, comprehensive automated test suites (Jest & Vitest), and an OWASP Top 10 VAPT security audit report.
+**Live application:** [https://devlog-client-rq1y.onrender.com/](https://devlog-client-rq1y.onrender.com/)  
+**Source:** [github.com/soumya100/blog-assignment](https://github.com/soumya100/blog-assignment)
+
+> DevLog is a full-stack MERN publishing and community platform. It combines a React/Vite client with an Express/MongoDB API, JWT-based authentication, role-aware administration, article and draft workflows, threaded discussions, real-time updates, reader features and a growing automated quality/security test suite. The live demo is hosted on Render; production readiness is tracked separately through CI, deployment smoke checks and documented security review.
+
+---
+
+## 🚦 Production readiness and continuous testing
+
+Pull requests to `main` run frontend and backend regression suites, production builds, Chromium browser smoke tests, axe accessibility checks, runtime dependency audits, secret scanning and dependency review. CodeQL runs on `main` and weekly. A separate scheduled/manual workflow checks the live Render deployment and stores an OWASP ZAP passive-baseline report.
+
+| Quality layer | Automation |
+|---|---|
+| Unit and component tests | Vitest + React Testing Library |
+| API and integration tests | Vitest + Supertest + in-memory MongoDB |
+| Browser smoke/E2E | Playwright + Chromium |
+| Accessibility | axe-core (WCAG 2.0/2.1 A/AA) |
+| Dependency and source security | npm audit, Dependabot, CodeQL, Gitleaks, dependency review |
+| Deployed smoke and passive DAST | Node.js fetch checks + OWASP ZAP Baseline |
+
+See [Security and Quality Gates](SECURITY-AND-QUALITY-GATES.md), [Security Policy](SECURITY.md), the [GitHub repository setup guide](.github/REPOSITORY-SETUP.md), and the [VAPT assessment notes](docs/security/VAPT-REPORT.md). Automated checks are not a substitute for an authorized manual penetration test or a security certification.
 
 ---
 
@@ -21,7 +40,7 @@
 8. [Pre-Configured Test Accounts](#-pre-configured-test-accounts)
 9. [Core Features & Engineering Highlights](#-core-features--engineering-highlights)
 10. [RESTful API Documentation](#-restful-api-documentation)
-11. [Automated Testing Suite (Jest & Vitest)](#-automated-testing-suite-jest--vitest)
+11. [Automated Testing Suite (Vitest, Supertest & Playwright)](#-automated-testing-suite-vitest-supertest--playwright)
 12. [Security Hardening & OWASP VAPT Audit](#-security-hardening--owasp-vapt-audit)
 13. [Production Deployment Guide (Render.com)](#-production-deployment-guide-rendercom)
 14. [License](#-license)
@@ -36,8 +55,8 @@
 4. **Resilient Threaded Discussions**: Two-level comment threads with optimistic UI rendering, temporary ID tracking, and resilient inline Retry/Discard actions on network failure.
 5. **Real-Time Collaboration**: Room-scoped WebSockets (`Socket.io`) broadcasting instant article feed updates and live comment notifications.
 6. **Full Administrative Governance**: Dedicated React admin portal featuring live statistical metrics, user privilege management, article soft-delete restoration, and an immutable audit log.
-7. **Production Security Hardening & VAPT Audit**: Remediated against OWASP Top 10 vulnerabilities (IDOR/BOLA, NoSQL injection, XSS, brute-force) documented in a formal VAPT audit report with 37+ test scenarios.
-8. **End-to-End Automated Testing**: Comprehensive test suites across Jest (backend unit/integration/security) and Vitest (frontend component/hook testing).
+7. **Security Engineering**: Includes role/ownership controls, input sanitization, rate limiting, security headers and an OWASP-aligned VAPT test matrix. Security claims should be validated against the current code and deployment.
+8. **Automated Quality Checks**: Vitest unit/integration tests, Supertest API tests, Playwright browser checks, axe accessibility scans, CodeQL, dependency audits and secret scanning.
 
 ---
 
@@ -50,19 +69,19 @@
 * **In-Memory Database**: `mongodb-memory-server` (v10) for zero-config offline execution
 * **Real-time WebSockets**: Socket.io (v4.8)
 * **Authentication**: JWT (`jsonwebtoken` v9), `bcryptjs` (12 salt rounds), `cookie-parser`
-* **Validation & Security**: Zod (v3.24), Helmet (v8.0), CORS, `express-rate-limit`, custom recursive NoSQL sanitizer
+* **Validation & Security**: Zod, Helmet (v8.0), CORS, `express-rate-limit`, custom recursive NoSQL sanitizer
 * **Logging & Auditing**: Morgan HTTP logger, custom MongoDB `ActivityLog` service
-* **Testing**: Jest (v29), Supertest (v7)
+* **Testing**: Vitest, Supertest (v7), mongodb-memory-server
 
 ### Frontend
-* **Framework**: React 18 with Vite (v6.0)
+* **Framework**: React 18 with Vite (v6)
 * **Routing**: React Router DOM (v7.1)
 * **Server State & Cache**: `@tanstack/react-query` (v5) with optimistic updates and background refetching
 * **Global Client State**: React Context API (`AuthContext`, `ThemeContext`, `SocketContext`)
 * **Forms & Validation**: `react-hook-form` with `@hookform/resolvers/zod` and Zod schemas
 * **Styling**: Vanilla CSS Design System with CSS variables, Glassmorphism, dark/light themes, and responsive design
 * **Icons & Notifications**: Lucide React (`lucide-react`), React Toastify (`react-toastify`)
-* **Testing**: Vitest (v2.1), React Testing Library, JSDOM
+* **Testing**: Vitest, React Testing Library, JSDOM
 
 ---
 
@@ -240,7 +259,7 @@ devlog/
 │   ├── tests/
 │   │   ├── integration/                  # Integration tests (Auth, Post CRUD, Comment CRUD, RBAC)
 │   │   ├── security/                     # Security tests (NoSQL injection, headers, sanitization)
-│   │   ├── setup.js                      # Jest test lifecycle configuration
+│   │   ├── setup.js                      # Vitest test lifecycle configuration
 │   │   └── unit/                         # Unit tests (Password hashing, JWT, Zod schemas)
 │   └── package.json
 │
@@ -504,11 +523,11 @@ All API endpoints return a uniform JSON structure:
 
 ---
 
-## 🧪 Automated Testing Suite (Jest & Vitest)
+## 🧪 Automated Testing Suite (Vitest, Supertest & Playwright)
 
 The application includes automated unit, integration, and security test suites:
 
-### 1. Run Backend Tests (Jest + Supertest)
+### 1. Run Backend Tests (Vitest + Supertest)
 ```bash
 npm run test:server
 ```
@@ -542,9 +561,10 @@ npm test
 
 ## 🔒 Security Hardening & OWASP VAPT Audit
 
-A formal Vulnerability Assessment and Penetration Testing (VAPT) audit was performed against this platform.
+The repository includes OWASP-aligned security assessment notes and a structured test matrix. These artifacts document project testing; they are not a third-party certification or a guarantee that every deployment is vulnerability-free.
 
-* **Full VAPT Report**: [docs/security/VAPT-REPORT.md](docs/security/VAPT-REPORT.md)
+* **Security assessment notes**: [docs/security/VAPT-REPORT.md](docs/security/VAPT-REPORT.md)
+* **Continuous security gates and release checklist**: [SECURITY-AND-QUALITY-GATES.md](SECURITY-AND-QUALITY-GATES.md)
 * **Excel Test Matrix**: [qa/security-test-cases.xlsx](qa/security-test-cases.xlsx) (37+ OWASP scenarios mapped to source code files)
 
 ### Summary of Key Security Controls:
@@ -558,7 +578,7 @@ A formal Vulnerability Assessment and Penetration Testing (VAPT) audit was perfo
 
 ## 🌐 Production Deployment Guide (Render.com)
 
-The project is pre-configured for automated deployment on **Render.com** via [render.yaml](render.yaml):
+The project includes a Render blueprint in [render.yaml](render.yaml). The current public frontend deployment is [devlog-client-rq1y.onrender.com](https://devlog-client-rq1y.onrender.com/). Review the Render dashboard and environment configuration before using the blueprint to create or replace services.
 
 ### Dual-Service Architecture on Render:
 1. **Backend Web Service (`devlog-api`)**:
@@ -636,7 +656,7 @@ ancestor chain for indexed thread retrieval.
 
 ## 📄 License
 
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+No `LICENSE` file is currently included in this repository. Do not assume that code reuse, redistribution, or commercial use is permitted; an explicit license must be added by the maintainer.
 
 
 ## Publishing and platform feature configuration
