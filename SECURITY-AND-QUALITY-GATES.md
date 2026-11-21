@@ -1,28 +1,77 @@
 # Security and Quality Gates
 
-This repository's CI pipeline runs the following automated checks for pushes to the feature branch and pull requests targeting `main`.
+This document describes the automated checks wired into GitHub Actions and the additional release activities that still require human review.
 
-## Automated checks
+## Pull request and branch CI
 
-- **Regression:** Vitest frontend tests and Jest backend unit/integration/security tests.
-- **Smoke:** Playwright checks the built frontend's home, login, and registration routes; Supertest checks both API health routes.
-- **Accessibility:** axe-core scans the public home, login, and registration routes against WCAG 2.0/2.1 A/AA rules. Critical and serious violations fail CI.
-- **Dependency security:** `npm audit --audit-level=high` runs independently for client and server dependencies.
-- **Secret exposure:** Gitleaks scans repository history for committed secrets.
-- **Build:** Vite production build must complete successfully.
+| Layer | Tooling | What it checks | Gate |
+|---|---|---|---|
+| Frontend unit/component | Vitest, React Testing Library, JSDOM | React component behavior and UI regressions | Blocking |
+| Backend unit | Vitest | JWT, password, validation and service behavior | Blocking |
+| Backend integration/API | Vitest, Supertest, mongodb-memory-server | Auth, posts, comments, communities, admin, recovery, rate-limit routing and health endpoints | Blocking |
+| Production build | Vite | Optimized frontend bundle compiles | Blocking |
+| Browser smoke/E2E | Playwright + Chromium | Public shell, login/register routes and runtime page errors | Blocking |
+| Accessibility | axe-core / Playwright | WCAG 2.0/2.1 A/AA; serious and critical findings block | Blocking |
+| Production dependency audit | npm audit | High/critical advisories in runtime dependencies | Blocking |
+| Development dependency audit | npm audit | Toolchain advisories surfaced for triage | Informational for now |
+| Secret scanning | Gitleaks | Credentials accidentally committed in repository history | Blocking |
+| PR dependency review | dependency-review-action | Newly introduced vulnerable dependencies | Blocking at high severity |
+| Static application security | CodeQL | JavaScript/TypeScript security and quality queries | Security alert / review |
+| Live availability smoke | Node.js built-in fetch | Production SPA routes and `/api/v1/health` | Blocking for that run |
+| Passive DAST | OWASP ZAP Baseline | Passive security headers, exposed content and common web misconfiguration signals | Report artifact; not a certification |
 
-## VAPT scope and limitations
+CI runs on pushes to branches, pull requests targeting `main`, and manual dispatch. CodeQL runs on pushes and pull requests to `main`, plus a weekly schedule. The deployed smoke and passive ZAP baseline run manually and weekly against the explicitly authorized URL.
 
-These are repeatable CI security gates, not a certification or a substitute for a complete Vulnerability Assessment and Penetration Test. The existing backend security tests cover selected cases such as NoSQL injection, forged JWT rejection, security headers, malformed JSON handling, and unauthorized CORS origins.
+## Running checks locally
 
-A release VAPT should additionally include authenticated and unauthenticated testing of every API route, IDOR/BOLA and privilege-escalation attempts across users/roles, session and refresh-token lifecycle abuse, CSRF/CORS validation in the deployed topology, rate-limit bypass attempts, upload/input abuse, dependency and container/hosting configuration review, TLS and HTTP-header verification, and manual business-logic testing. Test only an explicitly authorized staging/production target.
+From the repository root:
 
-## Release verification still requiring a deployed environment
+```bash
+npm run install:all
+npm test
+npm run build:client
+npm run smoke:deployed
+```
 
-- Verify login, logout, refresh, registration, password recovery, and OAuth with the configured providers.
-- Verify draft create/edit/delete/publish and saved-article ownership with two distinct accounts.
-- Verify admin-only pages and APIs with non-admin and anonymous accounts.
-- Verify mobile/tablet layouts and keyboard-only navigation with real browsers and assistive technology.
-- Run an authenticated DAST/VAPT against the deployed environment and retain the report, evidence, severity, remediation, and retest results.
+The deployed smoke script is intentionally restricted to `https://devlog-client-rq1y.onrender.com`. It checks the public SPA routes and the versioned API health response; it does not sign in or mutate application data.
 
-Do not describe the application as VAPT-passed solely because CI is green.
+To run browser checks locally:
+
+```bash
+cd client
+npm ci
+npm install --no-save --no-package-lock @playwright/test @axe-core/playwright
+npx playwright install chromium
+npm run build
+npx playwright test --config=playwright.config.js
+```
+
+## VAPT and release assurance
+
+Automated CI is not a full penetration test. ZAP Baseline is a passive scan and does not prove that the application is secure. Before calling a release production-ready, perform an authorized manual assessment covering at least:
+
+- Authentication, password recovery, session expiry, refresh-token rotation and replay.
+- Authorization across anonymous, standard-user, author and administrator roles.
+- IDOR/BOLA and horizontal/vertical privilege escalation across posts, drafts, comments, saved items, uploads and community resources.
+- NoSQL injection, stored/reflected XSS, CSRF, CORS and unsafe redirect handling.
+- Rate-limit behavior, abuse resistance, enumeration and account lockout/recovery edge cases.
+- File upload type/size/content validation, storage access controls and metadata handling.
+- WebSocket authentication, room membership and event authorization.
+- Security headers, cookie flags, TLS configuration, cache behavior and error leakage.
+- Dependency, environment-variable, Render configuration, logging and secret-management review.
+- Business-logic abuse and multi-account workflows.
+
+Use dedicated test accounts and synthetic data. Obtain explicit approval before active testing. Do not perform destructive tests, brute force, stress/load tests or exploit attempts against the public production deployment. Use an isolated staging environment for active VAPT and load testing.
+
+Record findings with severity, affected component, evidence, remediation, owner, retest result and residual risk. A green CI pipeline or a ZAP baseline report must never be described as a formal VAPT pass or security certification.
+
+## Release checklist
+
+- [ ] All blocking CI checks pass on the exact release commit.
+- [ ] No unresolved critical/high security findings remain without an approved exception.
+- [ ] Manual role/ownership and authentication checks pass in staging.
+- [ ] Backup, restore and rollback procedures are verified.
+- [ ] Production environment variables and provider callbacks are validated.
+- [ ] Smoke tests pass after deployment.
+- [ ] Accessibility is manually reviewed with keyboard and assistive technology.
+- [ ] Monitoring, error reporting and incident contacts are configured.
