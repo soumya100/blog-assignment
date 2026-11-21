@@ -118,13 +118,20 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   dependency-review:
-    name: Pull request dependency review
-    if: github.event_name == 'pull_request'
+    name: Dependency review and lockfile integrity
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      pull-requests: read
     steps:
-      - name: Review dependency changes
+      - name: Review pull request dependency changes
+        if: github.event_name == 'pull_request'
         uses: actions/dependency-review-action@v4
         with:
           fail-on-severity: high
+      - name: Validate frontend and backend lockfiles on branch pushes
+        if: github.event_name != 'pull_request'
+        run: |
+          npm ci --prefix client --ignore-scripts
+          npm ci --prefix server --ignore-scripts
+          echo "Both committed lockfiles install cleanly. Pull-request dependency comparison runs in the PR event."
