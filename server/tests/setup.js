@@ -17,9 +17,13 @@ beforeAll(async () => {
       mongoServer = await MongoMemoryServer.create();
       uri = mongoServer.getUri();
     }
-    await mongoose.connect(uri, { serverSelectionTimeoutMS: 4000, directConnection: true });
-  } catch (err) {
-    // If MongoMemoryServer cannot bind in isolated environments, tests that do not need DB proceed
+    await mongoose.connect(uri, { serverSelectionTimeoutMS: 10000 });
+  } catch (error) {
+    if (mongoServer) {
+      await mongoServer.stop().catch(() => {});
+      mongoServer = undefined;
+    }
+    throw new Error('Test database setup failed. Refusing to run backend tests without MongoDB: ' + error.message);
   }
 });
 
@@ -33,7 +37,6 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  // Clear collections between tests for clean isolation
   if (mongoose.connection.readyState === 1) {
     const collections = mongoose.connection.collections;
     for (const key in collections) {
