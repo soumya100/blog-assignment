@@ -9,13 +9,27 @@ if (parsedBase.protocol !== 'https:' || parsedBase.hostname !== allowedHost) {
 
 async function request(path) {
   const url = new URL(path, baseUrl);
-  const response = await fetch(url, {
-    redirect: 'follow',
-    signal: AbortSignal.timeout(90000),
-    headers: { 'user-agent': 'DevLog-deployment-smoke/1.0' },
-  });
-  console.log(response.status + ' ' + url.pathname + ' -> ' + response.url);
-  return response;
+  let lastError;
+  for (let attempt = 1; attempt <= 10; attempt += 1) {
+    try {
+      const response = await fetch(url, {
+        redirect: 'follow',
+        signal: AbortSignal.timeout(30000),
+        headers: { 'user-agent': 'DevLog-deployment-smoke/1.0' },
+      });
+      console.log('attempt ' + attempt + ': ' + response.status + ' ' + url.pathname + ' -> ' + response.url);
+      if (response.status >= 500 && attempt < 10) {
+        await new Promise((resolve) => setTimeout(resolve, 20000));
+        continue;
+      }
+      return response;
+    } catch (error) {
+      lastError = error;
+      if (attempt === 10) break;
+      await new Promise((resolve) => setTimeout(resolve, 20000));
+    }
+  }
+  throw new Error('Deployment request failed after 10 attempts: ' + url.pathname + ': ' + (lastError?.message || 'HTTP 5xx'));
 }
 
 for (const route of ['/', '/login', '/register']) {
