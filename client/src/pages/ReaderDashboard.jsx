@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { BookOpen, Bookmark, Clock3, History, ArrowRight, Trash2, Compass } from 'lucide-react';
 import { usePosts, useSavedPosts, useDrafts, useReadingHistory, useClearReadingHistory } from '../hooks/useBlogApi';
 
-const minutes = (post = {}) => Number.isFinite(post.readingTime) ? post.readingTime : Math.max(1, Math.ceil((post.content || '').trim().split(/\s+/).filter(Boolean).length / 200));
 const articleHref = (post) => '/posts/' + (post.slug || post._id);
 
 const ReaderDashboard = () => {
