@@ -170,7 +170,7 @@ const PostDetails = () => {
     setIsFollowingPending(true);
     try {
       const response = await apiClient.post('/community/authors/' + authorId + '/follow');
-      const data = response.data?.data || {};
+      const data = response.data || {};
       setFollowState({
         following: Boolean(data.following),
         followers: Number(data.followers) || 0,
