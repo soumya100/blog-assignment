@@ -124,6 +124,8 @@ jobs:
       contents: read
       pull-requests: read
     steps:
+      - uses: actions/checkout@v4
+        if: github.event_name != 'pull_request'
       - name: Review pull request dependency changes
         if: github.event_name == 'pull_request'
         uses: actions/dependency-review-action@v4
