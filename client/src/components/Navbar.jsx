@@ -101,62 +101,114 @@ const Dropdown = ({ label, icon: Icon, align = 'left', children, className = '' 
   );
 };
 
+const normalizeSearchPosts = (response) => {
+  const candidates = [
+    response?.data,
+    response?.data?.posts,
+    response?.posts,
+    response?.results,
+    response?.data?.items,
+  ];
+  return candidates.find(Array.isArray) || [];
+};
+
 const SearchPalette = ({ open, onClose }) => {
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
   const [articleResults, setArticleResults] = useState([]);
   const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState('');
   const inputRef = useRef(null);
   const navigate = useNavigate();
-  const results = useMemo(() => {
-    const value = query.trim().toLowerCase();
-    return value ? searchItems.filter((item) => item.label.toLowerCase().includes(value)) : searchItems;
-  }, [query]);
+
+  const normalizedQuery = query.trim();
+  const navigationResults = useMemo(() => {
+    const value = normalizedQuery.toLowerCase();
+    return value
+      ? searchItems.filter((item) => item.label.toLowerCase().includes(value))
+      : searchItems;
+  }, [normalizedQuery]);
 
   useEffect(() => {
     if (!open) return undefined;
     setQuery('');
     setActiveIndex(0);
+    setArticleResults([]);
+    setSearchError('');
     const frame = window.requestAnimationFrame(() => inputRef.current?.focus());
-    const onKeyDown = (event) => {
-      if (event.key === 'Escape') onClose();
-      if (event.key === 'ArrowDown') {
-        event.preventDefault();
-        setActiveIndex((index) => Math.min(index + 1, Math.max(results.length - 1, 0)));
+    return () => window.cancelAnimationFrame(frame);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || normalizedQuery.length < 2) {
+      setArticleResults([]);
+      setSearching(false);
+      setSearchError('');
+      return undefined;
+    }
+
+    let active = true;
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setSearching(true);
+      setSearchError('');
+      try {
+        const response = await apiClient.get('/posts', {
+          params: { search: normalizedQuery, page: 1, limit: 8 },
+          signal: controller.signal,
+        });
+        if (!active) return;
+        const posts = normalizeSearchPosts(response);
+        setArticleResults(posts.filter((post) => post && (post._id || post.slug) && post.title));
+      } catch (error) {
+        if (!active || error?.name === 'AbortError') return;
+        setArticleResults([]);
+        setSearchError(error?.message || 'Search is temporarily unavailable. Please try again.');
+      } finally {
+        if (active) setSearching(false);
       }
-      if (event.key === 'ArrowUp') {
+    }, 250);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [open, normalizedQuery]);
+
+  const articleOffset = navigationResults.length;
+  const totalResults = navigationResults.length + articleResults.length;
+  const activeResultIndex = Math.min(activeIndex, Math.max(totalResults - 1, 0));
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onClose();
+      } else if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        setActiveIndex((index) => Math.min(index + 1, Math.max(totalResults - 1, 0)));
+      } else if (event.key === 'ArrowUp') {
         event.preventDefault();
         setActiveIndex((index) => Math.max(index - 1, 0));
-      }
-      if (event.key === 'Enter' && results[activeIndex]) {
+      } else if (event.key === 'Enter' && totalResults > 0) {
         event.preventDefault();
-        navigate(results[activeIndex].to);
+        if (activeResultIndex < articleOffset) {
+          navigate(navigationResults[activeResultIndex].to);
+        } else {
+          const post = articleResults[activeResultIndex - articleOffset];
+          if (post) navigate('/posts/' + (post.slug || post._id));
+        }
         onClose();
       }
     };
     document.addEventListener('keydown', onKeyDown);
-    return () => {
-      window.cancelAnimationFrame(frame);
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, [open, onClose, navigate, results, activeIndex]);
-
-  useEffect(() => {
-    const term = query.trim();
-    if (!open || term.length < 2) { setArticleResults([]); setSearching(false); return undefined; }
-    let active = true;
-    const timer = window.setTimeout(async () => {
-      setSearching(true);
-      try {
-        const response = await apiClient.get('/posts', { params: { search: term, page: 1, limit: 5 } });
-        if (active) setArticleResults(Array.isArray(response.data) ? response.data : []);
-      } catch { if (active) setArticleResults([]); }
-      finally { if (active) setSearching(false); }
-    }, 250);
-    return () => { active = false; window.clearTimeout(timer); };
-  }, [open, query]);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [open, onClose, navigate, navigationResults, articleResults, articleOffset, totalResults, activeResultIndex]);
 
   if (!open) return null;
+
   return (
     <div className="nav-search-backdrop" onMouseDown={(event) => {
       if (event.target === event.currentTarget) onClose();
@@ -168,36 +220,64 @@ const SearchPalette = ({ open, onClose }) => {
             ref={inputRef}
             value={query}
             onChange={(event) => { setQuery(event.target.value); setActiveIndex(0); }}
-            placeholder="Search or jump to..."
-            aria-label="Search navigation"
+            placeholder="Search articles, pages, and topics..."
+            aria-label="Search DevLog"
             aria-controls="nav-search-results"
+            aria-expanded={open}
           />
+          {query && (
+            <button type="button" className="nav-search-clear" onClick={() => { setQuery(''); setActiveIndex(0); inputRef.current?.focus(); }} aria-label="Clear search">
+              <X size={15} />
+            </button>
+          )}
           <kbd>ESC</kbd>
         </div>
-        <div className="nav-search-results" id="nav-search-results">
-          <p className="nav-menu-eyebrow">{query ? 'RESULTS' : 'QUICK NAVIGATION'}</p>
-          {results.length ? results.map((item, index) => {
+        <div className="nav-search-results" id="nav-search-results" aria-live="polite">
+          <p className="nav-menu-eyebrow">{normalizedQuery ? 'PAGES' : 'QUICK NAVIGATION'}</p>
+          {navigationResults.length ? navigationResults.map((item, index) => {
             const Icon = item.icon;
             return (
               <button
                 type="button"
                 key={item.to}
-                className={`nav-search-result ${index === activeIndex ? 'active' : ''}`}
+                className={`nav-search-result ${index === activeResultIndex ? 'active' : ''}`}
                 onMouseEnter={() => setActiveIndex(index)}
                 onClick={() => { navigate(item.to); onClose(); }}
               >
                 <Icon size={17} />
                 <span>{item.label}</span>
-                {index === activeIndex && <kbd>↵</kbd>}
+                {index === activeResultIndex && <kbd>↵</kbd>}
               </button>
             );
           }) : null}
-          {query.trim().length >= 2 && <p className="nav-menu-eyebrow">ARTICLES</p>}
-          {searching && <p className="nav-search-empty">Searching articles…</p>}
-          {!searching && articleResults.map((post) => <button type="button" key={post._id} className="nav-search-result" onClick={() => { navigate('/posts/' + (post.slug || post._id)); onClose(); }}><FileText size={17} /><span>{post.title}</span></button>)}
-          {!results.length && !articleResults.length && !searching && <p className="nav-search-empty">{query ? 'No matching pages or articles found.' : 'No matching destinations found.'}</p>}
+          {normalizedQuery.length >= 2 && (
+            <>
+              <p className="nav-menu-eyebrow">ARTICLES</p>
+              {searching && <p className="nav-search-empty">Searching articles…</p>}
+              {!searching && searchError && <p className="nav-search-empty" role="status">{searchError}</p>}
+              {!searching && !searchError && articleResults.map((post, index) => {
+                const resultIndex = articleOffset + index;
+                return (
+                  <button
+                    type="button"
+                    key={post._id || post.slug}
+                    className={`nav-search-result ${resultIndex === activeResultIndex ? 'active' : ''}`}
+                    onMouseEnter={() => setActiveIndex(resultIndex)}
+                    onClick={() => { navigate('/posts/' + (post.slug || post._id)); onClose(); }}
+                  >
+                    <FileText size={17} />
+                    <span>{post.title}</span>
+                    {resultIndex === activeResultIndex && <kbd>↵</kbd>}
+                  </button>
+                );
+              })}
+              {!searching && !searchError && !articleResults.length && <p className="nav-search-empty">No articles found for “{normalizedQuery}”.</p>}
+            </>
+          )}
+          {normalizedQuery.length === 1 && <p className="nav-search-empty">Type at least 2 characters to search articles.</p>}
+          {!normalizedQuery && !navigationResults.length && <p className="nav-search-empty">No matching destinations found.</p>}
         </div>
-        <footer className="nav-search-footer">Navigate DevLog with your keyboard</footer>
+        <footer className="nav-search-footer">Use ↑ ↓ to navigate · Enter to open · Esc to close</footer>
       </section>
     </div>
   );
