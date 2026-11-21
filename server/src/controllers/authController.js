@@ -310,8 +310,10 @@ const getMe = async (req, res) => {
     setAuthCookies(res, { accessToken: token }, req);
   }
 
+  const safeUser = req.user.toSafeObject();
+  if (typeof safeUser.avatar !== 'string' || safeUser.avatar.length > 500 || (!/^\/uploads\/[A-Za-z0-9_-]+\.(?:jpg|jpeg|png|webp|gif)$/i.test(safeUser.avatar) && (() => { try { const url = new URL(safeUser.avatar); return url.protocol !== 'https:' || !['res.cloudinary.com', 'api.dicebear.com'].includes(url.hostname.toLowerCase()) || Boolean(url.username || url.password); } catch (_) { return true; } })())) safeUser.avatar = '';
   return successResponse(res, 200, 'User profile retrieved', {
-    user: req.user.toSafeObject(),
+    user: safeUser,
     accessToken: token,
   });
 };
@@ -499,12 +501,18 @@ const googleCallback = async (req, res, next) => {
       return res.redirect(`${targetClientUrl}/oauth/callback?error=NO_EMAIL_FROM_GOOGLE`);
     }
 
+    if (profile.email_verified !== true) {
+      logger.warn('Google OAuth rejected because the provider did not verify the email address.');
+      return res.redirect(`${targetClientUrl}/oauth/callback?error=GOOGLE_EMAIL_NOT_VERIFIED`);
+    }
+
     const result = await authService.oauthLogin({
       provider: 'google',
       email: profile.email,
       name: profile.name || profile.given_name || 'Google User',
       avatar: profile.picture || '',
       providerId: profile.sub,
+      emailVerified: profile.email_verified === true,
       req,
     });
 
@@ -635,18 +643,22 @@ const facebookCallback = async (req, res, next) => {
       return res.redirect(`${targetClientUrl}/oauth/callback?error=FACEBOOK_PROFILE_FAILED`);
     }
 
-    if (!profile.email) {
-      profile.email = `facebook_${profile.id}@devlog-user.internal`;
-    }
+    // Meta's Graph profile exposes a primary email field but no email_verified claim.
+    // Do not use that address for account creation/linking without separate verification.
+    const facebookEmail = profile.email_verified === true && profile.email
+      ? profile.email
+      : `facebook_${profile.id}@devlog-user.internal`;
 
     const avatarUrl = profile.picture?.data?.url || '';
 
     const result = await authService.oauthLogin({
       provider: 'facebook',
-      email: profile.email,
+      email: facebookEmail,
       name: profile.name || 'Facebook User',
       avatar: avatarUrl,
       providerId: profile.id,
+      // Facebook does not return a separate email_verified claim; do not link by email alone.
+      emailVerified: false,
       req,
     });
 

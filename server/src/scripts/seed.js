@@ -10,6 +10,10 @@ const logger = require('../utils/logger');
 const env = require('../config/env');
 
 const seedData = async () => {
+  if (env.NODE_ENV === 'production') {
+    throw new Error('Sample seeding is disabled in production.');
+  }
+
   try {
     logger.info('Connecting to database for seeding...');
     await connectDB();
@@ -137,9 +141,8 @@ Interfaces should feel immediate and alive. Skeleton loaders prevent cumulative 
     });
 
     logger.info('Database seeded successfully!');
-    logger.info(`Admin Account: ${admin.email} (Password: ${env.ADMIN_PASSWORD || 'AdminSecurePass123!'})`);
-    logger.info(`User Account: ${userAlice.email} (Password: UserPass123!)`);
-    logger.info(`Deactivated Account: ${userCarol.email} (Password: UserPass123!)`);
+    logger.info(`Admin account seeded: ${admin.email}`);
+    logger.info(`Sample user accounts seeded: ${userAlice.email}, ${userCarol.email}`);
 
     await disconnectDB();
     process.exit(0);

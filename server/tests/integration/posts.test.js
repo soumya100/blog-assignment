@@ -4,6 +4,7 @@ const User = require('../../src/models/User');
 const Post = require('../../src/models/Post');
 const { ROLES } = require('../../src/constants/roles');
 const { generateAccessToken } = require('../../src/utils/jwt');
+const { publishDuePosts } = require('../../src/services/scheduledPublishingService');
 
 describe('Blog Posts CRUD & Authorization Tests', () => {
   let authorUser, attackerUser, adminUser;
@@ -155,5 +156,82 @@ describe('Blog Posts CRUD & Authorization Tests', () => {
 
     const dbPost = await Post.findById(post._id);
     expect(dbPost.isDeleted).toBe(false);
+  });
+  test('scheduled article is hidden publicly until its publication time', async () => {
+    const scheduledAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    const created = await request(app)
+      .post('/api/v1/posts')
+      .set('Authorization', `Bearer ${authorToken}`)
+      .send({ title: 'Future publication article', content: 'This article should not be public before its scheduled time.', scheduledAt });
+
+    expect(created.statusCode).toBe(201);
+    expect(created.body.data.status).toBe('scheduled');
+
+    const publicList = await request(app).get('/api/v1/posts');
+    expect(publicList.body.data.some((post) => post._id === created.body.data._id)).toBe(false);
+
+    const anonymousDetail = await request(app).get('/api/v1/posts/' + created.body.data.slug);
+    expect(anonymousDetail.statusCode).toBe(404);
+
+    const ownerDetail = await request(app)
+      .get('/api/v1/posts/' + created.body.data.slug)
+      .set('Authorization', 'Bearer ' + authorToken);
+    expect(ownerDetail.statusCode).toBe(200);
+    expect(ownerDetail.body.data.status).toBe('scheduled');
+  });
+
+  test('scheduled publishing worker atomically publishes due articles', async () => {
+    const post = await Post.create({
+      title: 'Due scheduled article',
+      slug: 'due-scheduled-article',
+      content: 'This article has reached its publication time and should become public.',
+      author: authorUser._id,
+      status: 'scheduled',
+      scheduledAt: new Date(Date.now() - 1000),
+      publishedAt: null,
+    });
+
+    await publishDuePosts();
+    const published = await Post.findById(post._id);
+    expect(published.status).toBe('published');
+    expect(published.scheduledAt).toBeNull();
+
+    const publicDetail = await request(app).get('/api/v1/posts/' + post.slug);
+    expect(publicDetail.statusCode).toBe(200);
+  });
+
+  test('public post listings omit article bodies and private author fields', async () => {
+    // Simulate a legacy inline avatar already stored before the profile limit was added.
+    authorUser.avatar = 'data:image/png;base64,' + 'a'.repeat(2500000);
+    await authorUser.save({ validateBeforeSave: false });
+
+    await Post.create({
+      title: 'Public listing privacy check',
+      slug: 'public-listing-privacy-check',
+      content: 'The full article body must not be included in public listing responses.',
+      excerpt: 'A short public excerpt',
+      author: authorUser._id,
+    });
+
+    const response = await request(app).get('/api/v1/posts');
+    expect(response.statusCode).toBe(200);
+    const listed = response.body.data.find((item) => item.slug === 'public-listing-privacy-check');
+    expect(listed).toBeDefined();
+    expect(listed.content).toBeUndefined();
+    expect(listed.excerpt).toBe('A short public excerpt');
+    expect(listed.author).not.toHaveProperty('email');
+    expect(listed.author).not.toHaveProperty('role');
+    expect(listed.author.avatar).toBe('');
+    expect(Buffer.byteLength(JSON.stringify(response.body))).toBeLessThan(10000);
+  });
+
+  test('rejects article bodies larger than 200,000 characters', async () => {
+    const response = await request(app)
+      .post('/api/v1/posts')
+      .set('Authorization', `Bearer ${authorToken}`)
+      .send({ title: 'Oversized article', content: 'x'.repeat(200001) });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body.error.code).toBe('VALIDATION_ERROR');
   });
 });

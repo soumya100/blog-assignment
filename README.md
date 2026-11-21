@@ -608,17 +608,105 @@ The discussion API now supports unlimited reply depth while retaining the existi
   after comment creation, edits, deletes, and likes. Redis is optional and fail-open: MongoDB remains
   the source of truth if Redis is unavailable.
 
-Configure an Upstash Redis REST database on the backend with:
+Redis is optional and fail-open. Configure **one** provider on the backend:
+
+**Redis Cloud or another standard Redis endpoint** (recommended for Redis Cloud):
+
+```env
+REDIS_URL=rediss://default:<url-encoded-password>@<your-host>:<your-port>
+```
+
+Use the TLS URL (`rediss://`) supplied by Redis Cloud. If the password contains URL-reserved
+characters, percent-encode it before placing it in the URL. Add this variable to the backend's
+local `server/.env` or root `.env`, and to the backend service's Render Environment settings.
+Never expose it through a `VITE_*` variable or commit real credentials.
+
+**Existing Upstash REST deployments remain supported**:
 
 ```env
 REDIS_REST_URL=https://<your-database>.upstash.io
 REDIS_REST_TOKEN=<your-rest-token>
 ```
 
-No Redis package is required; the backend uses the Node.js Fetch API. If these variables are omitted,
-the discussion endpoints continue to work without Redis caching. Existing comments without ancestry
-metadata remain supported; new replies persist their ancestor chain for indexed thread retrieval.
+When both configurations are present, `REDIS_URL` takes precedence. The standard Redis connection
+uses Node.js TCP/TLS and RESP; no additional Redis npm package is required. If Redis is omitted or
+unavailable, discussion endpoints continue working without caching and MongoDB remains the source
+of truth. Existing comments without ancestry metadata remain supported; new replies persist their
+ancestor chain for indexed thread retrieval.
 
 ## 📄 License
 
 This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+
+
+## Publishing and platform feature configuration
+
+The publishing platform supports scheduled articles, server-backed image uploads, RSS, reader/community engagement, author analytics, newsletter subscriptions, series/collections, import/export, and optional AI editorial assistance.
+
+### Deployment requirements
+
+- **Scheduled publishing:** the API worker runs inside the server process and checks due articles every 30 seconds. Run at least one healthy API instance continuously. Due-post updates are conditional/atomic so multiple instances do not publish the same record twice.
+- **Image storage:** set `UPLOAD_DIR` to a persistent disk or mounted volume in production. Uploaded files are served from `/uploads/`. The default local directory is suitable for development only; ephemeral container filesystems will lose uploads on redeploy.
+- **Newsletter:** configure the existing SMTP variables (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, and `EMAIL_FROM`) for real confirmation and campaign delivery. Subscribers must confirm consent before receiving campaigns.
+- **AI and translation:** configure `AI_API_KEY`, `AI_BASE_URL`, and `AI_MODEL` on the server. These secrets must never be placed in client environment variables. The API uses an OpenAI-compatible chat-completions endpoint.
+- **Collaboration:** authenticated Socket.IO connectivity is required for live draft change broadcasts. Draft saves are persisted through the authenticated draft API with revision checks.
+
+### Feature endpoints
+
+- RSS: `/api/v1/rss.xml`
+- Image upload: `POST /api/v1/uploads/image` (authenticated; JPEG, PNG, WebP, GIF; 5 MB maximum)
+- Analytics: `/api/v1/analytics/author`
+- Community: `/api/v1/community`
+- Mentions: `/api/v1/mentions`
+- Newsletter: `/api/v1/newsletter`
+- Series and collections: `/api/v1/library`
+- Import/export: `/api/v1/posts/import` and `GET /api/v1/posts/export`
+- AI assistant: `POST /api/v1/ai/assist`
+
+---
+
+## Production bootstrap and persistent uploads
+
+Production startup now requires explicitly configured, independent values for `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, and `COOKIE_SECRET`, plus `MONGODB_URI` and Cloudinary credentials (`CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`). Development fallback secrets and the in-memory database are not available in production.
+
+### Provision the first administrator
+
+The application no longer creates a default administrator or sample accounts during production startup. The destructive sample seed command is disabled in production.
+
+After configuring the production environment, provision the first administrator explicitly from the backend directory:
+
+```bash
+cd server
+npm run admin:provision
+```
+
+Set `ADMIN_EMAIL`, `ADMIN_USERNAME`, and `ADMIN_PASSWORD` only in the backend environment. The password must be at least 16 characters and include uppercase, lowercase, numeric, and special characters. The command refuses to run if an administrator already exists and never prints the password.
+
+### Free persistent image storage with Cloudinary
+
+Render Free web services have an ephemeral filesystem. The application therefore uses Cloudinary's free Image Upload API in production; it keeps image files outside the Render container and returns HTTPS CDN URLs. Local filesystem uploads remain available only for development and tests.
+
+1. Create a free Cloudinary account: https://cloudinary.com/users/register/free
+2. In the Cloudinary Console, open **Dashboard** and copy the Cloud name, API Key, and API Secret.
+3. Add these backend-only variables to the Render Web Service environment:
+
+```env
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+```
+
+4. Keep the API secret private. Never add these values to `client/.env`, `VITE_*` variables, source control, or frontend code.
+5. Redeploy the backend after configuring the variables.
+
+The backend continues to validate file signatures, restrict formats to JPEG/PNG/WebP/GIF, enforce the 5 MB limit, and use authenticated server-to-provider uploads. It does not fall back to local disk if Cloudinary is unavailable.
+
+**Free-tier limit:** Cloudinary currently includes 25 monthly credits shared across transformations, storage, and image bandwidth. Monitor usage in Cloudinary Console → Settings → Billing. This is free while usage stays within the included allowance; Cloudinary may restrict uploads/delivery if the allowance is exceeded. It is not unlimited storage or bandwidth.
+
+Previously uploaded files stored only on Render's ephemeral filesystem cannot be recovered by this change. If existing database records point to `/uploads/...` paths, re-upload those images or replace their URLs with durable hosted URLs before redeploying.
+
+References:
+- [Cloudinary Free plan and credits](https://cloudinary.com/pricing)
+- [Cloudinary authenticated uploads](https://cloudinary.com/documentation/upload_images)
+- [Render free instance filesystem behavior](https://render.com/docs/faq)
+

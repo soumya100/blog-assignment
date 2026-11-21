@@ -13,16 +13,37 @@ const { notFoundHandler, centralizedErrorHandler } = require('./middleware/error
 
 const app = express();
 
+// User uploads are served from a configurable persistent directory. Keep this
+// route separate from the client build so it works in split and unified deploys.
+
 // Trust reverse proxies (Render, Heroku, Cloudflare) - 1 hop
 app.set('trust proxy', 1);
 
 // Security Headers
 app.use(
   helmet({
-    contentSecurityPolicy: false, // Disabled for flexible client cross-origin dev
+    contentSecurityPolicy: env.NODE_ENV === 'production' ? {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+        fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com'],
+        imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
+        connectSrc: ["'self'", 'https:', 'wss:'],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        frameAncestors: ["'none'"],
+        formAction: ["'self'", 'https:'],
+      },
+    } : false,
     crossOriginEmbedderPolicy: false,
   })
 );
+
+// Serve user uploads with the same security headers as API responses.
+if (env.NODE_ENV !== 'production') {
+  app.use('/uploads', express.static(env.UPLOAD_DIR, { fallthrough: false, index: false, maxAge: '7d', immutable: true }));
+}
 
 // CORS setup
 const configuredOrigins = (env.CLIENT_URL || '')
@@ -30,14 +51,16 @@ const configuredOrigins = (env.CLIENT_URL || '')
   .map((url) => url.trim().replace(/\/$/, ''))
   .filter(Boolean);
 
-const allowedOrigins = [
-  ...configuredOrigins,
+// Development origins must never be implicitly trusted in production.
+// Production browser origins come only from the explicitly configured CLIENT_URL list.
+const developmentOrigins = env.NODE_ENV === 'production' ? [] : [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'http://localhost:3000',
   'http://localhost:5174',
   'http://127.0.0.1:5174',
-]
+];
+const allowedOrigins = [...configuredOrigins, ...developmentOrigins]
   .filter(Boolean)
   .map((url) => url.replace(/\/$/, ''));
 
@@ -45,10 +68,6 @@ const isOriginAllowed = (origin) => {
   if (!origin) return true;
   const normalized = origin.replace(/\/$/, '');
   if (allowedOrigins.includes(normalized)) return true;
-
-  // Permit Render and Vercel cloud deployments for the platform
-  if (/^https:\/\/[a-zA-Z0-9-_]+\.onrender\.com$/.test(normalized)) return true;
-  if (/^https:\/\/[a-zA-Z0-9-_]+\.vercel\.app$/.test(normalized)) return true;
 
   // In development, permit local dev servers on any port (localhost, 127.0.0.1, LAN)
   if (env.NODE_ENV !== 'production') {

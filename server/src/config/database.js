@@ -13,33 +13,42 @@ try {
 let mongoMemoryServer = null;
 
 const connectDB = async (uriOverride = null) => {
+  env.validateProductionConfig();
   const targetUri = uriOverride || env.MONGODB_URI;
+
+  if (env.NODE_ENV === 'production' && !targetUri) {
+    throw new Error('MONGODB_URI is required in production. Refusing to start without the configured database.');
+  }
 
   if (targetUri) {
     try {
-      logger.info(`Connecting to MongoDB at: ${targetUri.replace(/:([^:@]{4})[^:@]*@/, ':****@')}`);
+      logger.info('Connecting to configured MongoDB database.');
       await mongoose.connect(targetUri, {
         serverSelectionTimeoutMS: 5000,
       });
       logger.info('Connected to MongoDB successfully.');
       return;
     } catch (err) {
-      logger.warn(`External MongoDB connection failed: ${err.message}. Checking fallback...`);
       if (env.NODE_ENV === 'production') {
-        logger.error('Production database connection failed. Exiting process.');
-        process.exit(1);
+        logger.error('Production database connection failed. Refusing in-memory fallback.');
+        throw err;
       }
+      logger.warn(`External MongoDB connection failed: ${err.message}. Checking development fallback...`);
     }
   }
 
-  // Development / Test fallback: MongoMemoryServer
+  // Embedded MongoDB is strictly a development/test convenience.
+  if (env.NODE_ENV === 'production') {
+    throw new Error('In-memory MongoDB is disabled in production.');
+  }
+
   try {
     const { MongoMemoryServer } = require('mongodb-memory-server');
     logger.info('Initializing embedded MongoMemoryServer for development/testing...');
     mongoMemoryServer = await MongoMemoryServer.create();
     const memoryUri = mongoMemoryServer.getUri();
     await mongoose.connect(memoryUri);
-    logger.info(`Connected to embedded MongoDB at: ${memoryUri}`);
+    logger.info('Connected to embedded MongoDB for development/testing.');
   } catch (err) {
     logger.error(`Failed to initialize embedded MongoDB: ${err.message}`);
     throw err;

@@ -274,4 +274,19 @@ describe('Comments Integration & IDOR Tests', () => {
     expect(childDoc.isDeleted).toBe(true);
     expect(grandchildDoc.isDeleted).toBe(true);
   });
+  
+  test('public comment responses omit commenter email and role', async () => {
+    await Comment.create({
+      post: testPost._id,
+      author: user2._id,
+      content: 'A public comment with a private author profile.',
+    });
+
+    const response = await request(app).get(`/api/v1/posts/${testPost._id}/comments`);
+    expect(response.statusCode).toBe(200);
+    expect(response.body.data).toHaveLength(1);
+    expect(response.body.data[0].author).not.toHaveProperty('email');
+    expect(response.body.data[0].author).not.toHaveProperty('role');
+  });
+
 });

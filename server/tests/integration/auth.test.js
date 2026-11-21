@@ -249,6 +249,41 @@ describe('Authentication Integration Tests', () => {
     expect(dbUser.avatar).toBe('https://api.dicebear.com/7.x/bottts/svg?seed=CyberBot');
   });
 
+  test('GET /api/v1/auth/me - suppresses oversized legacy avatar payloads', async () => {
+    const regRes = await request(app).post('/api/v1/auth/register').send(validUser);
+    const user = await User.findById(regRes.body.data.user._id);
+    user.avatar = 'data:image/png;base64,' + 'a'.repeat(2500000);
+    await user.save({ validateBeforeSave: false });
+    const me = await request(app).get('/api/v1/auth/me').set('Authorization', 'Bearer ' + regRes.body.data.accessToken);
+    expect(me.statusCode).toBe(200);
+    expect(me.body.data.user.avatar).toBe('');
+    expect(Buffer.byteLength(JSON.stringify(me.body))).toBeLessThan(10000);
+  });
+
+  test('PATCH /api/v1/auth/profile - allows bio edits without resending a legacy inline avatar', async () => {
+    const regRes = await request(app).post('/api/v1/auth/register').send(validUser);
+    const user = await User.findById(regRes.body.data.user._id);
+    const legacyAvatar = 'data:image/png;base64,' + 'a'.repeat(2500000);
+    user.avatar = legacyAvatar;
+    await user.save({ validateBeforeSave: false });
+    const updated = await request(app).patch('/api/v1/auth/profile').set('Authorization', 'Bearer ' + regRes.body.data.accessToken).send({ bio: 'Updated without replacing the old photo.' });
+    expect(updated.statusCode).toBe(200);
+    expect(updated.body.data.user.bio).toBe('Updated without replacing the old photo.');
+    expect((await User.findById(user._id)).avatar).toBe(legacyAvatar);
+  });
+
+  test('profile photo can be uploaded first and then saved as a compact URL', async () => {
+    const regRes = await request(app).post('/api/v1/auth/register').send(validUser);
+    const token = regRes.body.data.accessToken;
+    const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j2ioAAAAASUVORK5CYII=';
+    const uploaded = await request(app).post('/api/v1/uploads/image').set('Authorization', 'Bearer ' + token).send({ dataUrl: 'data:image/png;base64,' + png });
+    expect(uploaded.statusCode).toBe(201);
+    expect(uploaded.body.data.url).toMatch(/^\/uploads\/[A-Za-z0-9_-]+\.png$/);
+    const saved = await request(app).patch('/api/v1/auth/profile').set('Authorization', 'Bearer ' + token).send({ avatar: uploaded.body.data.url });
+    expect(saved.statusCode).toBe(200);
+    expect(saved.body.data.user.avatar).toBe(uploaded.body.data.url);
+  });
+
   test('PATCH /api/v1/auth/profile - rejects unauthenticated profile update with 401', async () => {
     const res = await request(app)
       .patch('/api/v1/auth/profile')

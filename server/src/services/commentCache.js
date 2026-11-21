@@ -1,12 +1,19 @@
 const env = require('../config/env');
 const logger = require('../utils/logger');
+const { executeRedisCommand } = require('./redisProtocol');
 
 const CACHE_TTL_SECONDS = 30;
 const VERSION_KEY_TTL_SECONDS = 86400 * 7; // 7 days
 
 const request = async (command) => {
-  if (!env.REDIS_REST_URL || !env.REDIS_REST_TOKEN) return null;
   try {
+    // Prefer a standard Redis connection (Redis Cloud, self-hosted Redis, etc.).
+    if (env.REDIS_URL) {
+      return await executeRedisCommand(env.REDIS_URL, command, 1200);
+    }
+
+    // Preserve the existing Upstash REST integration for existing deployments.
+    if (!env.REDIS_REST_URL || !env.REDIS_REST_TOKEN) return null;
     const response = await fetch(env.REDIS_REST_URL, {
       method: 'POST',
       headers: {
@@ -27,7 +34,7 @@ const request = async (command) => {
     }
     return payload.result;
   } catch (error) {
-    // Fail-open: Cache outages must never disrupt the discussion service
+    // Fail-open: Cache outages must never disrupt the discussion service.
     logger.warn(`Redis connection failed: ${error.message}`);
     return null;
   }
@@ -59,7 +66,7 @@ const bumpVersion = async (postId) => {
   const key = `comments:version:${postId}`;
   const result = await request(['INCR', key]);
   if (result) {
-    // Keep version keys from accumulating indefinitely
+    // Keep version keys from accumulating indefinitely.
     await request(['EXPIRE', key, VERSION_KEY_TTL_SECONDS]);
   }
   return result;

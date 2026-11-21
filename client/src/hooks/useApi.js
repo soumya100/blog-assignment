@@ -19,6 +19,7 @@ export const queryKeys = {
     details: () => [...queryKeys.drafts.all, 'detail'],
     detail: (id) => [...queryKeys.drafts.details(), id],
   },
+  readingHistory: { all: ['readingHistory'] },
   savedPosts: {
     all: ['savedPosts'],
     status: (postId) => [...queryKeys.savedPosts.all, 'status', postId],

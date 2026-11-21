@@ -62,9 +62,9 @@ const PostDetails = () => {
   const queryClient = useQueryClient();
 
   // Server state with TanStack Query
-  const { data: post, isLoading: postLoading } = usePost(id);
+  const { data: post, isLoading: postLoading, isError: postError, refetch: retryPost } = usePost(id);
   const [commentSort, setCommentSort] = useState('newest');
-  const { data: comments = [], isLoading: commentsLoading } = useComments(post?._id, commentSort);
+  const { data: comments = [], isLoading: commentsLoading, isError: commentsError, refetch: retryComments } = useComments(post?._id, commentSort);
 
   // TanStack Query Mutations
   const createCommentMutation = useCreateComment(post?._id);
@@ -92,7 +92,122 @@ const PostDetails = () => {
   const [deleteTarget, setDeleteTarget] = useState(null); // { type: 'post' | 'comment', id }
   const [copiedLink, setCopiedLink] = useState(false);
   const [readingProgress, setReadingProgress] = useState(0);
+  const [engagement, setEngagement] = useState({ likes: 0, claps: 0, myReaction: null });
+  const [followState, setFollowState] = useState({ following: false, followers: 0 });
+  const [fontScale, setFontScale] = useState(100);
+  const [relatedPosts, setRelatedPosts] = useState([]);
   const headings = (post?.content || '').split('\n').filter((line) => /^#{1,3}\s+/.test(line)).map((line) => ({ level: line.match(/^#+/)[0].length, title: line.replace(/^#{1,3}\s+/, '').trim() }));
+
+
+  const [isFollowingPending, setIsFollowingPending] = useState(false);
+  const [isReactionPending, setIsReactionPending] = useState(false);
+  const authorId = post?.author?._id || post?.author;
+
+  // Load the server's canonical reaction and follow state instead of assuming
+  // a local default, so the controls remain correct after refresh/navigation.
+  useEffect(() => {
+    if (!post?._id) return undefined;
+    let active = true;
+    const loadCommunityState = async () => {
+      const requests = [
+        apiClient.get('/community/posts/' + post._id + '/reactions'),
+        authorId
+          ? apiClient.get('/community/authors/' + authorId + '/follow-status')
+          : Promise.resolve(null),
+      ];
+      const [reactionResult, followResult] = await Promise.allSettled(requests);
+      if (!active) return;
+      if (reactionResult.status === 'fulfilled') {
+        const data = reactionResult.value?.data?.data || {};
+        setEngagement({
+          likes: Number(data.likes) || 0,
+          claps: Number(data.claps) || 0,
+          myReaction: data.myReaction || null,
+        });
+      }
+      if (followResult.status === 'fulfilled' && followResult.value) {
+        const data = followResult.value.data?.data || {};
+        setFollowState({
+          following: Boolean(data.following),
+          followers: Number(data.followers) || 0,
+        });
+      }
+    };
+    loadCommunityState().catch(() => {});
+    return () => { active = false; };
+  }, [post?._id, authorId, isAuthenticated]);
+
+  const handleReaction = async (type) => {
+    if (!isAuthenticated) {
+      toast.info('Please log in to react to articles.');
+      navigate('/login');
+      return;
+    }
+    if (!post?._id || isReactionPending) return;
+    setIsReactionPending(true);
+    try {
+      const response = await apiClient.post('/community/posts/' + post._id + '/reactions', { type });
+      const data = response.data?.data || {};
+      setEngagement({
+        likes: Number(data.likes) || 0,
+        claps: Number(data.claps) || 0,
+        myReaction: data.type || null,
+      });
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Could not update your reaction. Please try again.');
+    } finally {
+      setIsReactionPending(false);
+    }
+  };
+
+  const handleFollowAuthor = async () => {
+    if (!isAuthenticated) {
+      toast.info('Please log in to follow this author.');
+      navigate('/login');
+      return;
+    }
+    if (!authorId || !post?._id || isFollowingPending || String(authorId) === String(user?._id)) return;
+    setIsFollowingPending(true);
+    try {
+      const response = await apiClient.post('/community/authors/' + authorId + '/follow');
+      const data = response.data?.data || {};
+      setFollowState({
+        following: Boolean(data.following),
+        followers: Number(data.followers) || 0,
+      });
+      toast.success(data.following ? 'You are now following this author.' : 'You unfollowed this author.');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Could not update author follow status. Please try again.');
+    } finally {
+      setIsFollowingPending(false);
+    }
+  };
+
+  const handleReportPost = async () => {
+    if (!isAuthenticated) {
+      toast.info('Please log in to report an article.');
+      navigate('/login');
+      return;
+    }
+    const reason = window.prompt('Choose a reason: spam, harassment, hate, misinformation, copyright, or other');
+    if (!reason) return;
+    const normalizedReason = reason.trim().toLowerCase();
+    const allowedReasons = ['spam', 'harassment', 'hate', 'misinformation', 'copyright', 'other'];
+    if (!allowedReasons.includes(normalizedReason)) {
+      toast.error('Please enter one of the listed report reasons.');
+      return;
+    }
+    try {
+      await apiClient.post('/community/reports', {
+        targetType: 'post',
+        targetId: post._id,
+        reason: normalizedReason,
+      });
+      toast.success('Your report has been submitted for review.');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Could not submit your report. Please try again.');
+    }
+  };
 
   // React Hook Form for new comments
   const {
@@ -104,6 +219,28 @@ const PostDetails = () => {
     resolver: zodResolver(commentSchema),
     defaultValues: { content: '' },
   });
+
+  useEffect(() => {
+    if (!post?._id) return;
+    apiClient.post('/analytics/posts/' + post._id + '/view', {}).catch(() => {});
+  }, [post?._id]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !post?._id) return;
+    apiClient.post('/reading-history/' + post._id, { progress: 0, secondsRead: 0 }).catch(() => {});
+    let lastBucket = 0;
+    const trackProgress = () => {
+      const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+      const progress = scrollable > 0 ? Math.min(100, Math.max(0, (window.scrollY / scrollable) * 100)) : 100;
+      const bucket = Math.floor(progress / 10) * 10;
+      if (bucket >= 10 && bucket > lastBucket) {
+        lastBucket = bucket;
+        apiClient.post('/reading-history/' + post._id, { progress: bucket, secondsRead: 0 }).catch(() => {});
+      }
+    };
+    window.addEventListener('scroll', trackProgress, { passive: true });
+    return () => window.removeEventListener('scroll', trackProgress);
+  }, [isAuthenticated, post?._id]);
 
   useEffect(() => {
     const updateProgress = () => {
@@ -253,6 +390,17 @@ const PostDetails = () => {
     );
   }
 
+  if (postError) {
+    return (
+      <div className="container-narrow page-error-state" role="alert" style={{ paddingTop: '5rem', textAlign: 'center' }}>
+        <h2>We couldn’t load this article</h2>
+        <p style={{ color: 'var(--text-secondary)', margin: '1rem 0 2rem' }}>Check your connection and try again.</p>
+        <button type="button" className="btn btn-primary" onClick={() => retryPost()}>Try again</button>
+        <Link to="/" className="btn btn-secondary" style={{ marginLeft: '0.5rem' }}>Back to articles</Link>
+      </div>
+    );
+  }
+
   if (!post) {
     return (
       <div className="container-narrow" style={{ paddingTop: '5rem', textAlign: 'center' }}>
@@ -276,9 +424,12 @@ const PostDetails = () => {
     <div className="article-reading-progress" style={{ width: readingProgress + "%" }} aria-hidden="true" />
     <article className="container" style={{ paddingTop: '2.5rem', maxWidth: '820px' }}>
       <SEO
-        title={post.title}
-        description={post.content ? post.content.replace(/[#*`_~\[\]]/g, '').slice(0, 160).trim() + '...' : 'Technical article on DevLog'}
+        title={post.seoTitle || post.title}
+        description={post.seoDescription || (post.content ? post.content.replace(/[#*`_~\[\]]/g, '').slice(0, 160).trim() + '...' : 'Technical article on DevLog')}
+        canonicalUrl={post.canonicalUrl}
+        noIndex={post.noIndex}
         type="article"
+        image={post.coverImage || '/favicon.svg'}
         keywords={post.tags?.join(', ') || 'software engineering, DevLog'}
       />
       {/* Back button */}
@@ -424,6 +575,22 @@ const PostDetails = () => {
           </div>
         </div>
       </header>
+      <section aria-label="Reader and community controls" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', padding: '1rem', marginBottom: '1.5rem', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleReaction('like')} disabled={isReactionPending} aria-pressed={engagement.myReaction === 'like'}>👍 Like ({engagement.likes})</button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleReaction('clap')} disabled={isReactionPending} aria-pressed={engagement.myReaction === 'clap'}>👏 Clap ({engagement.claps})</button>
+          {post.author?._id && user?._id !== post.author._id && <button type="button" className="btn btn-secondary btn-sm" onClick={handleFollowAuthor} disabled={isFollowingPending}>{isFollowingPending ? 'Updating…' : followState.following ? 'Following' : 'Follow author'} · {followState.followers}</button>}
+          <button type="button" className="btn btn-secondary btn-sm" onClick={handleReportPost}>Report</button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => window.open("https://www.linkedin.com/sharing/share-offsite/?url=" + encodeURIComponent(window.location.href), "_blank", "noopener,noreferrer")}>LinkedIn</button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => window.open("https://twitter.com/intent/tweet?url=" + encodeURIComponent(window.location.href) + "&text=" + encodeURIComponent(post.title), "_blank", "noopener,noreferrer")}>X</button>
+        </div>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
+          Text size <input aria-label="Article text size" type="range" min="85" max="125" step="5" value={fontScale} onChange={(event) => setFontScale(Number(event.target.value))} /> <span>{fontScale}%</span>
+        </label>
+      </section>
+
+
+      
 
       {post.coverImage && <img className="article-cover" src={post.coverImage} alt={post.title} loading="eager" />}
       {post.excerpt && <p className="article-excerpt">{post.excerpt}</p>}
@@ -441,7 +608,7 @@ const PostDetails = () => {
       {/* Post Body */}
       <section
         style={{
-          fontSize: '1.125rem',
+          fontSize: (1.125 * fontScale / 100) + 'rem',
           lineHeight: 1.8,
           color: 'var(--text-primary)',
           marginBottom: '4rem',
@@ -451,6 +618,15 @@ const PostDetails = () => {
       >
         <MarkdownContent content={post.content} />
       </section>
+      {relatedPosts.length > 0 && <section aria-label="Related articles" style={{ marginBottom: '3rem' }}>
+        <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>Related articles</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+          {relatedPosts.map((item) => <Link key={item._id} to={'/posts/' + (item.slug || item._id)} className="card" style={{ padding: '1rem', textDecoration: 'none' }}>
+            <strong>{item.title}</strong><p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '0.5rem' }}>{item.excerpt || 'Read this related article'}</p>
+          </Link>)}
+        </div>
+      </section>}
+
 
       {/* Author Bio Card */}
       {post.author && post.author.bio && (
@@ -565,6 +741,11 @@ const PostDetails = () => {
             <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '1rem 0' }}>
               Loading discussion...
             </p>
+          ) : commentsError ? (
+            <div className="page-error-state" role="alert" style={{ textAlign: 'center', padding: '1.5rem' }}>
+              <p style={{ color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>Could not load the discussion.</p>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => retryComments()}>Retry discussion</button>
+            </div>
           ) : comments.length === 0 ? (
             <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem 0' }}>
               No comments yet. Be the first to start the discussion!

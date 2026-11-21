@@ -37,3 +37,7 @@ logs/
 
 # Reports & Audits
 lighthouse-*.json
+
+# User-uploaded media (configure a persistent volume in production)
+server/uploads/
+uploads/

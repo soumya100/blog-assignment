@@ -54,6 +54,18 @@ describe('Account-owned drafts and publishing workflow', () => {
     expect(otherList.body.data).toHaveLength(0);
   });
 
+  test('draft lists omit content and oversized drafts are rejected', async () => {
+    const oversized = await request(app).post('/api/v1/drafts').set('Authorization', 'Bearer ' + authorToken).send({ title: 'Too large', content: 'x'.repeat(200001) });
+    expect(oversized.statusCode).toBe(400);
+    const created = await request(app).post('/api/v1/drafts').set('Authorization', 'Bearer ' + authorToken).send({ title: 'List projection', content: 'Private draft body should not be returned in list responses.' });
+    expect(created.statusCode).toBe(201);
+    const listed = await request(app).get('/api/v1/drafts').set('Authorization', 'Bearer ' + authorToken);
+    expect(listed.statusCode).toBe(200);
+    expect(listed.body.data[0].content).toBeUndefined();
+    const detail = await request(app).get('/api/v1/drafts/' + created.body.data._id).set('Authorization', 'Bearer ' + authorToken);
+    expect(detail.body.data.content).toBe('Private draft body should not be returned in list responses.');
+  });
+
   test('another user cannot read or update someone else draft', async () => {
     const draft = await Draft.create({ title: 'Private notes', content: 'This is private.', author: author._id });
 
@@ -85,6 +97,35 @@ describe('Account-owned drafts and publishing workflow', () => {
     expect(await Post.countDocuments({ author: author._id })).toBe(0);
   });
 
+  test('draft metadata limits prevent oversized list responses', async () => {
+    const oversizedCover = await request(app)
+      .post('/api/v1/drafts')
+      .set('Authorization', 'Bearer ' + authorToken)
+      .send({ title: 'Cover limit', content: 'This draft has enough content.', coverImage: 'x'.repeat(501) });
+    expect(oversizedCover.statusCode).toBe(400);
+
+    const tooManyTags = await request(app)
+      .post('/api/v1/drafts')
+      .set('Authorization', 'Bearer ' + authorToken)
+      .send({ title: 'Tag limit', content: 'This draft has enough content.', tags: Array.from({ length: 11 }, (_, i) => 'tag' + i) });
+    expect(tooManyTags.statusCode).toBe(400);
+  });
+
+  test('parallel publish requests create only one post', async () => {
+    const draft = await Draft.create({
+      title: 'Publish exactly once',
+      content: 'This article has enough content to pass the publication requirements.',
+      author: author._id,
+    });
+    const publish = () => request(app)
+      .post('/api/v1/drafts/' + draft._id + '/publish')
+      .set('Authorization', 'Bearer ' + authorToken);
+
+    const responses = await Promise.all([publish(), publish()]);
+    expect(responses.map((response) => response.statusCode).sort()).toEqual([201, 409]);
+    expect(await Post.countDocuments({ author: author._id, title: 'Publish exactly once' })).toBe(1);
+  });
+
   test('author can publish a complete draft and the draft is removed', async () => {
     const draft = await Draft.create({
       title: 'A finished article from a draft',
@@ -104,4 +145,27 @@ describe('Account-owned drafts and publishing workflow', () => {
     expect(await Draft.findById(draft._id)).toBeNull();
     expect(await Post.countDocuments({ author: author._id, isDeleted: false })).toBe(1);
   });
+  
+  test('draft owner can add an active user as a collaborator', async () => {
+    const draft = await Draft.create({
+      title: 'Shared draft',
+      content: 'A draft that will be edited collaboratively.',
+      author: author._id,
+    });
+
+    const added = await request(app)
+      .post(`/api/v1/drafts/${draft._id}/collaborators`)
+      .set('Authorization', 'Bearer ' + authorToken)
+      .send({ username: anotherAuthor.username });
+
+    expect(added.statusCode).toBe(200);
+    expect(added.body.data.username).toBe(anotherAuthor.username);
+
+    const collaboratorView = await request(app)
+      .get('/api/v1/drafts/' + draft._id)
+      .set('Authorization', 'Bearer ' + anotherToken);
+    expect(collaboratorView.statusCode).toBe(200);
+    expect(collaboratorView.body.data._id).toBe(draft._id.toString());
+  });
+
 });

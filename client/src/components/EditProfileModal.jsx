@@ -3,6 +3,7 @@ import { X, Upload, Check, RotateCcw, Sparkles, User, AlertCircle } from 'lucide
 import { toast } from 'react-toastify';
 import { PRESET_AVATARS, compressImageFile } from '../constants/avatars';
 import { extractErrorMessage } from '../hooks/useApi';
+import apiClient from '../api/client';
 
 export default function EditProfileModal({
   isOpen,
@@ -13,6 +14,7 @@ export default function EditProfileModal({
 }) {
   const [bio, setBio] = useState(currentUser?.bio || '');
   const [avatar, setAvatar] = useState(currentUser?.avatar || '');
+  const originalAvatarRef = useRef(currentUser?.avatar || '');
   const [activeTab, setActiveTab] = useState('preset'); // 'preset' | 'upload'
   const [isProcessingFile, setIsProcessingFile] = useState(false);
   const [dialogError, setDialogError] = useState('');
@@ -24,6 +26,7 @@ export default function EditProfileModal({
     if (isOpen) {
       setBio(currentUser?.bio || '');
       setAvatar(currentUser?.avatar || '');
+      originalAvatarRef.current = currentUser?.avatar || '';
       setDialogError('');
     }
   }, [isOpen, currentUser]);
@@ -85,13 +88,12 @@ export default function EditProfileModal({
     setIsProcessingFile(true);
     try {
       const compressedDataUrl = await compressImageFile(file, 256, 256, 0.88);
-      setAvatar(compressedDataUrl);
-      
-      // Automatically persist the uploaded avatar and close the modal
-      await onSave({
-        bio: bio.trim(),
-        avatar: compressedDataUrl.trim(),
-      });
+      const uploadResult = await apiClient.post('/uploads/image', { dataUrl: compressedDataUrl });
+      const uploadedAvatarUrl = uploadResult?.data?.url;
+      if (typeof uploadedAvatarUrl !== 'string' || !uploadedAvatarUrl) throw new Error('Image upload did not return a valid URL');
+      setAvatar(uploadedAvatarUrl);
+      await onSave({ bio: bio.trim(), avatar: uploadedAvatarUrl });
+      originalAvatarRef.current = uploadedAvatarUrl;
       onClose();
     } catch (err) {
       const errorMsg = extractErrorMessage(err, 'Failed to upload and save image. Please try again.');
@@ -119,10 +121,10 @@ export default function EditProfileModal({
     }
 
     try {
-      await onSave({
-        bio: bio.trim(),
-        avatar: avatar.trim(),
-      });
+      const profilePayload = { bio: bio.trim() };
+      if (avatar.trim() !== originalAvatarRef.current) profilePayload.avatar = avatar.trim();
+      await onSave(profilePayload);
+      originalAvatarRef.current = avatar.trim();
       onClose();
     } catch (err) {
       const errorMsg = extractErrorMessage(err, 'Failed to update profile. Please try again.');

@@ -44,6 +44,23 @@ const AdminDashboard = () => {
       color: '#8b5cf6',
       link: '/admin/comments',
     },
+    {
+      title: 'Reader Views',
+      total: stats?.engagement?.views || 0,
+      sub: (stats?.engagement?.reactions || 0) + ' reactions · ' + (stats?.posts?.scheduled || 0) + ' scheduled articles',
+      icon: Activity,
+      color: '#0ea5e9',
+      link: '/admin/posts',
+    },
+    {
+      title: 'Open Reports',
+      total: stats?.moderation?.openReports || 0,
+      sub: (stats?.newsletter?.confirmedSubscribers || 0) + ' confirmed newsletter subscribers',
+      icon: ShieldCheck,
+      color: '#f59e0b',
+      link: '/admin/reports',
+    },
+
   ];
 
   return (
