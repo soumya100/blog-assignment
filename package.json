@@ -17,7 +17,7 @@
     "smoke:deployed": "node qa/smoke/deployed-smoke.mjs"
   },
   "devDependencies": {
-    "concurrently": "^9.2.5"
+    "concurrently": "^10.0.7"
   },
   "engines": {
     "node": ">=18.0.0"
