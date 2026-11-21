@@ -3,11 +3,14 @@ import React from 'react';
 const headingId = (value) => value.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-');
 
 const renderInline = (text, keyPrefix) => {
-  const pattern = /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\[[^\]]+\]\(https?:\/\/[^\s)]+\))/g;
+  const pattern = /(!\[[^\]]*\]\(https?:\/\/[^\s)]+\)|\*\*[^*]+\*\*|~~[^~]+~~|\*[^*]+\*|`[^`]+`|\[[^\]]+\]\(https?:\/\/[^\s)]+\))/g;
   const parts = text.split(pattern);
   return parts.map((part, index) => {
     const key = `${keyPrefix}-${index}`;
+    const image = part.match(/^!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)$/);
+    if (image) return <img key={key} className="article-inline-image" src={image[2]} alt={image[1]} loading="lazy" decoding="async" />;
     if (/^\*\*[^*]+\*\*$/.test(part)) return <strong key={key}>{part.slice(2, -2)}</strong>;
+    if (/^~~[^~]+~~$/.test(part)) return <del key={key}>{part.slice(2, -2)}</del>;
     if (/^\*[^*]+\*$/.test(part)) return <em key={key}>{part.slice(1, -1)}</em>;
     if (/^`[^`]+`$/.test(part)) return <code key={key} className="article-inline-code">{part.slice(1, -1)}</code>;
     const link = part.match(/^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)$/);
@@ -24,6 +27,7 @@ const MarkdownContent = ({ content = '' }) => {
   let listType = 'ul';
   let code = [];
   let inCode = false;
+  let tableSkipUntil = -1;
 
   const flushParagraph = () => {
     if (paragraph.length) {
@@ -40,6 +44,7 @@ const MarkdownContent = ({ content = '' }) => {
   };
 
   lines.forEach((line, index) => {
+    if (index <= tableSkipUntil) return;
     if (line.trim().startsWith('```')) {
       flushParagraph(); flushList();
       if (inCode) {
@@ -51,7 +56,23 @@ const MarkdownContent = ({ content = '' }) => {
     }
     if (inCode) { code.push(line); return; }
 
-    const heading = line.match(/^(#{1,3})\s+(.+)$/);
+    const isTableSeparator = (value) => /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(value);
+    if (line.includes('|') && index + 1 < lines.length && isTableSeparator(lines[index + 1])) {
+      flushParagraph(); flushList();
+      const parseCells = (value) => value.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((cell) => cell.trim());
+      const headers = parseCells(line);
+      const rows = [];
+      let cursor = index + 2;
+      while (cursor < lines.length && lines[cursor].includes('|') && lines[cursor].trim()) {
+        rows.push(parseCells(lines[cursor]));
+        cursor += 1;
+      }
+      blocks.push(<div className="markdown-table-wrap" key={`table-${index}`}><table><thead><tr>{headers.map((cell, cellIndex) => <th key={cellIndex}>{renderInline(cell, `th-${index}-${cellIndex}`)}</th>)}</tr></thead><tbody>{rows.map((row, rowIndex) => <tr key={rowIndex}>{headers.map((_, cellIndex) => <td key={cellIndex}>{renderInline(row[cellIndex] || '', `td-${index}-${rowIndex}-${cellIndex}`)}</td>)}</tr>)}</tbody></table></div>);
+      tableSkipUntil = cursor - 1;
+      return;
+    }
+
+    const heading = line.match(/^(#{1,6})\s+(.+)$/);
     const bullet = line.match(/^\s*[-*+]\s+(.+)$/);
     const numbered = line.match(/^\s*\d+\.\s+(.+)$/);
     if (heading) {

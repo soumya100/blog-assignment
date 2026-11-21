@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -92,6 +92,7 @@ const PostDetails = () => {
   const [deleteTarget, setDeleteTarget] = useState(null); // { type: 'post' | 'comment', id }
   const [copiedLink, setCopiedLink] = useState(false);
   const [readingProgress, setReadingProgress] = useState(0);
+  const articleBodyRef = useRef(null);
   const [engagement, setEngagement] = useState({ likes: 0, claps: 0, myReaction: null });
   const [followState, setFollowState] = useState({ following: false, followers: 0 });
   const [fontScale, setFontScale] = useState(100);
@@ -226,31 +227,28 @@ const PostDetails = () => {
   }, [post?._id]);
 
   useEffect(() => {
-    if (!isAuthenticated || !post?._id) return;
-    apiClient.post('/reading-history/' + post._id, { progress: 0, secondsRead: 0 }).catch(() => {});
-    let lastBucket = 0;
-    const trackProgress = () => {
-      const scrollable = document.documentElement.scrollHeight - window.innerHeight;
-      const progress = scrollable > 0 ? Math.min(100, Math.max(0, (window.scrollY / scrollable) * 100)) : 100;
-      const bucket = Math.floor(progress / 10) * 10;
-      if (bucket >= 10 && bucket > lastBucket) {
-        lastBucket = bucket;
-        apiClient.post('/reading-history/' + post._id, { progress: bucket, secondsRead: 0 }).catch(() => {});
-      }
+    if (!isAuthenticated || !post?._id) return undefined;
+    const recordProgress = (secondsRead = 0) => {
+      const body = articleBodyRef.current;
+      if (!body) return;
+      const top = body.getBoundingClientRect().top + window.scrollY;
+      const scrollable = Math.max(0, body.offsetHeight - window.innerHeight);
+      const progress = scrollable === 0
+        ? (window.scrollY + window.innerHeight >= top ? 100 : 0)
+        : Math.min(100, Math.max(0, ((window.scrollY - top) / scrollable) * 100));
+      apiClient.post('/reading-history/' + post._id, { progress: Math.round(progress), secondsRead }).catch(() => {});
     };
-    window.addEventListener('scroll', trackProgress, { passive: true });
-    return () => window.removeEventListener('scroll', trackProgress);
+    recordProgress(0);
+    const onScroll = () => recordProgress(0);
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') recordProgress(15);
+    }, 15000);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('scroll', onScroll);
+    };
   }, [isAuthenticated, post?._id]);
-
-  useEffect(() => {
-    const updateProgress = () => {
-      const scrollable = document.documentElement.scrollHeight - window.innerHeight;
-      setReadingProgress(scrollable > 0 ? Math.min(100, Math.max(0, (window.scrollY / scrollable) * 100)) : 0);
-    };
-    window.addEventListener('scroll', updateProgress, { passive: true });
-    updateProgress();
-    return () => window.removeEventListener('scroll', updateProgress);
-  }, [post?._id]);
 
   // Real-time socket room synchronization
   useEffect(() => {
@@ -607,6 +605,8 @@ const PostDetails = () => {
 
       {/* Post Body */}
       <section
+        ref={articleBodyRef}
+        className="published-article-body"
         style={{
           fontSize: (1.125 * fontScale / 100) + 'rem',
           lineHeight: 1.8,

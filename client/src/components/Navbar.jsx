@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import ConfirmModal from './ConfirmModal';
 import { toast } from 'react-toastify';
+import apiClient from '../api/client';
 import {
   AtSign, BarChart3, Bookmark, BookOpen, ChevronDown, Command,
   Compass, FileText, FolderOpen, Layers, LogOut, Mail, Menu, Moon,
@@ -103,6 +104,8 @@ const Dropdown = ({ label, icon: Icon, align = 'left', children, className = '' 
 const SearchPalette = ({ open, onClose }) => {
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
+  const [articleResults, setArticleResults] = useState([]);
+  const [searching, setSearching] = useState(false);
   const inputRef = useRef(null);
   const navigate = useNavigate();
   const results = useMemo(() => {
@@ -137,6 +140,21 @@ const SearchPalette = ({ open, onClose }) => {
       document.removeEventListener('keydown', onKeyDown);
     };
   }, [open, onClose, navigate, results, activeIndex]);
+
+  useEffect(() => {
+    const term = query.trim();
+    if (!open || term.length < 2) { setArticleResults([]); setSearching(false); return undefined; }
+    let active = true;
+    const timer = window.setTimeout(async () => {
+      setSearching(true);
+      try {
+        const response = await apiClient.get('/posts', { params: { search: term, page: 1, limit: 5 } });
+        if (active) setArticleResults(Array.isArray(response.data) ? response.data : []);
+      } catch { if (active) setArticleResults([]); }
+      finally { if (active) setSearching(false); }
+    }, 250);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [open, query]);
 
   if (!open) return null;
   return (
@@ -173,7 +191,11 @@ const SearchPalette = ({ open, onClose }) => {
                 {index === activeIndex && <kbd>↵</kbd>}
               </button>
             );
-          }) : <p className="nav-search-empty">No matching destinations found.</p>}
+          }) : null}
+          {query.trim().length >= 2 && <p className="nav-menu-eyebrow">ARTICLES</p>}
+          {searching && <p className="nav-search-empty">Searching articles…</p>}
+          {!searching && articleResults.map((post) => <button type="button" key={post._id} className="nav-search-result" onClick={() => { navigate('/posts/' + (post.slug || post._id)); onClose(); }}><FileText size={17} /><span>{post.title}</span></button>)}
+          {!results.length && !articleResults.length && !searching && <p className="nav-search-empty">{query ? 'No matching pages or articles found.' : 'No matching destinations found.'}</p>}
         </div>
         <footer className="nav-search-footer">Navigate DevLog with your keyboard</footer>
       </section>

@@ -151,7 +151,7 @@ const Home = () => {
                 key={tag}
                 onClick={() => {
                   setSelectedTag(tag.toLowerCase() === selectedTag ? '' : tag.toLowerCase());
-                  setPagination((p) => ({ ...p, page: 1 }));
+                  setPage(1);
                 }}
                 className={`btn btn-sm ${
                   selectedTag === tag.toLowerCase() ? 'btn-primary' : 'btn-secondary'

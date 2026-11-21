@@ -9,6 +9,8 @@ export default function ImportExport() {
     setBusy(true);
     try {
       const response = await apiClient.get('/posts/export');
+      const posts = Array.isArray(response.posts) ? response.posts : [];
+      if (!posts.length) { toast.info('There are no published articles to export yet.'); return; }
       const blob = new Blob([JSON.stringify(response, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
@@ -18,7 +20,7 @@ export default function ImportExport() {
       anchor.click();
       anchor.remove();
       URL.revokeObjectURL(url);
-      toast.success('Your articles were exported.');
+      toast.success('Exported ' + posts.length + ' published article(s) to devlog-articles-export.json.');
     } catch (error) { toast.error(error.message || 'Export failed'); }
     finally { setBusy(false); }
   };
@@ -31,7 +33,8 @@ export default function ImportExport() {
     try {
       const parsed = JSON.parse(await file.text());
       const response = await apiClient.post('/posts/import', parsed);
-      setResult('Imported ' + (response.data?.count || 0) + ' article(s).');
+      const importedCount = response.data?.count || response.count || 0;
+      setResult('Imported ' + importedCount + ' article(s).');
       toast.success('Import completed.');
     } catch (error) { toast.error(error.message || 'Import failed. Check the export file format.'); }
     finally { setBusy(false); }
@@ -47,7 +50,7 @@ export default function ImportExport() {
     <section className="card" style={{ padding: '1.5rem' }}>
       <h2 style={{ fontSize: '1.15rem' }}>Import articles</h2>
       <p style={{ color: 'var(--text-secondary)', margin: '0.5rem 0 1rem' }}>Select a DevLog export JSON file (up to 5 MB; maximum 5 articles per import).</p>
-      <input type="file" accept="application/json,.json" onChange={importArticles} disabled={busy} />
+      <label className="import-file-picker"><span>{busy ? "Please wait…" : "Choose JSON file"}</span><input type="file" accept="application/json,.json" onChange={importArticles} disabled={busy} /><small>JSON · Up to 5 MB · Maximum 5 articles</small></label>
       {result && <p role="status" style={{ marginTop: '1rem' }}>{result}</p>}
     </section>
   </main>;
