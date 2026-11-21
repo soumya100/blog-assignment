@@ -2604,3 +2604,9 @@ input:-webkit-autofill:active {
 }
 .import-file-picker input { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
 .import-file-picker small { color: var(--text-secondary); font-size: .8rem; }
+
+.published-article-body .markdown-table-wrap { max-width: 100%; overflow-x: auto; margin: 1.25rem 0; }
+.published-article-body .markdown-content table { width: 100%; border-collapse: collapse; font-size: .94em; }
+.published-article-body .markdown-content th,
+.published-article-body .markdown-content td { border: 1px solid var(--border-subtle); padding: .65rem .8rem; text-align: left; vertical-align: top; }
+.published-article-body .markdown-content th { background: var(--bg-elevated); font-weight: 700; }
