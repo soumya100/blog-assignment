@@ -12,12 +12,10 @@ beforeAll(async () => {
   process.env.JWT_REFRESH_SECRET = 'test_refresh_secret_super_secure_32_characters_long_jwt';
 
   try {
-    let uri = process.env.MONGODB_URI;
-    if (!uri) {
-      mongoServer = await MongoMemoryServer.create();
-      uri = mongoServer.getUri();
-    }
-    await mongoose.connect(uri, { serverSelectionTimeoutMS: 10000 });
+    // Always use an isolated ephemeral database. Never fall back to MONGODB_URI:
+    // afterEach clears collections, so that could otherwise destroy real data.
+    mongoServer = await MongoMemoryServer.create();
+    await mongoose.connect(mongoServer.getUri(), { serverSelectionTimeoutMS: 10000 });
   } catch (error) {
     if (mongoServer) {
       await mongoServer.stop().catch(() => {});
