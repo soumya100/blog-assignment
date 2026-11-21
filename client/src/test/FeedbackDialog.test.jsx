@@ -39,10 +39,10 @@ describe('FeedbackDialog accessibility and dismissal behavior', () => {
 
   test('closes when the backdrop itself is clicked, but not when the dialog is clicked', () => {
     const onClose = vi.fn();
-    const { container } = render(
+    render(
       <FeedbackDialog open title="Notice" message="Review this update." onClose={onClose} />
     );
-    const backdrop = container.querySelector('.feedback-dialog-backdrop');
+    const backdrop = document.querySelector('.feedback-dialog-backdrop');
     const dialog = screen.getByRole('alertdialog');
 
     fireEvent.mouseDown(dialog);
