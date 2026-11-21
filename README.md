@@ -24,7 +24,7 @@ Pull requests to `main` run frontend and backend regression suites, production b
 | Dependency and source security | npm audit, Dependabot, CodeQL, Gitleaks, dependency review |
 | Deployed smoke and passive DAST | Node.js fetch checks + OWASP ZAP Baseline |
 
-See [Security and Quality Gates](SECURITY-AND-QUALITY-GATES.md), [Security Policy](SECURITY.md), and the [VAPT assessment notes](docs/security/VAPT-REPORT.md). Automated checks are not a substitute for an authorized manual penetration test or a security certification.
+See [Security and Quality Gates](SECURITY-AND-QUALITY-GATES.md), [Security Policy](SECURITY.md), the [GitHub repository setup guide](.github/REPOSITORY-SETUP.md), and the [VAPT assessment notes](docs/security/VAPT-REPORT.md). Automated checks are not a substitute for an authorized manual penetration test or a security certification.
 
 ---
 
