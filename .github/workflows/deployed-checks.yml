@@ -1,6 +1,9 @@
 name: Deployed smoke and passive DAST
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
   schedule:
     - cron: "17 4 * * 1"
