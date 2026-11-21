@@ -1,31 +1,38 @@
-# Vulnerability Assessment & Penetration Testing (VAPT) Audit Report
+# VAPT Assessment Status — DevLog
 
-**Application Target**: DevLog Enterprise Secure MERN Platform  
-**Target Version**: v1.0.0 (Production Candidate)  
-**Assessment Period**: September 2026  
-**Auditor**: Senior Application Security Engineer & QA Lead  
-**Assessment Classification**: Comprehensive White-Box / Gray-Box VAPT Audit  
-**Compliance Framework**: OWASP Top 10 API Security Risks (2023) & ASVS Level 2  
+**Status: IN PROGRESS — NOT A FORMAL VAPT PASS**  
+**Evidence review date:** 2026-11-21  
+**Target:** https://devlog-client-rq1y.onrender.com/
 
----
+## Evidence correction
 
-## 1. Executive Summary
+The earlier version of this report described a comprehensive white-box/gray-box VAPT, cited specific scenario and vulnerability counts, attributed the work to an auditor, and declared the platform “Hardened & Production Ready.” The repository does not contain sufficient assessment evidence to substantiate those claims. They are withdrawn and must not be treated as a security certification or proof of zero open critical/high findings.
 
-A comprehensive Vulnerability Assessment and Penetration Testing (VAPT) audit was performed against the **DevLog MERN Blog Platform**. The audit assessed authentication robustness, session lifecycle controls, role-based access boundaries (RBAC), Broken Object Level Authorization (IDOR/BOLA), NoSQL injection vectors, client-side cross-site scripting (XSS), token replay threats, and request throttling mechanisms.
+The merged CI pipeline has passed automated frontend/backend tests, production build, Playwright/axe checks, runtime dependency audits, Gitleaks, dependency review and CodeQL. These checks are valuable but do not prove deployed configuration or replace manual testing.
 
-During early development scaffolding, several critical and high-severity risks common to REST architectures were identified and proactively remediated. Following defensive re-engineering—including cryptographic refresh token family rotation, strict Zod schema parsing, NoSQL operator sanitization, and Mongoose-level ownership middleware—all identified issues were retested and confirmed **RESOLVED**.
+## Current evidence matrix
 
-The platform is evaluated as **Hardened & Production Ready**.
+| Area | Status |
+|---|---|
+| Automated auth/validation/authorization regression cases | Automated coverage only |
+| CodeQL, dependency audit, secret scan, dependency review | Passed for scanned commit |
+| Live frontend and API health | NOT VERIFIED — no current successful production run evidenced |
+| OWASP ZAP passive baseline | Configured; current report artifact not reviewed |
+| Authenticated manual penetration test | NOT PERFORMED |
+| Full anonymous/user/author/admin authorization matrix | PARTIAL / NOT VERIFIED |
+| WebSocket authentication and room authorization | NOT VERIFIED |
+| Load/stress/capacity testing | NOT RUN |
+| Backup configuration and isolated restore | NOT VERIFIED |
 
-### Security Metrics Dashboard
-| Metric | Count | Status |
-| :--- | :---: | :---: |
-| **Total Test Scenarios Evaluated** | 41 Automated + 37 QA Suite | 100% Executed |
-| **Critical Vulnerabilities Remediated** | 3 | Resolved & Retested |
-| **High Vulnerabilities Remediated** | 4 | Resolved & Retested |
-| **Medium Vulnerabilities Remediated** | 3 | Resolved & Retested |
-| **Low Vulnerabilities Remediated** | 2 | Resolved & Retested |
-| **Open High / Critical Residual Risks** | 0 | None |
+## Required VAPT scope
+
+Assess authentication and account recovery, token rotation/replay, horizontal and vertical authorization, BOLA/IDOR across posts/comments/drafts/uploads/community resources, NoSQL injection, stored/reflected XSS, CSRF/CORS, rate limiting, upload validation/storage, WebSocket authentication and room authorization, security headers/cookies/TLS, error leakage, dependency/configuration risks and business-logic abuse.
+
+Use synthetic accounts for anonymous, standard-user, author and administrator roles. Perform active tests only against an isolated staging environment with explicit authorization. Do not run brute-force, destructive, exploit, denial-of-service or stress tests against public production.
+
+## Release decision
+
+**Conditional — staging and controlled beta only.** Do not declare full production readiness until current live smoke evidence, a scoped manual security assessment, a successful staging load baseline, and a verified backup restore drill are recorded. Untested areas remain “Not Verified,” not “Passed.”
 
 ---
 
