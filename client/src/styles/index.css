@@ -2610,3 +2610,10 @@ input:-webkit-autofill:active {
 .published-article-body .markdown-content th,
 .published-article-body .markdown-content td { border: 1px solid var(--border-subtle); padding: .65rem .8rem; text-align: left; vertical-align: top; }
 .published-article-body .markdown-content th { background: var(--bg-elevated); font-weight: 700; }
+
+
+/* Search palette controls */
+.nav-search-clear{display:inline-flex;align-items:center;justify-content:center;width:1.8rem;height:1.8rem;padding:0;color:var(--text-muted);background:transparent;border:0;border-radius:.4rem;cursor:pointer}
+.nav-search-clear:hover{color:var(--text-primary);background:var(--bg-elevated)}
+.nav-search-result.active{color:var(--text-primary);background:var(--bg-elevated)}
+.nav-search-empty[role=status]{color:var(--danger,var(--text-secondary))}

@@ -111,6 +111,7 @@ async function request(endpoint, options = {}) {
     params,
     headers: customHeaders = {},
     _retry = false,
+    signal,
   } = options;
 
   // Build URL with query parameters
@@ -141,6 +142,7 @@ async function request(endpoint, options = {}) {
     method,
     headers,
     credentials: 'include',
+    ...(signal ? { signal } : {}),
   };
 
   if (body && method !== 'GET' && method !== 'HEAD') {
@@ -258,7 +260,7 @@ async function request(endpoint, options = {}) {
 
 const apiClient = {
   get: (endpoint, config = {}) =>
-    request(endpoint, { method: 'GET', params: config.params, headers: config.headers }),
+    request(endpoint, { method: 'GET', params: config.params, headers: config.headers, signal: config.signal }),
 
   post: (endpoint, body, config = {}) =>
     request(endpoint, { method: 'POST', body, headers: config.headers }),
