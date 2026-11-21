@@ -118,7 +118,7 @@ const PostDetails = () => {
       const [reactionResult, followResult] = await Promise.allSettled(requests);
       if (!active) return;
       if (reactionResult.status === 'fulfilled') {
-        const data = reactionResult.value?.data?.data || {};
+        const data = reactionResult.value?.data || {};
         setEngagement({
           likes: Number(data.likes) || 0,
           claps: Number(data.claps) || 0,
@@ -126,7 +126,7 @@ const PostDetails = () => {
         });
       }
       if (followResult.status === 'fulfilled' && followResult.value) {
-        const data = followResult.value.data?.data || {};
+        const data = followResult.value.data || {};
         setFollowState({
           following: Boolean(data.following),
           followers: Number(data.followers) || 0,
@@ -147,7 +147,7 @@ const PostDetails = () => {
     setIsReactionPending(true);
     try {
       const response = await apiClient.post('/community/posts/' + post._id + '/reactions', { type });
-      const data = response.data?.data || {};
+      const data = response.data || {};
       setEngagement({
         likes: Number(data.likes) || 0,
         claps: Number(data.claps) || 0,
