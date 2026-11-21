@@ -5,6 +5,23 @@ import { usePosts, useSavedPosts, useDrafts, useReadingHistory, useClearReadingH
 
 const articleHref = (post) => '/posts/' + (post.slug || post._id);
 
+// Keep the reader dashboard resilient when older or partially populated post
+// records do not include a precomputed reading-time field.
+const minutes = (post) => {
+  const supplied = Number(post?.readingTime ?? post?.readingMinutes ?? post?.minutesToRead);
+  if (Number.isFinite(supplied) && supplied > 0) return Math.max(1, Math.round(supplied));
+
+  const rawContent = typeof post?.content === 'string' ? post.content : '';
+  const plainText = rawContent
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/!\\[[^\\]]*\\]\\([^)]*\\)/g, ' ')
+    .replace(/\\[[^\\]]*\\]\\([^)]*\\)/g, ' ')
+    .replace(/[#>*`_~|-]/g, ' ')
+    .trim();
+  const wordCount = plainText ? plainText.split(/\\s+/).filter(Boolean).length : 0;
+  return Math.max(1, Math.ceil(wordCount / 200));
+};
+
 const ReaderDashboard = () => {
   const { data: history = [], isLoading: historyLoading } = useReadingHistory();
   const { data: saved = [], isLoading: savedLoading } = useSavedPosts();
