@@ -1,7 +1,7 @@
 {
   "name": "blog-platform-monorepo",
   "version": "1.0.0",
-  "description": "Enterprise-grade Secure MERN Blog Platform with RBAC, JWT Refresh Token Rotation, and VAPT Audit",
+  "description": "DevLog is a full-stack MERN publishing and community platform with React, Express, MongoDB, JWT authentication, real-time discussions, and automated quality/security checks.",
   "private": true,
   "scripts": {
     "install:all": "npm install && npm install --prefix server && npm install --prefix client",
@@ -13,7 +13,8 @@
     "test": "npm run test --prefix server && npm run test --prefix client",
     "test:server": "npm run test --prefix server",
     "test:client": "npm run test --prefix client",
-    "test:security": "npm run test:security --prefix server"
+    "test:security": "npm run test:security --prefix server",
+    "smoke:deployed": "node qa/smoke/deployed-smoke.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.2.5"
