@@ -656,7 +656,7 @@ ancestor chain for indexed thread retrieval.
 
 ## 📄 License
 
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+No `LICENSE` file is currently included in this repository. Do not assume that code reuse, redistribution, or commercial use is permitted; an explicit license must be added by the maintainer.
 
 
 ## Publishing and platform feature configuration
