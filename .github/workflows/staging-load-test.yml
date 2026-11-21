@@ -1,0 +1,40 @@
+name: Staging read-only load baseline
+
+on:
+  workflow_dispatch:
+    inputs:
+      vus:
+        description: "Virtual users (keep this baseline small)"
+        required: true
+        type: choice
+        options:
+          - "1"
+          - "2"
+          - "5"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-readonly-load-baseline
+  cancel-in-progress: false
+
+jobs:
+  k6-baseline:
+    name: Read-only staging baseline (2 minutes)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      STAGING_BASE_URL: ${{ vars.STAGING_BASE_URL }}
+      CONFIRM_STAGING: "true"
+      VUS: ${{ inputs.vus }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require configured staging URL
+        run: |
+          test -n "$STAGING_BASE_URL" || { echo "Set repository variable STAGING_BASE_URL to an isolated staging HTTPS origin."; exit 1; }
+          node -e "const u=new URL(process.env.STAGING_BASE_URL); if(u.protocol!=='https:' || u.hostname==='devlog-client-rq1y.onrender.com') process.exit(1)"
+      - name: Install k6
+        uses: grafana/setup-k6-action@v1
+      - name: Run read-only baseline
+        run: k6 run qa/load/k6-readonly-baseline.js
