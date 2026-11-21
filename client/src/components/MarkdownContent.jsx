@@ -3,11 +3,14 @@ import React from 'react';
 const headingId = (value) => value.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-');
 
 const renderInline = (text, keyPrefix) => {
-  const pattern = /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\[[^\]]+\]\(https?:\/\/[^\s)]+\))/g;
+  const pattern = /(!\[[^\]]*\]\(https?:\/\/[^\s)]+\)|\*\*[^*]+\*\*|~~[^~]+~~|\*[^*]+\*|`[^`]+`|\[[^\]]+\]\(https?:\/\/[^\s)]+\))/g;
   const parts = text.split(pattern);
   return parts.map((part, index) => {
     const key = `${keyPrefix}-${index}`;
+    const image = part.match(/^!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)$/);
+    if (image) return <img key={key} className="article-inline-image" src={image[2]} alt={image[1]} loading="lazy" decoding="async" />;
     if (/^\*\*[^*]+\*\*$/.test(part)) return <strong key={key}>{part.slice(2, -2)}</strong>;
+    if (/^~~[^~]+~~$/.test(part)) return <del key={key}>{part.slice(2, -2)}</del>;
     if (/^\*[^*]+\*$/.test(part)) return <em key={key}>{part.slice(1, -1)}</em>;
     if (/^`[^`]+`$/.test(part)) return <code key={key} className="article-inline-code">{part.slice(1, -1)}</code>;
     const link = part.match(/^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)$/);
@@ -51,7 +54,7 @@ const MarkdownContent = ({ content = '' }) => {
     }
     if (inCode) { code.push(line); return; }
 
-    const heading = line.match(/^(#{1,3})\s+(.+)$/);
+    const heading = line.match(/^(#{1,6})\s+(.+)$/);
     const bullet = line.match(/^\s*[-*+]\s+(.+)$/);
     const numbered = line.match(/^\s*\d+\.\s+(.+)$/);
     if (heading) {
