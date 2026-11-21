@@ -27,7 +27,6 @@ Pull requests to `main` run frontend and backend regression suites, production b
 See [Security and Quality Gates](SECURITY-AND-QUALITY-GATES.md), [Security Policy](SECURITY.md), and the [VAPT assessment notes](docs/security/VAPT-REPORT.md). Automated checks are not a substitute for an authorized manual penetration test or a security certification.
 
 ---
----
 
 ## 📋 Table of Contents
 
@@ -70,12 +69,12 @@ See [Security and Quality Gates](SECURITY-AND-QUALITY-GATES.md), [Security Polic
 * **In-Memory Database**: `mongodb-memory-server` (v10) for zero-config offline execution
 * **Real-time WebSockets**: Socket.io (v4.8)
 * **Authentication**: JWT (`jsonwebtoken` v9), `bcryptjs` (12 salt rounds), `cookie-parser`
-* **Validation & Security**: Zod (v3.24), Helmet (v8.0), CORS, `express-rate-limit`, custom recursive NoSQL sanitizer
+* **Validation & Security**: Zod, Helmet (v8.0), CORS, `express-rate-limit`, custom recursive NoSQL sanitizer
 * **Logging & Auditing**: Morgan HTTP logger, custom MongoDB `ActivityLog` service
 * **Testing**: Vitest, Supertest (v7), mongodb-memory-server
 
 ### Frontend
-* **Framework**: React 18 with Vite (v6.0)
+* **Framework**: React 18 with Vite (v6)
 * **Routing**: React Router DOM (v7.1)
 * **Server State & Cache**: `@tanstack/react-query` (v5) with optimistic updates and background refetching
 * **Global Client State**: React Context API (`AuthContext`, `ThemeContext`, `SocketContext`)
@@ -260,7 +259,7 @@ devlog/
 │   ├── tests/
 │   │   ├── integration/                  # Integration tests (Auth, Post CRUD, Comment CRUD, RBAC)
 │   │   ├── security/                     # Security tests (NoSQL injection, headers, sanitization)
-│   │   ├── setup.js                      # Jest test lifecycle configuration
+│   │   ├── setup.js                      # Vitest test lifecycle configuration
 │   │   └── unit/                         # Unit tests (Password hashing, JWT, Zod schemas)
 │   └── package.json
 │
