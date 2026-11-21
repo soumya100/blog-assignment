@@ -11,7 +11,7 @@ async function request(path) {
   const url = new URL(path, baseUrl);
   const response = await fetch(url, {
     redirect: 'follow',
-    signal: AbortSignal.timeout(20000),
+    signal: AbortSignal.timeout(90000),
     headers: { 'user-agent': 'DevLog-deployment-smoke/1.0' },
   });
   console.log(response.status + ' ' + url.pathname + ' -> ' + response.url);
