@@ -14,11 +14,11 @@ const minutes = (post) => {
   const rawContent = typeof post?.content === 'string' ? post.content : '';
   const plainText = rawContent
     .replace(/<[^>]*>/g, ' ')
-    .replace(/!\\[[^\\]]*\\]\\([^)]*\\)/g, ' ')
-    .replace(/\\[[^\\]]*\\]\\([^)]*\\)/g, ' ')
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
+    .replace(/\[[^\]]*\]\([^)]*\)/g, ' ')
     .replace(/[#>*`_~|-]/g, ' ')
     .trim();
-  const wordCount = plainText ? plainText.split(/\\s+/).filter(Boolean).length : 0;
+  const wordCount = plainText ? plainText.split(/\s+/).filter(Boolean).length : 0;
   return Math.max(1, Math.ceil(wordCount / 200));
 };
 
