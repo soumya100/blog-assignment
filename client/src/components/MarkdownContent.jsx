@@ -27,6 +27,7 @@ const MarkdownContent = ({ content = '' }) => {
   let listType = 'ul';
   let code = [];
   let inCode = false;
+  let tableSkipUntil = -1;
 
   const flushParagraph = () => {
     if (paragraph.length) {
@@ -43,6 +44,7 @@ const MarkdownContent = ({ content = '' }) => {
   };
 
   lines.forEach((line, index) => {
+    if (index <= tableSkipUntil) return;
     if (line.trim().startsWith('```')) {
       flushParagraph(); flushList();
       if (inCode) {
@@ -53,6 +55,22 @@ const MarkdownContent = ({ content = '' }) => {
       return;
     }
     if (inCode) { code.push(line); return; }
+
+    const isTableSeparator = (value) => /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(value);
+    if (line.includes('|') && index + 1 < lines.length && isTableSeparator(lines[index + 1])) {
+      flushParagraph(); flushList();
+      const parseCells = (value) => value.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((cell) => cell.trim());
+      const headers = parseCells(line);
+      const rows = [];
+      let cursor = index + 2;
+      while (cursor < lines.length && lines[cursor].includes('|') && lines[cursor].trim()) {
+        rows.push(parseCells(lines[cursor]));
+        cursor += 1;
+      }
+      blocks.push(<div className="markdown-table-wrap" key={`table-${index}`}><table><thead><tr>{headers.map((cell, cellIndex) => <th key={cellIndex}>{renderInline(cell, `th-${index}-${cellIndex}`)}</th>)}</tr></thead><tbody>{rows.map((row, rowIndex) => <tr key={rowIndex}>{headers.map((_, cellIndex) => <td key={cellIndex}>{renderInline(row[cellIndex] || '', `td-${index}-${rowIndex}-${cellIndex}`)}</td>)}</tr>)}</tbody></table></div>);
+      tableSkipUntil = cursor - 1;
+      return;
+    }
 
     const heading = line.match(/^(#{1,6})\s+(.+)$/);
     const bullet = line.match(/^\s*[-*+]\s+(.+)$/);
