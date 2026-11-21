@@ -132,6 +132,6 @@ jobs:
       - name: Validate frontend and backend lockfiles on branch pushes
         if: github.event_name != 'pull_request'
         run: |
-          npm ci --prefix client --ignore-scripts
-          npm ci --prefix server --ignore-scripts
+          (cd client && npm ci --ignore-scripts)
+          (cd server && npm ci --ignore-scripts)
           echo "Both committed lockfiles install cleanly. Pull-request dependency comparison runs in the PR event."
