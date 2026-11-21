@@ -2610,3 +2610,16 @@ input:-webkit-autofill:active {
 .published-article-body .markdown-content th,
 .published-article-body .markdown-content td { border: 1px solid var(--border-subtle); padding: .65rem .8rem; text-align: left; vertical-align: top; }
 .published-article-body .markdown-content th { background: var(--bg-elevated); font-weight: 700; }
+
+/* Premium import/export feedback and file controls */
+.feedback-dialog-backdrop{position:fixed;inset:0;z-index:100000;display:grid;place-items:center;padding:1rem;background:rgba(2,6,23,.68);backdrop-filter:blur(10px)}
+.feedback-dialog{position:relative;width:min(100%,28rem);padding:2rem;color:var(--text-primary);background:var(--bg-surface);border:1px solid var(--border-strong);border-radius:1.1rem;box-shadow:0 28px 90px rgba(0,0,0,.42);animation:feedback-dialog-in .16s ease-out}
+@keyframes feedback-dialog-in{from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+.feedback-dialog-close{position:absolute;top:.85rem;right:.85rem;display:grid;place-items:center;width:2rem;height:2rem;color:var(--text-muted);background:transparent;border:1px solid var(--border-subtle);border-radius:.55rem;cursor:pointer}
+.feedback-dialog-icon{display:grid;place-items:center;width:2.8rem;height:2.8rem;margin-bottom:1.1rem;border-radius:.8rem}
+.feedback-dialog-icon.is-success{color:var(--success);background:var(--success-bg)}.feedback-dialog-icon.is-error{color:var(--danger);background:var(--danger-bg)}.feedback-dialog-icon.is-info{color:var(--accent-primary);background:var(--accent-glow)}
+.feedback-dialog h2{margin:0 2rem .5rem 0;font-size:1.2rem}.feedback-dialog p{color:var(--text-secondary);font-size:.9rem;line-height:1.65}.feedback-dialog footer{display:flex;justify-content:flex-end;margin-top:1.5rem}
+.import-export-card{margin-bottom:1rem}.import-export-card-heading{display:flex;align-items:center;gap:1rem;margin-bottom:1.25rem}.import-export-card-heading h2{margin:0 0 .2rem;font-size:1.05rem}.import-export-card-heading p{margin:0;color:var(--text-secondary);font-size:.85rem}
+.import-file-input{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;clip-path:inset(50%)}
+.import-file-control{display:flex;align-items:center;gap:.8rem;flex-wrap:wrap}.import-file-name{max-width:100%;overflow-wrap:anywhere;color:var(--text-secondary);font-size:.82rem}.import-file-help{margin-top:.6rem;color:var(--text-muted);font-size:.75rem}.import-export-page .form-error{margin-top:.5rem;color:var(--danger);font-size:.82rem}
+@media(prefers-reduced-motion:reduce){.feedback-dialog{animation:none}}
