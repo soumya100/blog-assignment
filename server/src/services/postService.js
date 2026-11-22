@@ -6,6 +6,7 @@ const { ACTIVITY_TYPES } = require('../constants/activityTypes');
 const { recordActivity } = require('../middleware/activityLogger');
 const { ROLES } = require('../constants/roles');
 const { sanitizePublicUser } = require('../utils/publicUser');
+const { htmlToText } = require('../utils/htmlToText');
 
 /**
  * Create a new blog post
@@ -25,7 +26,7 @@ const createPost = async ({ title, content, excerpt, tags = [], coverImage = '',
     title,
     slug,
     content,
-    excerpt: excerpt || content.replace(/<[^>]*>?/gm, '').slice(0, 160) + '...',
+    excerpt: excerpt || htmlToText(content).slice(0, 160) + '...',
     tags: tags.map((t) => t.toLowerCase().trim()),
     coverImage,
     seoTitle,
@@ -196,7 +197,7 @@ const updatePost = async (postId, updateData, user, req) => {
     post.content = updateData.content;
     post.excerpt = updateData.excerpt !== undefined
       ? updateData.excerpt
-      : updateData.content.replace(/<[^>]*>?/gm, '').slice(0, 160) + '...';
+      : htmlToText(updateData.content).slice(0, 160) + '...';
   } else if (updateData.excerpt !== undefined) {
     post.excerpt = updateData.excerpt;
   }
