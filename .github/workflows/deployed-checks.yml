@@ -25,9 +25,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Check deployed frontend routes and API health
+      - name: Check deployed frontend routes and direct backend API health
         env:
           SMOKE_BASE_URL: https://devlog-client-rq1y.onrender.com
+          SMOKE_API_BASE_URL: https://blog-assignment-ds1d.onrender.com
         run: node qa/smoke/deployed-smoke.mjs
 
   zap-baseline:
