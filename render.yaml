@@ -56,16 +56,15 @@ services:
     staticPublishPath: dist
     routes:
       # Reverse proxy /api calls to backend to make cookies 100% first-party (bypasses 3P cookie blocks)
-      # Replace <backend-subdomain> with your actual devlog-api subdomain
       - type: rewrite
         source: /api/*
-        destination: https://<devlog-api-subdomain>.onrender.com/api/*
+        destination: https://blog-assignment-ds1d.onrender.com/api/*
       - type: rewrite
-        source: /*
+        source: /* 
         destination: /index.html
     envVars:
       - key: NODE_VERSION
         value: 18
       # Set these in the Render Dashboard under Environment:
-      # VITE_API_URL: https://<backend-subdomain>.onrender.com/api/v1
-      # VITE_SOCKET_URL: https://<backend-subdomain>.onrender.com
+      # VITE_API_URL: https://blog-assignment-ds1d.onrender.com/api/v1
+      # VITE_SOCKET_URL: https://blog-assignment-ds1d.onrender.com
