@@ -1,4 +1,3 @@
-const { describe, expect, it } = require('vitest');
 const { htmlToText } = require('../../src/utils/htmlToText');
 
 describe('htmlToText', () => {
