@@ -383,7 +383,7 @@ const Navbar = () => {
           </nav>
 
           <div className="navbar-search-area">
-            <button ref={desktopSearchTriggerRef} type="button" className="navbar-search-trigger" onClick={() => setSearchOpen(true)} aria-label="Search or jump to..." title="Search or jump to (Ctrl+K)">
+            <button ref={desktopSearchTriggerRef} type="button" className="navbar-search-trigger" onClick={() => setSearchOpen(true)} title="Search or jump to (Ctrl+K)">
               <Search size={15} />
               <span>Search or jump to...</span>
               <kbd><Command size={10} /> K</kbd>
