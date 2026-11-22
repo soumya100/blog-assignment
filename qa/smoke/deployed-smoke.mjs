@@ -1,14 +1,31 @@
 import process from 'node:process';
 
-const baseUrl = (process.env.SMOKE_BASE_URL || 'https://devlog-client-rq1y.onrender.com').replace(/\/$/, '');
-const allowedHost = 'devlog-client-rq1y.onrender.com';
-const parsedBase = new URL(baseUrl);
-if (parsedBase.protocol !== 'https:' || parsedBase.hostname !== allowedHost) {
-  throw new Error('Refusing to smoke-test an unapproved target: ' + baseUrl);
+const frontendBaseUrl = (process.env.SMOKE_BASE_URL || 'https://devlog-client-rq1y.onrender.com').replace(/\/$/, '');
+const apiBaseUrl = (process.env.SMOKE_API_BASE_URL || 'https://blog-assignment-ds1d.onrender.com').replace(/\/$/, '');
+const allowedHosts = new Set([
+  'devlog-client-rq1y.onrender.com',
+  'blog-assignment-ds1d.onrender.com',
+]);
+
+function validateBaseUrl(value, label) {
+  const parsed = new URL(value);
+  if (parsed.protocol !== 'https:' || !allowedHosts.has(parsed.hostname)) {
+    throw new Error('Refusing to smoke-test an unapproved ' + label + ' target: ' + value);
+  }
+  return parsed;
 }
 
-async function request(path) {
-  const url = new URL(path, baseUrl);
+const frontendBase = validateBaseUrl(frontendBaseUrl, 'frontend');
+const apiBase = validateBaseUrl(apiBaseUrl, 'API');
+if (frontendBase.hostname !== 'devlog-client-rq1y.onrender.com') {
+  throw new Error('SMOKE_BASE_URL must point to the deployed DevLog frontend.');
+}
+if (apiBase.hostname !== 'blog-assignment-ds1d.onrender.com') {
+  throw new Error('SMOKE_API_BASE_URL must point to the deployed DevLog API.');
+}
+
+async function request(base, path) {
+  const url = new URL(path, base);
   let lastError;
   for (let attempt = 1; attempt <= 10; attempt += 1) {
     try {
@@ -18,6 +35,9 @@ async function request(path) {
         headers: { 'user-agent': 'DevLog-deployment-smoke/1.0' },
       });
       console.log('attempt ' + attempt + ': ' + response.status + ' ' + url.pathname + ' -> ' + response.url);
+      if (new URL(response.url).hostname !== base.hostname) {
+        throw new Error('Unexpected cross-host redirect while checking ' + url.pathname);
+      }
       if (response.status >= 500 && attempt < 10) {
         await new Promise((resolve) => setTimeout(resolve, 20000));
         continue;
@@ -33,7 +53,7 @@ async function request(path) {
 }
 
 for (const route of ['/', '/login', '/register']) {
-  const response = await request(route);
+  const response = await request(frontendBase, route);
   const contentType = response.headers.get('content-type') || '';
   if (!response.ok || !contentType.includes('text/html')) {
     throw new Error('Frontend route smoke failed for ' + route + ': HTTP ' + response.status + ', content-type=' + contentType);
@@ -44,13 +64,18 @@ for (const route of ['/', '/login', '/register']) {
   }
 }
 
-const health = await request('/api/v1/health');
+const health = await request(apiBase, '/api/v1/health');
 const healthType = health.headers.get('content-type') || '';
 if (!health.ok || !healthType.includes('application/json')) {
-  throw new Error('API health route failed: HTTP ' + health.status + ', content-type=' + healthType);
+  throw new Error('API health route failed: HTTP ' + health.status + ', content-type=' + healthType + ', url=' + health.url);
 }
-const payload = await health.json();
+let payload;
+try {
+  payload = await health.json();
+} catch {
+  throw new Error('API health route returned invalid JSON.');
+}
 if (payload?.success !== true || payload?.data?.status !== 'UP') {
   throw new Error('API health payload is not healthy: ' + JSON.stringify(payload));
 }
-console.log('Deployed smoke checks passed: SPA routes and versioned API health are responding.');
+console.log('Deployed smoke checks passed: frontend SPA routes and direct backend API health are responding.');
