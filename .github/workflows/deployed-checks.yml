@@ -32,6 +32,7 @@ jobs:
         env:
           SMOKE_BASE_URL: https://devlog-client-rq1y.onrender.com
           SMOKE_API_BASE_URL: https://blog-assignment-ds1d.onrender.com
+          VERIFY_SECURITY_HEADERS: ${{ github.event_name != 'pull_request' }}
         run: node qa/smoke/deployed-smoke.mjs
 
   zap-baseline:
