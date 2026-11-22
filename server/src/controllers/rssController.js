@@ -1,5 +1,6 @@
 const Post = require('../models/Post');
 const env = require('../config/env');
+const { htmlToText } = require('../utils/htmlToText');
 
 const escapeXml = (value = '') => String(value)
   .replace(/&/g, '&amp;')
@@ -23,7 +24,7 @@ const getFeed = async (req, res, next) => {
     const origin = baseUrl || `${req.protocol}://${req.get('host')}`;
     const items = posts.map((post) => {
       const link = `${origin}/posts/${encodeURIComponent(post.slug)}`;
-      const description = post.seoDescription || post.excerpt || post.content.replace(/<[^>]*>/g, '').slice(0, 500);
+      const description = post.seoDescription || post.excerpt || htmlToText(post.content).slice(0, 500);
       return `<item><title>${escapeXml(post.title)}</title><link>${escapeXml(link)}</link><guid isPermaLink="true">${escapeXml(link)}</guid><description><![CDATA[${cdata(description)}]]></description><author>${escapeXml(post.author?.username || 'Unknown')}</author><pubDate>${new Date(post.publishedAt || post.createdAt).toUTCString()}</pubDate></item>`;
     }).join('');
 
