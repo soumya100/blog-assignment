@@ -52,7 +52,8 @@ async function request(base, path) {
   throw new Error('Deployment request failed after 10 attempts: ' + url.pathname + ': ' + (lastError?.message || 'HTTP 5xx'));
 }
 
-for (const route of ['/', '/login', '/register']) {
+const frontendRoutes = ['/', '/login', '/register'];
+for (const route of frontendRoutes) {
   const response = await request(frontendBase, route);
   const contentType = response.headers.get('content-type') || '';
   if (!response.ok || !contentType.includes('text/html')) {
@@ -62,6 +63,24 @@ for (const route of ['/', '/login', '/register']) {
   if (!html.includes('id="root"') && !html.includes('id="app"')) {
     throw new Error('Expected SPA mount point was not found on ' + route);
   }
+}
+
+const frontendHeaders = await request(frontendBase, '/');
+const requiredHeaders = [
+  ['content-security-policy', (value) => value.includes("default-src 'self'") && value.includes("frame-ancestors 'none'")],
+  ['x-frame-options', (value) => value.toLowerCase() === 'deny'],
+  ['x-content-type-options', (value) => value.toLowerCase() === 'nosniff'],
+  ['referrer-policy', (value) => value.toLowerCase() === 'strict-origin-when-cross-origin'],
+  ['permissions-policy', (value) => value.includes('camera=()') && value.includes('microphone=()')],
+  ['strict-transport-security', (value) => value.includes('max-age=31536000')],
+  ['cache-control', (value) => value.toLowerCase().includes('no-cache')],
+];
+for (const [header, validate] of requiredHeaders) {
+  const value = frontendHeaders.headers.get(header);
+  if (!value || !validate(value)) {
+    throw new Error('Missing or invalid frontend security header: ' + header + ' (received: ' + (value || 'missing') + ')');
+  }
+  console.log('security header verified: ' + header);
 }
 
 const health = await request(apiBase, '/api/v1/health');
@@ -78,4 +97,4 @@ try {
 if (payload?.success !== true || payload?.data?.status !== 'UP') {
   throw new Error('API health payload is not healthy: ' + JSON.stringify(payload));
 }
-console.log('Deployed smoke checks passed: frontend SPA routes and direct backend API health are responding.');
+console.log('Deployed smoke checks passed: frontend SPA routes, required frontend security headers and direct backend API health are responding.');
