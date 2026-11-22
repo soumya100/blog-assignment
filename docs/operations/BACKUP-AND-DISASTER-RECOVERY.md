@@ -23,16 +23,32 @@
 Run from a trusted operator workstation or secured backup runner with an approved read-only/backup-capable database credential. Never run this against an unapproved URI.
 
 ```bash
-# Set the URI in the shell's secret store; do not paste it into chat or commit it.
-export MONGODB_URI='...'
+# Prerequisites: mongodump, mongorestore, age, and sha256sum installed.
+# Put the URI in a secret manager / protected shell environment; never paste it
+# into chat, command history, CI logs, or source control.
+# BACKUP_AGE_RECIPIENT is the age *public* recipient (safe to store as config).
+: "${MONGODB_URI:?Set MONGODB_URI from your secret manager}"
+: "${BACKUP_AGE_RECIPIENT:?Set BACKUP_AGE_RECIPIENT to the approved age public recipient}"
 export BACKUP_DIR="$PWD/backups"
+umask 077
 mkdir -p "$BACKUP_DIR"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
-mongodump --uri="$MONGODB_URI" --archive="$BACKUP_DIR/devlog-$STAMP.archive.gz" --gzip
-sha256sum "$BACKUP_DIR/devlog-$STAMP.archive.gz" > "$BACKUP_DIR/devlog-$STAMP.archive.gz.sha256"
+PLAIN="$BACKUP_DIR/devlog-$STAMP.archive.gz"
+ENCRYPTED="$PLAIN.age"
+
+mongodump --uri="$MONGODB_URI" --archive="$PLAIN" --gzip
+# Encrypt before upload. The private identity is kept separately by the recovery
+# operator; never store it beside the archive or in GitHub/Render.
+age --recipient "$BACKUP_AGE_RECIPIENT" --output "$ENCRYPTED" "$PLAIN"
+age --decrypt --identity "$BACKUP_AGE_IDENTITY_FILE" --output /dev/null "$ENCRYPTED"
+sha256sum "$ENCRYPTED" > "$ENCRYPTED.sha256"
+rm -f "$PLAIN"
+
+printf 'Encrypted backup ready: %s\\n' "$ENCRYPTED"
+printf 'Checksum: %s\\n' "$ENCRYPTED.sha256"
 ```
 
-Upload the encrypted archive to a private, access-controlled backup destination with retention and lifecycle policies. Do not upload production dumps to GitHub Actions artifacts.
+Upload only the `.age` archive and its checksum to a private, access-controlled off-provider destination with retention and lifecycle policies. The recipient public key is not secret; protect the corresponding private identity separately, restrict access to named recovery operators, and maintain a tested offline copy. Do not upload production dumps, decrypted archives, or private keys to GitHub Actions artifacts or source control.
 
 ## Restore drill (isolated target only)
 
