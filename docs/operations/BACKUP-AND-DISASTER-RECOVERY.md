@@ -40,7 +40,6 @@ mongodump --uri="$MONGODB_URI" --archive="$PLAIN" --gzip
 # Encrypt before upload. The private identity is kept separately by the recovery
 # operator; never store it beside the archive or in GitHub/Render.
 age --recipient "$BACKUP_AGE_RECIPIENT" --output "$ENCRYPTED" "$PLAIN"
-age --decrypt --identity "$BACKUP_AGE_IDENTITY_FILE" --output /dev/null "$ENCRYPTED"
 sha256sum "$ENCRYPTED" > "$ENCRYPTED.sha256"
 rm -f "$PLAIN"
 
@@ -53,19 +52,28 @@ Upload only the `.age` archive and its checksum to a private, access-controlled 
 ## Restore drill (isolated target only)
 
 1. Provision a temporary isolated MongoDB database/cluster. It must not be the production database.
-2. Verify the archive checksum.
-3. Restore using a dedicated URI for the isolated target:
+2. Retrieve the encrypted archive and checksum from the approved private backup destination.
+3. Verify the encrypted archive checksum before decryption.
+4. Restore using a dedicated URI for the isolated target:
 
 ```bash
-sha256sum -c devlog-<timestamp>.archive.gz.sha256
-mongorestore --uri="$RESTORE_MONGODB_URI" --archive=devlog-<timestamp>.archive.gz --gzip --drop
+: "${RESTORE_MONGODB_URI:?Set the isolated restore URI from the secret manager}"
+: "${BACKUP_AGE_IDENTITY_FILE:?Set the path to the separately protected age private identity}"
+sha256sum -c devlog-<timestamp>.archive.gz.age.sha256
+RESTORE_ARCHIVE="$(mktemp)"
+trap 'rm -f "$RESTORE_ARCHIVE"' EXIT
+age --decrypt --identity "$BACKUP_AGE_IDENTITY_FILE" \
+  --output "$RESTORE_ARCHIVE" \
+  devlog-<timestamp>.archive.gz.age
+mongorestore --uri="$RESTORE_MONGODB_URI" \
+  --archive="$RESTORE_ARCHIVE" --gzip --drop
 ```
 
-4. Run integrity checks: expected collections, document counts, indexes, representative user/post/comment relationships, refresh-token expiry behavior, and application startup.
-5. Validate Cloudinary assets independently; confirm representative stored image URLs resolve and ownership metadata matches the restored records.
-6. Record restore start/end time, archive timestamp, data loss window, errors, and operator. Delete the temporary restore environment securely after sign-off.
+The example uses `--drop` only against the disposable isolated restore target. Confirm the URI and target project independently before running it. Never use production credentials.
 
-**Never use `--drop` against production.** A successful dump is not proof of recoverability; only a successful isolated restore drill validates the backup.
+5. Run integrity checks: expected collections, document counts, indexes, representative user/post/comment relationships, refresh-token expiry behavior, and application startup.
+6. Validate Cloudinary assets independently; confirm representative stored image URLs resolve and ownership metadata matches the restored records.
+7. Record restore start/end time, archive timestamp, data loss window, errors, and operator. Delete the temporary restore environment securely after sign-off.
 
 ## Incident recovery sequence
 
