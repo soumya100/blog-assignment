@@ -1,9 +1,11 @@
 const path = require('path');
 const dotenv = require('dotenv');
 
-// Load .env from server directory first, fallback to root directory
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
-dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+// Load .env from server directory first, fallback to root directory.
+// dotenv v17+ emits informational output unless quiet is enabled; keep config
+// loading silent so CLI-based environment validation tests can assert stderr.
+dotenv.config({ path: path.resolve(__dirname, '../../.env'), quiet: true });
+dotenv.config({ path: path.resolve(__dirname, '../../../.env'), quiet: true });
 
 const suppliedNodeEnv = process.env.NODE_ENV;
 const NODE_ENV = (suppliedNodeEnv || (process.env.RENDER === 'true' ? 'production' : 'development'))
