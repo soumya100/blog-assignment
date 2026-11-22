@@ -7,7 +7,7 @@ const cookieParser = require('cookie-parser');
 const morgan = require('morgan');
 const env = require('./config/env');
 const routes = require('./routes');
-const { apiLimiter } = require('./middleware/rateLimiter');
+const { apiLimiter, uploadReadLimiter } = require('./middleware/rateLimiter');
 const { sanitizeInput } = require('./middleware/security');
 const { notFoundHandler, centralizedErrorHandler } = require('./middleware/errorHandler');
 
@@ -42,6 +42,7 @@ app.use(
 
 // Serve user uploads with the same security headers as API responses.
 if (env.NODE_ENV !== 'production') {
+  app.use('/uploads', uploadReadLimiter);
   app.use('/uploads', express.static(env.UPLOAD_DIR, { fallthrough: false, index: false, maxAge: '7d', immutable: true }));
 }
 
