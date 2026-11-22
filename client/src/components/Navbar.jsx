@@ -370,7 +370,7 @@ const Navbar = () => {
     <>
       <header className="app-navbar">
         <div className="container navbar-inner">
-          <Link to="/" className="navbar-brand" aria-label="DevLog home" onClick={() => setMobileMenuOpen(false)}>
+          <Link to="/" className="navbar-brand" onClick={() => setMobileMenuOpen(false)}>
             <span className="navbar-brand-mark"><Compass size={19} /></span>
             <span>DevLog</span>
             <span className="badge badge-primary navbar-version">v1.0</span>
@@ -383,7 +383,7 @@ const Navbar = () => {
           </nav>
 
           <div className="navbar-search-area">
-            <button ref={desktopSearchTriggerRef} type="button" className="navbar-search-trigger" onClick={() => setSearchOpen(true)} aria-label="Search or jump to, keyboard shortcut Control K">
+            <button ref={desktopSearchTriggerRef} type="button" className="navbar-search-trigger" onClick={() => setSearchOpen(true)} aria-label="Search or jump to..." title="Search or jump to (Ctrl+K)">
               <Search size={15} />
               <span>Search or jump to...</span>
               <kbd><Command size={10} /> K</kbd>
