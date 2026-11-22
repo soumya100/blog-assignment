@@ -52,7 +52,8 @@ async function request(base, path) {
   throw new Error('Deployment request failed after 10 attempts: ' + url.pathname + ': ' + (lastError?.message || 'HTTP 5xx'));
 }
 
-for (const route of ['/', '/login', '/register']) {
+const frontendRoutes = ['/', '/login', '/register'];
+for (const route of frontendRoutes) {
   const response = await request(frontendBase, route);
   const contentType = response.headers.get('content-type') || '';
   if (!response.ok || !contentType.includes('text/html')) {
@@ -64,6 +65,34 @@ for (const route of ['/', '/login', '/register']) {
   }
 }
 
+if (process.env.VERIFY_SECURITY_HEADERS === 'true') {
+  const requiredHeaders = [
+    ['content-security-policy', (value) => value.includes("default-src 'self'") && value.includes("frame-ancestors 'none'")],
+    ['x-frame-options', (value) => value.toLowerCase() === 'deny'],
+    ['x-content-type-options', (value) => value.toLowerCase() === 'nosniff'],
+    ['referrer-policy', (value) => value.toLowerCase() === 'strict-origin-when-cross-origin'],
+    ['permissions-policy', (value) => value.includes('camera=()') && value.includes('microphone=()')],
+    ['strict-transport-security', (value) => value.includes('max-age=31536000')],
+    ['cache-control', (value) => value.toLowerCase().includes('no-cache')],
+  ];
+
+  let verified = false;
+  for (let attempt = 1; attempt <= 10; attempt += 1) {
+    const response = await request(frontendBase, '/');
+    const missing = requiredHeaders.filter(([header, validate]) => {
+      const value = response.headers.get(header);
+      return !value || !validate(value);
+    });
+    if (missing.length === 0) {
+      verified = true;
+      console.log('All required frontend security headers verified.');
+      break;
+    }
+    console.log('Security headers not deployed yet (attempt ' + attempt + '/10): ' + missing.map(([name]) => name).join(', '));
+    if (attempt < 10) await new Promise((resolve) => setTimeout(resolve, 20000));
+  }
+  if (!verified) throw new Error('Required frontend security headers were not present after waiting for the Render deployment.');
+}
 const health = await request(apiBase, '/api/v1/health');
 const healthType = health.headers.get('content-type') || '';
 if (!health.ok || !healthType.includes('application/json')) {
@@ -78,4 +107,4 @@ try {
 if (payload?.success !== true || payload?.data?.status !== 'UP') {
   throw new Error('API health payload is not healthy: ' + JSON.stringify(payload));
 }
-console.log('Deployed smoke checks passed: frontend SPA routes and direct backend API health are responding.');
+console.log('Deployed smoke checks passed: frontend SPA routes, configured security headers (when enabled) and direct backend API health are responding.');
