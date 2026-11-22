@@ -55,7 +55,7 @@ const htmlToText = (html = '') => {
 
     if (source[index] === '<') {
       let cursor = index + 1;
-      while (cursor < source.length && /\\s/.test(source[cursor])) cursor += 1;
+      while (cursor < source.length && /\s/.test(source[cursor])) cursor += 1;
       const closing = source[cursor] === '/';
       if (closing) cursor += 1;
       const nameStart = cursor;
@@ -83,7 +83,7 @@ const htmlToText = (html = '') => {
     index += 1;
   }
 
-  return decodeEntities(output).replace(/\\s+/g, ' ').trim();
+  return decodeEntities(output).replace(/\s+/g, ' ').trim();
 };
 
 module.exports = { htmlToText };
