@@ -35,7 +35,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Run passive ZAP baseline against the authorized deployment
-        uses: zaproxy/action-baseline@v0.14.0
+        uses: zaproxy/action-baseline@v0.15.0
         with:
           target: https://devlog-client-rq1y.onrender.com
           cmd_options: "-m 3"
