@@ -1,4 +1,3 @@
-const { describe, it, expect } = require('vitest');
 const { validateStagingMongoTarget } = require('../../src/config/database');
 
 describe('staging MongoDB target isolation', () => {
