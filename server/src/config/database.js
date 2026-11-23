@@ -30,7 +30,7 @@ const validateStagingMongoTarget = (uri, expectedDatabase, expectedHost) => {
     throw new Error('STAGING_MODE received an invalid MongoDB URI.');
   }
 
-  const uriDatabase = parsed.searchParams.get('dbName') || decodeURIComponent(parsed.pathname.replace(/^\\/+/, ''));
+  const uriDatabase = parsed.searchParams.get('dbName') || decodeURIComponent(parsed.pathname.slice(1));
   if (parsed.hostname !== expectedHost || uriDatabase !== expectedDatabase) {
     throw new Error('Staging MongoDB target mismatch. Refusing to connect: verify the dedicated staging Atlas host and database name.');
   }
