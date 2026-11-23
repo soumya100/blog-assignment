@@ -4,9 +4,9 @@ import { check, sleep } from 'k6';
 const base = (__ENV.STAGING_BASE_URL || '').replace(/\/$/, '');
 if (!base) throw new Error('STAGING_BASE_URL is required');
 const target = new URL(base);
-if (target.protocol !== 'https:') throw new Error('Load tests require HTTPS');
-if (target.hostname === 'devlog-client-rq1y.onrender.com' || target.hostname.endsWith('.onrender.com') && target.hostname.startsWith('devlog-client-rq1y')) {
-  throw new Error('Refusing to load-test the public production hostname');
+if (target.protocol !== 'https:' || target.pathname !== '/' || target.search || target.hash) throw new Error('Load tests require an HTTPS origin without a path, query or fragment');
+if (!target.hostname.startsWith('devlog-staging-') || !target.hostname.endsWith('.onrender.com') || target.hostname === 'devlog-client-rq1y.onrender.com' || target.hostname === 'blog-assignment-ds1d.onrender.com') {
+  throw new Error('Refusing to load-test anything except the isolated devlog-staging-*.onrender.com environment');
 }
 if (__ENV.CONFIRM_STAGING !== 'true') {
   throw new Error('Set CONFIRM_STAGING=true only after confirming this is an isolated staging environment');
