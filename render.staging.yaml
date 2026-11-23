@@ -17,6 +17,12 @@ services:
         value: 10000
       - key: UPLOAD_DIR
         value: /tmp/devlog-staging-uploads
+      - key: STAGING_MODE
+        value: true
+      - key: STAGING_DB_NAME
+        sync: false
+      - key: STAGING_MONGODB_HOST
+        sync: false
       - key: MONGODB_URI
         sync: false
       - key: JWT_ACCESS_SECRET
