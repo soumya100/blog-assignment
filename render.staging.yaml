@@ -18,7 +18,7 @@ services:
       - key: UPLOAD_DIR
         value: /tmp/devlog-staging-uploads
       - key: STAGING_MODE
-        value: true
+        value: "true"
       - key: STAGING_DB_NAME
         sync: false
       - key: STAGING_MONGODB_HOST
