@@ -33,6 +33,10 @@ const env = {
   CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY || '',
   CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET || '',
   MONGODB_URI: process.env.MONGODB_URI || '',
+  // Staging guard: require an explicit expected Atlas hostname and database name.
+  STAGING_MODE: process.env.STAGING_MODE === 'true',
+  STAGING_DB_NAME: process.env.STAGING_DB_NAME || '',
+  STAGING_MONGODB_HOST: process.env.STAGING_MONGODB_HOST || '',
 
   // Development-only OAuth sandbox. Production never enables this by default.
   ENABLE_DEV_OAUTH: process.env.ENABLE_DEV_OAUTH === 'true',

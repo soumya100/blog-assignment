@@ -1,0 +1,28 @@
+name: Isolated staging smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: devlog-staging-smoke
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    name: Verify staging frontend, API and same-origin proxy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Verify isolated staging deployment
+        env:
+          STAGING_FRONTEND_URL: ${{ vars.STAGING_FRONTEND_URL }}
+          STAGING_API_URL: ${{ vars.STAGING_API_URL }}
+        run: node qa/smoke/staging-smoke.mjs
