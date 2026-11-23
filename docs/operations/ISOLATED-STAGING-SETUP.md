@@ -13,7 +13,7 @@ The staging Blueprint deliberately uses `sync: false` for credentials. Supply va
 
 ## 2. Provision isolated dependencies before the first staging deploy
 
-- **MongoDB:** use a separate staging cluster or database and a least-privilege staging credential. Populate synthetic test data only. Do not use a production URI or production dump.
+- **MongoDB:** use a separate staging Atlas cluster and a least-privilege staging credential. Set `STAGING_MODE=true`, `STAGING_MONGODB_HOST` to the exact Atlas hostname, and `STAGING_DB_NAME` to a name beginning `devlog_staging_`. The API refuses to connect if the URI host or database does not match these values. Populate synthetic test data only. Do not use a production URI or production dump.
 - **JWT/cookies:** generate three independent staging-only secrets for `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, and `COOKIE_SECRET`.
 - **Cloudinary:** use a separate test account or separately permissioned staging credentials/folder. Verify that staging cannot overwrite or delete production assets.
 - **Redis:** if enabled, use a separate staging instance/database and credential. Do not reuse production Redis/session state.
