@@ -61,8 +61,9 @@ Upload only the `.age` archive and its checksum to a private, access-controlled 
 : "${BACKUP_AGE_IDENTITY_FILE:?Set the path to the separately protected age private identity}"
 : "${ENCRYPTED_BACKUP_FILE:?Set the path to the retrieved .age archive}"
 (cd "$(dirname "$ENCRYPTED_BACKUP_FILE")" && sha256sum -c "$(basename "$ENCRYPTED_BACKUP_FILE").sha256")
-RESTORE_ARCHIVE="$(mktemp)"
-trap 'rm -f "$RESTORE_ARCHIVE"' EXIT
+RESTORE_DIR="$(mktemp -d)"
+RESTORE_ARCHIVE="$RESTORE_DIR/restore.archive.gz"
+trap 'rm -rf "$RESTORE_DIR"' EXIT
 age --decrypt --identity "$BACKUP_AGE_IDENTITY_FILE" \
   --output "$RESTORE_ARCHIVE" "$ENCRYPTED_BACKUP_FILE"
 mongorestore --uri="$RESTORE_MONGODB_URI" \
