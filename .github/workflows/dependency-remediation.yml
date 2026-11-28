@@ -23,7 +23,7 @@ jobs:
           ref: chore/dependency-security-remediation
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 20
       - name: Regenerate frontend lockfile
